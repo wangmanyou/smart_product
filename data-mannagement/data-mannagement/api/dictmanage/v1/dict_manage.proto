@@ -1,0 +1,270 @@
+syntax = "proto3";
+
+package api.dictmanage.v1;
+
+import "google/protobuf/empty.proto";
+import "google/api/annotations.proto";
+import "validate/validate.proto";
+
+option go_package = "gitee.com/kangdan0404/backend-of-knowledge-base/api/dictmanage/v1;v1";
+
+// The DictManage service definition.
+service DictManage {
+  // 创建字典
+  rpc CreateDict (CreateDictRequest) returns (CreateDictReply) {
+    option (google.api.http) = {
+      post: "/v1/data/dict/create",
+      body:"*"
+    };
+  }
+
+  // 编辑字典(只会新增目录，默认为可用)
+  rpc EditDict (EditDictRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/data/dict/edit",
+      body:"*"
+    };
+  }
+
+  // 编辑字典模版状态
+  rpc EditDictDisabled (EditDictDisabledRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/data/dict/edit/status",
+      body:"*"
+    };
+  }
+
+  // 字典模版列表
+  rpc DictTemplateList(DictTemplateListRequest)returns(DictTemplateListReply){
+    option (google.api.http) = {
+      get: "/v1/data/dict/list",
+    };
+  }
+
+
+  // 编辑字典目录名字
+  rpc EditDictDirectoryName (EditDictDirectoryNameRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/data/dict/directory/edit/name",
+      body:"*"
+    };
+  }
+
+  // 编辑字典目录是否可用
+  rpc EditDictDirectoryDisabled (EditDictDirectoryDisabledRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/data/dict/directory/edit/status",
+      body:"*"
+    };
+  }
+
+
+  // 删除字典目录（级联删除）
+  rpc DeleteDictDirectory (DeleteDictDirectoryRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/v1/data/dict/directory/delete",
+    };
+  }
+
+  // 字典详情(包括字典名字，目录结构)
+  rpc DictDetail (DictDetailRequest) returns (DictDetailReplay) {
+    option (google.api.http) = {
+      get: "/v1/data/dict/detail",
+    };
+  }
+
+}
+
+message AddDictItem{
+  // 字典目录父id，新增时必须传
+  uint64 parent_id =6[(validate.rules).uint64.gte = 0];
+  // 名字
+  string name =2;
+  // 层级，根为0
+  uint64 level = 3;
+  // 是否禁用, 否：0，禁用：1，默认0
+  bool is_disabled = 5;
+  // 子目录
+  repeated AddDictItem children = 4;
+}
+
+message Dict{
+  // 字典目录id(创建不用填)
+  uint64 id =1[(validate.rules).uint64.gte = 0];
+  // 字典目录父id，新增时必须传
+  uint64 parent_id =6[(validate.rules).uint64.gte = 0];
+  // 名字
+  string name =2;
+  // 层级，根为0
+  uint64 level = 3;
+  // 是否禁用, 否：0，禁用：1，默认0
+  bool is_disabled = 5;
+  // 是否使用中，0否，1使用中
+  bool is_used = 7;
+  // 子目录
+  repeated Dict children = 4;
+}
+
+
+
+message CreateTreeDict{
+  // 名字
+  string name =1;
+  // 是否禁用, 否：0，禁用：1，默认0
+  bool is_disabled = 2;
+  // 子目录
+  repeated CreateTreeDict children = 3;
+}
+
+// 树形字典目录
+message TreeDict{
+
+  // 树形字典目录相关信息（非必填）
+  repeated Dict tree_dict = 1;
+}
+
+
+// 平面字典目录
+message PlaneDict{
+  message Plane{
+    // 字典目录id(创建不用填)
+    uint64 id =1[(validate.rules).uint64.gte = 0];
+    // 是否禁用, 否：0，禁用：1，默认0
+    bool is_disabled = 2;
+    // 目录名字
+    string name = 3;
+    // 是否使用中，0否，1使用中
+    bool is_used = 4;
+  }
+
+  // 平面字典目录相关信息（非必填）
+  repeated Plane plane_dict = 1;
+}
+
+message CreatePlaneDict{
+  message Plane{
+    // 是否禁用, 否：0，禁用：1，默认0
+    bool is_disabled = 2;
+    // 目录名字
+    string name = 3;
+  }
+  // 平面字典目录相关信息（非必填）
+  repeated Plane plane_dict = 1;
+}
+
+message CreateDictRequest{
+  //字典模版名称
+  string dict_name = 1[(validate.rules).string = {min_len:1,max_len:255}];
+  // tree:树形结构， plane：平面结构
+  string dict_type = 2[(validate.rules).string = {in: ["tree", "plane"]}];
+  // 树形字典目录相关信息（非必填）
+  repeated CreateTreeDict tree_dict = 3;
+  // 平面字典目录相关信息（非必填）
+  CreatePlaneDict plane_dict = 4;
+}
+
+message CreateDictReply{
+  // 字典模版id
+  uint64 dict_template_id = 1;
+}
+
+
+message EditDictRequest{
+  // 模版字典id
+  uint64 dict_template_id =1[(validate.rules).uint64.gte = 0];
+  //字典模版名称
+  string dict_name = 2[(validate.rules).string = {min_len:1,max_len:255}];
+  // 树形字典目录相关信息（非必填）
+  repeated AddDictItem tree_dict = 3;
+  // 平面字典目录相关信息（非必填）
+  CreatePlaneDict plane_dict = 4;
+  // 是否禁用, 否：0，禁用：1，默认0
+  bool is_disabled = 5;
+}
+
+message DictTemplateListRequest{
+  // 每页条数（必填）
+  uint64 page_size = 1 [(validate.rules).uint64.gt = 0];
+  // 页码数,从1开始（必填）
+  uint64 page_number = 2 [(validate.rules).uint64.gt = 0];
+  // 排序字段（非必须）
+  string sort_by = 3 [(validate.rules).string = {ignore_empty:true, in: ["id"]}];
+  // 排序方式("asc" or "desc") （非必须）
+  string order = 4 [(validate.rules).string = {ignore_empty:true, in: ["asc", "desc"]}];
+  // 按照字典名称进行模糊搜索（非必须）
+  string search_dict_name = 5;
+  // 按照字典类型进行搜索（非必须）tree:树形结构， plane：平面结构
+  string search_dict_type = 6[(validate.rules).string = {ignore_empty:true,in: ["tree", "plane"]}];
+  // 按照是否禁用搜索, all：搜索全部，disabled：搜索禁用的 enabled：搜索未禁用的
+  string search_dict_disabled = 7[(validate.rules).string = {ignore_empty:true, in: ['all', 'disabled','enabled']}];
+}
+
+message DictTemplate{
+  // 模版字典id
+  uint64 dict_template_id =6[(validate.rules).uint64.gte = 0];
+  // 字典名称
+  string dict_name = 1;
+  // 字典类型
+  string dict_type = 2;
+  // 字典是否禁用, 否：0，禁用：1
+  bool dict_disabled = 3;
+  // 更新时间
+  int64 update_time = 4;
+  // 创建者
+  string creatorName = 5;
+  // 是否使用中，0否，1使用中
+  bool dict_is_used = 7;
+}
+
+message DictTemplateListReply{
+  // 字典模版列表
+  repeated DictTemplate content = 1;
+  // 字典模版总个数
+  int32  totalElements = 2;
+}
+
+message  EditDictDirectoryNameRequest{
+  // 模版字典id
+  uint64 dict_template_id =1[(validate.rules).uint64.gte = 0];
+  // 字典目录id
+  uint64 dict_directory_id = 2[(validate.rules).uint64.gte = 0];
+  // 字典目录名字
+  string dict_directory_name = 3[(validate.rules).string = {min_len:1,max_len:255}];
+}
+
+
+message EditDictDisabledRequest{
+  // 字典模版id
+  uint64 dict_template_id = 1[(validate.rules).uint64.gte = 0];
+  // 是否禁用, 否：0，禁用：1，默认0
+  bool is_disabled = 2;
+}
+
+message EditDictDirectoryDisabledRequest{
+  // 字典目录id
+  uint64 dict_directory_id = 1[(validate.rules).uint64.gte = 0];
+  // 是否禁用, 否：0，禁用：1，默认0
+  bool is_disabled = 2;
+}
+
+
+
+
+message DeleteDictDirectoryRequest{
+  // 字典目录id
+  uint64 dict_directory_id = 1[(validate.rules).uint64.gte = 0];
+}
+
+message DictDetailRequest{
+  // 模版字典id
+  uint64 dict_template_id =1[(validate.rules).uint64.gte = 0];
+}
+
+message DictDetailReplay{
+  //字典模版信息
+  DictTemplate dict_template =1;
+  // 树形字典目录相关信息（非必填）
+  TreeDict tree_dict = 3;
+  // 平面字典目录相关信息（非必填）
+  PlaneDict plane_dict = 4;
+}

@@ -1,0 +1,347 @@
+syntax = "proto3";
+
+package api.businessmanage.v1;
+
+import "google/protobuf/empty.proto";
+import "google/api/annotations.proto";
+import "validate/validate.proto";
+import "dictmanage/v1/dict_manage.proto";
+import "scenemanage/v1/scene_manage.proto";
+
+
+option go_package = "gitee.com/kangdan0404/backend-of-knowledge-base/api/businessmanage/v1;v1";
+
+// The BusinessManage service definition.
+service BusinessManage {
+  //业务详情
+  rpc BusinessDetail (BusinessDetailRequest) returns (BusinessDetailReply) {
+    option (google.api.http) = {
+      get: "/v1/data/business/detail",
+    };
+  }
+
+  // 新增知识
+  rpc AddBusinessKnowledge (AddBusinessKnowledgeRequest) returns (AddBusinessKnowledgeReply) {
+    option (google.api.http) = {
+      post: "/v1/data/business/knowledge/add",
+      body:"*"
+    };
+  }
+
+  // 知识详情
+  rpc BusinessKnowledgeDetail (BusinessKnowledgeDetailRequest) returns (BusinessKnowledgeDetailReply) {
+    option (google.api.http) = {
+      get: "/v1/data/business/knowledge/detail",
+    };
+  }
+
+  // 编辑知识值
+  rpc EditBusinessKnowledge (EditBusinessKnowledgeRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/data/business/knowledge/edit",
+      body:"*"
+    };
+  }
+
+
+  // 删除知识
+  rpc DeleteBusinessKnowledge (DeleteBusinessKnowledgeRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/data/business/knowledge/delete",
+      body:"*"
+    };
+  }
+
+  // 知识设置，修改点击次数等
+  rpc BusinessKnowledgeSetting (BusinessKnowledgeSettingRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/data/business/knowledge/setting",
+      body:"*"
+    };
+  }
+
+
+  // 知识列表
+  rpc BusinessKnowledgeList (BusinessKnowledgeListRequest) returns (BusinessKnowledgeListReply) {
+    option (google.api.http) = {
+      post: "/v1/data/business/knowledge/list",
+      body:"*"
+    };
+  }
+
+  // 导出模版
+  rpc BusinessKnowledgeTemplateExport (BusinessKnowledgeTemplateExportRequest) returns (BusinessKnowledgeTemplateExportReply) {
+    option (google.api.http) = {
+      get: "/v1/data/business/knowledge/template/export",
+    };
+  }
+
+
+  // 导入数据
+  rpc BusinessKnowledgeDataImport (BusinessKnowledgeDataImportRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/data/business/knowledge/data/import",
+      body:"*"
+    };
+  }
+
+  // 场景知识数据导出
+  rpc BusinessKnowledgeDataExport (BusinessKnowledgeDataExportRequest) returns (BusinessKnowledgeDataExportReply) {
+    option (google.api.http) = {
+      get: "/v1/data/business/knowledge/data/export",
+    };
+  }
+
+
+  // 按照场景----知识数量统计
+  rpc BusinessKnowledgeDataNumStatistics (BusinessKnowledgeDataNumStatisticsRequest) returns (BusinessKnowledgeDataNumStatisticsReply) {
+    option (google.api.http) = {
+      get: "/v1/data/business/statistics/knowledge",
+    };
+  }
+
+  // 按照场景和知识创建人----统计数据
+  rpc BusinessKnowledgeDataStatisticsBySceneAndCreator (BusinessKnowledgeDataStatisticsBySceneAndCreatorRequest) returns (BusinessKnowledgeDataStatisticsBySceneAndCreatorReply) {
+    option (google.api.http) = {
+      get: "/v1/data/business/statistics/creator",
+    };
+  }
+
+
+
+}
+
+
+message BusinessKnowledgeDataStatisticsBySceneAndCreatorRequest{
+  // 模版场景id
+  uint64 scene_template_id =1[(validate.rules).uint64.gte = 0];
+  // 按 创建时间 搜索范围，数组大小为2，[开始时间，结束时间]（选填）这种格式字符串 '2025-01-02 15:30:00'
+  repeated string search_create_time = 2[(validate.rules).repeated = {ignore_empty:true, min_items:2,max_items:2}];
+}
+
+
+message BusinessKnowledgeDataStatisticsBySceneAndCreatorReply{
+  // 场景数组信息
+  message knowledge{
+    // 知识数量
+    uint32 knowledge_num = 2;
+    // 创建人名字
+    string creator_name = 3;
+  }
+  // 统计列表
+  repeated knowledge content = 1;
+  // 统计总数
+  int32  totalElements = 2;
+}
+
+
+message BusinessKnowledgeDataNumStatisticsRequest{
+  // 按 创建时间 搜索范围，数组大小为2，[开始时间，结束时间]（选填）这种格式字符串 '2025-01-02 15:30:00'
+  repeated string search_create_time = 2[(validate.rules).repeated = {ignore_empty:true, min_items:2,max_items:2}];
+}
+
+message BusinessKnowledgeDataNumStatisticsReply{
+  // 场景数组信息
+  message knowledgeNum{
+    // 场景名字
+    string scene_name = 1;
+    // 知识数量
+    uint32 knowledge_num = 2;
+    // 知识点历史点击量统计
+    uint32 knowledge_view_time_count = 3;
+  }
+  // 统计列表
+  repeated knowledgeNum content = 1;
+  // 统计总数
+  int32  totalElements = 2;
+}
+
+message BusinessKnowledgeDataImportRequest{
+  // 导入数据上传接口返回的的文件路径
+  string file_path = 1;
+  // 模版场景id
+  uint64 scene_template_id =2[(validate.rules).uint64.gte = 0];
+}
+
+
+message BusinessKnowledgeDataExportRequest{
+  // 模版场景id
+  uint64 scene_template_id =1[(validate.rules).uint64.gte = 0];
+}
+
+message BusinessKnowledgeDataExportReply{
+  // 导出的文件路径
+  string file_path = 1;
+}
+
+
+message BusinessKnowledgeTemplateExportRequest{
+  // 模版场景id
+  uint64 scene_template_id =1[(validate.rules).uint64.gte = 0];
+}
+
+message BusinessKnowledgeTemplateExportReply{
+  // 导出的文件路径
+  string file_path = 1;
+}
+
+
+
+
+message BusinessKnowledgeListRequest{
+  // 知识信息
+  message Knowledge{
+    // 条目id
+    uint64 scene_item_id = 1;
+    // 场景条目值, 如果是文件["picture","video","audio","file"]则为服务返回的文件地址，其他即为对应值
+    repeated string  scene_item_value = 3;//[(validate.rules).repeated = { items:{string:{min_len:1,max_len:255}}}];
+    // 如果type是dict即为选择的结点id
+    string scene_item_select_dict_ids = 4;
+    // 如果type是dict即为: 选择的字典全链结点id,是二维数组的字符串[[1,2,3],[4]]
+//    string select_dict_tree_ids = 4;
+  }
+  // 每页条数（必填）
+  uint64 page_size = 1 [(validate.rules).uint64.gt = 0];
+  // 页码数,从1开始（必填）
+  uint64 page_number = 2 [(validate.rules).uint64.gt = 0];
+  // 排序字段（选填）
+  string sort_by = 3 [(validate.rules).string = {ignore_empty:true, in: ["id"]}];
+  // 排序方式("asc" or "desc") （选填）
+  string order = 4 [(validate.rules).string = {ignore_empty:true, in: ["asc", "desc"]}];
+  // 按 更新时间 搜索范围，数组大小为2，[开始时间，结束时间]（选填） 这种格式字符串 '2025-01-02 15:30:00'
+  repeated string search_update_time = 5[(validate.rules).repeated = {ignore_empty:true, min_items:2,max_items:2}];
+  // 按 创建时间 搜索范围，数组大小为2，[开始时间，结束时间]（选填）这种格式字符串 '2025-01-02 15:30:00'
+  repeated string search_create_time = 6[(validate.rules).repeated = {ignore_empty:true, min_items:2,max_items:2}];
+  // 按 创建人id 搜索（选填）
+  string search_creator_id = 7;
+  // 需要搜索的 主 知识信息 （选填）
+  repeated Knowledge search_knowledge_item = 8;
+  // 模版场景id（必填）
+  uint64 scene_template_id =9[(validate.rules).uint64.gte = 0];
+}
+
+message BusinessKnowledgeListReply{
+  // 知识列表
+  repeated BusinessKnowledgeDetailReply content = 1;
+  // 知识总个数
+  int32  totalElements = 2;
+
+}
+
+
+message BusinessKnowledgeSettingRequest{
+  //知识id
+  uint64 knowledge_id = 1;
+  // 创建时间
+  int64 create_time = 2;
+  // 创建人id
+  uint32 creator_id  = 3;
+  // 创建人名字
+  string creator_name  = 4;
+  // 点击次数,正数即为增加值，负数为减少值
+  int32 view_time = 5;
+  // 点击时间戳
+  int64 view_at = 6;
+
+}
+
+message DeleteBusinessKnowledgeRequest{
+  //知识id
+  uint64 knowledge_id = 1;
+}
+
+
+
+
+message EditBusinessKnowledgeRequest{
+  // 知识信息
+  message Knowledge{
+    // 条目id
+    uint64 scene_item_id = 1;
+    // 场景条目值, 如果是文件["picture","video","audio","file"]则为服务返回的文件地址，其他即为对应值
+    repeated string  scene_item_value = 3;//[(validate.rules).repeated = { items:{string:{min_len:1}}}];
+    // 如果type是dict即为选择的叶子结点id
+//    repeated uint64 scene_item_select_dict_leaf_ids = 4;
+    // 如果type是dict即为: 选择的字典全链结点id,是二维数组的字符串[[1,2,3],[4]]
+    string scene_item_select_dict_tree_ids = 4;
+  }
+  //知识id
+  uint64 knowledge_id = 1;
+  // 需要显示的知识信息
+  repeated Knowledge knowledge_item = 2;
+}
+
+
+message BusinessKnowledgeDetailRequest{
+  //知识id
+  uint64 knowledge_id = 1;
+
+}
+
+message BusinessKnowledgeDetailReply{
+  // 需要显示的知识信息
+  message Knowledge{
+    // 条目id
+    uint64 scene_item_id = 1;
+    // 类型，dict:字典类型，text: 文本，integer:整数，decimal:小数，datetime:日期，picture:图片，video:视频，audio:音频，file:文件
+    string  scene_item_type = 2[(validate.rules).string = {in: ["dict", "text","integer","decimal","datetime","picture","video","audio","file"]}];
+    // 场景条目值, 如果是文件["picture","video","audio","file"]则为服务返回的文件地址，其他即为对应值
+    repeated string  scene_item_value = 3;//[(validate.rules).repeated = { items:{string:{min_len:1,max_len:255}}}];
+    // 如果type是dict即为选择的叶子结点id
+//    repeated uint64 scene_item_select_dict_leaf_ids = 4;
+    // 如果type是dict即为: 选择的字典全链结点id,是二维数组的字符串[[1,2,3],[4]]
+    string scene_item_select_dict_tree_ids = 4;
+    // 场景条目名字
+    string scene_item_name = 5;
+  }
+  // 需要显示的知识信息
+  repeated Knowledge knowledge_show = 1;
+  //知识id
+  uint64 knowledge_id = 2;
+  // 创建人
+  string creator_name  = 5;
+  // 点击次数
+  uint32 view_time = 6;
+  // 更新时间
+  int64 update_time = 7;
+  // 创建时间
+  int64 create_time = 8;
+}
+
+message AddBusinessKnowledgeRequest{
+  message Knowledge{
+    // 条目id
+    uint64 scene_item_id = 1;
+    // 类型，dict:字典类型，text: 文本，integer:整数，decimal:小数，datetime:日期，picture:图片，video:视频，audio:音频，file:文件
+    string  scene_item_type = 2[(validate.rules).string = {in: ["dict", "text","integer","decimal","datetime","picture","video","audio","file"]}];
+    // 场景条目值, 如果是文件["picture","video","audio","file"]则为服务返回的文件地址，其他即为对应值
+    repeated string  scene_item_value = 3;//[(validate.rules).repeated = { items:{string:{min_len:1,max_len:255}}}];
+    // 如果type是dict即为: 选择的字典全链结点id,是二维数组的字符串[[1,2,3],[4]]
+    string scene_item_select_dict_tree_ids = 4;
+  }
+  // 模版场景id
+  uint64 scene_template_id =1[(validate.rules).uint64.gte = 0];
+  repeated Knowledge knowledge = 2;
+
+}
+
+message AddBusinessKnowledgeReply{
+  //知识id
+  uint64 knowledge_id = 1;
+}
+
+
+message BusinessDetailRequest{
+  // 模版场景id
+  uint64 scene_template_id =1[(validate.rules).uint64.gte = 0];
+}
+
+message BusinessDetailReply{
+  // 左侧字典
+    repeated api.dictmanage.v1.DictDetailReplay dict_details = 1;
+
+  //表格title 按照顺序
+  api.scenemanage.v1.SceneDetailReplay scene_detail = 2;
+
+}
+

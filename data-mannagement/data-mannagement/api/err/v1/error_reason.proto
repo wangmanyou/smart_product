@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package api.err.v1;
+
+import "errors/errors.proto";
+
+option go_package = "gitee.com/kangdan0404/backend-of-knowledge-base/api/err/v1;v1";
+
+
+enum ErrorReason {
+	// Default code
+	option (errors.default_code) = 500;
+
+	// Common
+	DB_ERROR = 0;
+	RDS_ERROR = 1;
+	INVALID_PARAMS = 2[(errors.code)=400];
+	THIRD_PARTY_SERVICE_ERR = 3; // 第三方服务错误
+	PROTO_ERROR = 4;
+	SYSTEM_ERROR = 5; //系统错误
+	LOGIN_ERROR= 6[(errors.code)=401];
+
+
+	// User
+	// Personal
+	INCORRECT_OLD_PASSWORD = 1101 [(errors.code) = 400]; // 旧密码错误
+	INVALID_NEW_PASSWORD = 1102 [(errors.code) = 400]; // 新密码格式错误
+	SAME_AS_ORIGINAL_PASSWORD = 1103 [(errors.code) = 400]; // 新密码不能与原密码相同
+	SET_PASSWORD_FAILED = 1104 [(errors.code) = 400]; // 修改密码失败
+	INVALID_OP_CODE = 1201 [(errors.code) = 400]; // 操作码错误
+	INCORRECT_VERIFICATION_CODE = 1202 [(errors.code) = 400]; // 验证码错误
+	INVALID_USERNAME = 1203 [(errors.code) = 400]; // 新用户名格式错误
+	UPDATE_USER_FAILED = 1204; // 修改用户名失败
+	SEND_EMAIL_FAILED = 1205; // 发送验证码失败
+	EMAIL_EXISTS = 1206 [(errors.code) = 400]; // 邮箱已存在
+	USERNAME_EXISTS = 1207 [(errors.code) = 400]; // 用户名已存在
+	// Console-Usr
+	DELETE_USER_FAILED = 1301;
+	INVALID_USER_ID = 1302 [(errors.code) = 400];
+
+
+
+
+	// data-manage
+	DICT_PARAM_ERROR = 3001[(errors.code) = 400]; // 字典输入参数错误
+
+	// scene-manage
+	SCENE_PARAM_ERROR = 4001[(errors.code) = 400]; // 场景输入参数错误
+}

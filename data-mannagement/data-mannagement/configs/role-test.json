@@ -1,0 +1,120 @@
+[
+    {
+        "value": "system",
+        "name": "系统管理",
+        "children": [
+            {
+                "value": "user",
+                "name": "用户管理",
+                "children": [{
+                    "value": "add",
+                    "name": "新增用户"
+                }, {
+                    "value": "edit",
+                    "name": "编辑用户"
+                }, {
+                    "value": "delete",
+                    "name": "删除用户"
+                }, {
+                    "value": "active",
+                    "name": "启停用户"
+                }, {
+                    "value": "resetPassword",
+                    "name": "重置密码"
+                }]
+            }, {
+                "value": "role",
+                "name": "角色管理",
+                "children": [{
+                    "value": "add",
+                    "name": "新增角色"
+                }, {
+                    "value": "edit",
+                    "name": "编辑角色"
+                }, {
+                    "value": "delete",
+                    "name": "删除角色"
+                }, {
+                    "value": "active",
+                    "name": "启停角色"
+                }]
+            }, {
+                "value": "dict",
+                "name": "目录管理",
+                "children": [{
+                    "value": "add",
+                    "name": "新增目录"
+                }, {
+                    "value": "edit",
+                    "name": "编辑目录"
+                }, {
+                    "value": "delete",
+                    "name": "删除目录"
+                }, {
+                    "value": "active",
+                    "name": "启停目录"
+                }]
+            }, {
+                "value": "scene",
+                "name": "场景管理",
+                "children": [{
+                    "value": "add",
+                    "name": "新增场景"
+                }, {
+                    "value": "edit",
+                    "name": "编辑场景"
+                }, {
+                    "value": "copy",
+                    "name": "复制场景"
+                }, {
+                    "value": "active",
+                    "name": "启停场景"
+                }]
+            }
+        ]
+    },
+    {
+        "value": "scene",
+        "name": "业务管理",
+        "children": [],
+        "childrenConfig": [{
+            "value": "add",
+            "name": "新增知识"
+        }, {
+            "value": "edit",
+            "name": "编辑知识"
+        }, {
+            "value": "delete",
+            "name": "删除知识"
+        }, {
+            "value": "downloadTemplate",
+            "name": "导出模版"
+        }, {
+            "value": "uploadData",
+            "name": "导入数据"
+        }, {
+            "value": "downloadData",
+            "name": "导出数据"
+        }, {
+            "value": "share",
+            "name": "知识分享"
+        }, {
+            "value": "setConfig",
+            "name": "配置"
+        }]
+    },
+    {
+        "value": "statistics",
+        "name": "知识统计",
+        "children": [{
+            "value": "creator",
+            "name": "按场景知识创建人统计"
+        }, {
+            "value": "count",
+            "name": "按场景知识数量统计"
+        }, {
+            "value": "click",
+            "name": "按场景知识历史点击量统计"
+        }]
+    }
+]

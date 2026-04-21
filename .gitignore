@@ -1,0 +1,27 @@
+# Workspace-wide ignores for generated files and deployment artifacts.
+
+# Frontend dependencies and build outputs
+knowledge-hub-fe/node_modules/
+knowledge-hub-fe/dist/
+knowledge-hub-fe/.umi/
+knowledge-hub-fe/.umi-production/
+knowledge-hub-fe/.umi-test/
+knowledge-hub-fe/src/.umi/
+knowledge-hub-fe/src/.umi-production/
+knowledge-hub-fe/src/.umi-test/
+knowledge-hub-fe/.mfsu/
+
+# Backend build outputs and bundled deployment artifacts
+data-mannagement/data-mannagement/bin/
+data-mannagement/data-mannagement/bin.zip
+data-mannagement/data-mannagement/configs.zip
+data-mannagement/data-mannagement/deploy/data/
+data-mannagement/data-mannagement/deploy/log/
+data-mannagement/data-mannagement/deploy/*.tar
+data-mannagement/data-mannagement/*.tar
+data-mannagement/data-mannagement/*.tar.zip
+
+# Common local files
+.DS_Store
+Thumbs.db
+__MACOSX/

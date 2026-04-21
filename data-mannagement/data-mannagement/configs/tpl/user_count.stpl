@@ -1,0 +1,27 @@
+SELECT count(distinct(u.id))
+FROM `user` u WHERE del=0
+    {%if SearchUserAccount%}
+           and u.account like '%{{SearchUserAccount}}%'
+         {%endif%}
+
+         {%if SearchUserNickname%}
+            and u.nickname like '%{{SearchUserNickname}}%'
+          {%endif%}
+
+          {%if SearchUserEmail%}
+              and u.email like '%{{SearchUserEmail}}%'
+            {%endif%}
+
+           {%if SearchUserPhoneNum%}
+             and u.phone_num like '%{{SearchUserPhoneNum}}%'
+           {%endif%}
+
+           {%if SearchUserSex%}
+            and u.sex = '{{SearchUserSex}}'
+          {%endif%}
+
+          {%if SearchUserDisabled == "enabled"%}
+             and u.is_disabled = false
+         {%elif SearchUserDisabled == "disabled"%}
+             and u.is_disabled = true
+         {%endif%}

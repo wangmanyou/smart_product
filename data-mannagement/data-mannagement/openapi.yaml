@@ -1,0 +1,1958 @@
+# Generated with protoc-gen-openapi
+# https://github.com/google/gnostic/tree/master/cmd/protoc-gen-openapi
+
+openapi: 3.0.3
+info:
+    title: ""
+    version: 0.0.1
+paths:
+    /dataset/{name}:
+        get:
+            tags:
+                - DataManage
+            description: Sends a greeting
+            operationId: DataManage_SayHello
+            parameters:
+                - name: name
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.datamanage.v1.HelloReply'
+    /v1/data/business/detail:
+        get:
+            tags:
+                - BusinessManage
+            description: 业务详情
+            operationId: BusinessManage_BusinessDetail
+            parameters:
+                - name: sceneTemplateId
+                  in: query
+                  description: 模版场景id
+                  schema:
+                    type: integer
+                    format: uint64
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.businessmanage.v1.BusinessDetailReply'
+    /v1/data/business/knowledge/add:
+        post:
+            tags:
+                - BusinessManage
+            description: 新增知识
+            operationId: BusinessManage_AddBusinessKnowledge
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.businessmanage.v1.AddBusinessKnowledgeRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.businessmanage.v1.AddBusinessKnowledgeReply'
+    /v1/data/business/knowledge/data/export:
+        get:
+            tags:
+                - BusinessManage
+            description: 场景知识数据导出
+            operationId: BusinessManage_BusinessKnowledgeDataExport
+            parameters:
+                - name: sceneTemplateId
+                  in: query
+                  description: 模版场景id
+                  schema:
+                    type: integer
+                    format: uint64
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.businessmanage.v1.BusinessKnowledgeDataExportReply'
+    /v1/data/business/knowledge/data/import:
+        post:
+            tags:
+                - BusinessManage
+            description: 导入数据
+            operationId: BusinessManage_BusinessKnowledgeDataImport
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.businessmanage.v1.BusinessKnowledgeDataImportRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /v1/data/business/knowledge/delete:
+        post:
+            tags:
+                - BusinessManage
+            description: 删除知识
+            operationId: BusinessManage_DeleteBusinessKnowledge
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.businessmanage.v1.DeleteBusinessKnowledgeRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /v1/data/business/knowledge/detail:
+        get:
+            tags:
+                - BusinessManage
+            description: 知识详情
+            operationId: BusinessManage_BusinessKnowledgeDetail
+            parameters:
+                - name: knowledgeId
+                  in: query
+                  description: 知识id
+                  schema:
+                    type: integer
+                    format: uint64
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.businessmanage.v1.BusinessKnowledgeDetailReply'
+    /v1/data/business/knowledge/edit:
+        post:
+            tags:
+                - BusinessManage
+            description: 编辑知识值
+            operationId: BusinessManage_EditBusinessKnowledge
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.businessmanage.v1.EditBusinessKnowledgeRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /v1/data/business/knowledge/list:
+        post:
+            tags:
+                - BusinessManage
+            description: 知识列表
+            operationId: BusinessManage_BusinessKnowledgeList
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.businessmanage.v1.BusinessKnowledgeListRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.businessmanage.v1.BusinessKnowledgeListReply'
+    /v1/data/business/knowledge/setting:
+        post:
+            tags:
+                - BusinessManage
+            description: 知识设置，修改点击次数等
+            operationId: BusinessManage_BusinessKnowledgeSetting
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.businessmanage.v1.BusinessKnowledgeSettingRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /v1/data/business/knowledge/template/export:
+        get:
+            tags:
+                - BusinessManage
+            description: 导出模版
+            operationId: BusinessManage_BusinessKnowledgeTemplateExport
+            parameters:
+                - name: sceneTemplateId
+                  in: query
+                  description: 模版场景id
+                  schema:
+                    type: integer
+                    format: uint64
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.businessmanage.v1.BusinessKnowledgeTemplateExportReply'
+    /v1/data/business/statistics/creator:
+        get:
+            tags:
+                - BusinessManage
+            description: 按照场景和知识创建人----统计数据
+            operationId: BusinessManage_BusinessKnowledgeDataStatisticsBySceneAndCreator
+            parameters:
+                - name: sceneTemplateId
+                  in: query
+                  description: 模版场景id
+                  schema:
+                    type: integer
+                    format: uint64
+                - name: searchCreateTime
+                  in: query
+                  description: 按 创建时间 搜索范围，数组大小为2，[开始时间，结束时间]（选填）这种格式字符串 '2025-01-02 15:30:00'
+                  schema:
+                    type: array
+                    items:
+                        type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.businessmanage.v1.BusinessKnowledgeDataStatisticsBySceneAndCreatorReply'
+    /v1/data/business/statistics/knowledge:
+        get:
+            tags:
+                - BusinessManage
+            description: 按照场景----知识数量统计
+            operationId: BusinessManage_BusinessKnowledgeDataNumStatistics
+            parameters:
+                - name: searchCreateTime
+                  in: query
+                  description: 按 创建时间 搜索范围，数组大小为2，[开始时间，结束时间]（选填）这种格式字符串 '2025-01-02 15:30:00'
+                  schema:
+                    type: array
+                    items:
+                        type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.businessmanage.v1.BusinessKnowledgeDataNumStatisticsReply'
+    /v1/data/dict/create:
+        post:
+            tags:
+                - DictManage
+            description: 创建字典
+            operationId: DictManage_CreateDict
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.dictmanage.v1.CreateDictRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.dictmanage.v1.CreateDictReply'
+    /v1/data/dict/detail:
+        get:
+            tags:
+                - DictManage
+            description: 字典详情(包括字典名字，目录结构)
+            operationId: DictManage_DictDetail
+            parameters:
+                - name: dictTemplateId
+                  in: query
+                  description: 模版字典id
+                  schema:
+                    type: integer
+                    format: uint64
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.dictmanage.v1.DictDetailReplay'
+    /v1/data/dict/directory/delete:
+        delete:
+            tags:
+                - DictManage
+            description: 删除字典目录（级联删除）
+            operationId: DictManage_DeleteDictDirectory
+            parameters:
+                - name: dictDirectoryId
+                  in: query
+                  description: 字典目录id
+                  schema:
+                    type: integer
+                    format: uint64
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /v1/data/dict/directory/edit/name:
+        post:
+            tags:
+                - DictManage
+            description: 编辑字典目录名字
+            operationId: DictManage_EditDictDirectoryName
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.dictmanage.v1.EditDictDirectoryNameRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /v1/data/dict/directory/edit/status:
+        post:
+            tags:
+                - DictManage
+            description: 编辑字典目录是否可用
+            operationId: DictManage_EditDictDirectoryDisabled
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.dictmanage.v1.EditDictDirectoryDisabledRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /v1/data/dict/edit:
+        post:
+            tags:
+                - DictManage
+            description: 编辑字典(只会新增目录，默认为可用)
+            operationId: DictManage_EditDict
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.dictmanage.v1.EditDictRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /v1/data/dict/edit/status:
+        post:
+            tags:
+                - DictManage
+            description: 编辑字典模版状态
+            operationId: DictManage_EditDictDisabled
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.dictmanage.v1.EditDictDisabledRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /v1/data/dict/list:
+        get:
+            tags:
+                - DictManage
+            description: 字典模版列表
+            operationId: DictManage_DictTemplateList
+            parameters:
+                - name: pageSize
+                  in: query
+                  description: 每页条数（必填）
+                  schema:
+                    type: integer
+                    format: uint64
+                - name: pageNumber
+                  in: query
+                  description: 页码数,从1开始（必填）
+                  schema:
+                    type: integer
+                    format: uint64
+                - name: sortBy
+                  in: query
+                  description: 排序字段（非必须）
+                  schema:
+                    type: string
+                - name: order
+                  in: query
+                  description: 排序方式("asc" or "desc") （非必须）
+                  schema:
+                    type: string
+                - name: searchDictName
+                  in: query
+                  description: 按照字典名称进行模糊搜索（非必须）
+                  schema:
+                    type: string
+                - name: searchDictType
+                  in: query
+                  description: 按照字典类型进行搜索（非必须）tree:树形结构， plane：平面结构
+                  schema:
+                    type: string
+                - name: searchDictDisabled
+                  in: query
+                  description: 按照是否禁用搜索, all：搜索全部，disabled：搜索禁用的 enabled：搜索未禁用的
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.dictmanage.v1.DictTemplateListReply'
+    /v1/data/role/add:
+        post:
+            tags:
+                - RoleManage
+            description: 新增角色
+            operationId: RoleManage_AddRole
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.rolemanage.v1.AddRoleRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.rolemanage.v1.AddRoleReply'
+    /v1/data/role/delete:
+        post:
+            tags:
+                - RoleManage
+            description: 删除角色
+            operationId: RoleManage_DeleteRole
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.rolemanage.v1.DeleteRoleRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /v1/data/role/detail:
+        get:
+            tags:
+                - RoleManage
+            description: 角色详情
+            operationId: RoleManage_RoleDetail
+            parameters:
+                - name: roleId
+                  in: query
+                  schema:
+                    type: integer
+                    format: uint32
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.rolemanage.v1.RoleDetailReply'
+    /v1/data/role/edit:
+        post:
+            tags:
+                - RoleManage
+            description: 编辑角色
+            operationId: RoleManage_EditRole
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.rolemanage.v1.EditRoleRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /v1/data/role/edit/status:
+        post:
+            tags:
+                - RoleManage
+            description: 编辑角色状态
+            operationId: RoleManage_EditRoleDisabled
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.rolemanage.v1.EditRoleDisabledRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /v1/data/role/list:
+        get:
+            tags:
+                - RoleManage
+            description: 角色列表
+            operationId: RoleManage_RoleList
+            parameters:
+                - name: pageSize
+                  in: query
+                  description: 每页条数（必填）
+                  schema:
+                    type: integer
+                    format: uint64
+                - name: pageNumber
+                  in: query
+                  description: 页码数,从1开始（必填）
+                  schema:
+                    type: integer
+                    format: uint64
+                - name: sortBy
+                  in: query
+                  description: 排序字段（非必须）
+                  schema:
+                    type: string
+                - name: order
+                  in: query
+                  description: 排序方式("asc" or "desc") （非必须）
+                  schema:
+                    type: string
+                - name: searchRoleName
+                  in: query
+                  description: 角色名称
+                  schema:
+                    type: string
+                - name: searchRoleRemark
+                  in: query
+                  description: 角色备注
+                  schema:
+                    type: string
+                - name: searchRoleDisabled
+                  in: query
+                  description: 按照是否禁用搜索, all：搜索全部，disabled：搜索禁用的 enabled：搜索未禁用的
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.rolemanage.v1.RoleListReply'
+    /v1/data/scene/copy:
+        post:
+            tags:
+                - SceneManage
+            description: 复制场景
+            operationId: SceneManage_CopyScene
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.scenemanage.v1.CopySceneRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.scenemanage.v1.CopySceneReply'
+    /v1/data/scene/create:
+        post:
+            tags:
+                - SceneManage
+            description: 创建场景
+            operationId: SceneManage_CreateScene
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.scenemanage.v1.CreateSceneRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.scenemanage.v1.CreateSceneReply'
+    /v1/data/scene/detail:
+        get:
+            tags:
+                - SceneManage
+            description: 场景详情
+            operationId: SceneManage_SceneDetail
+            parameters:
+                - name: sceneTemplateId
+                  in: query
+                  description: 模版场景id
+                  schema:
+                    type: integer
+                    format: uint64
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.scenemanage.v1.SceneDetailReplay'
+    /v1/data/scene/edit:
+        post:
+            tags:
+                - SceneManage
+            description: 编辑场景(包括编辑名字，新增场景item，默认为可用)
+            operationId: SceneManage_EditScene
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.scenemanage.v1.EditSceneRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /v1/data/scene/edit/status:
+        post:
+            tags:
+                - SceneManage
+            description: 编辑场景模版状态
+            operationId: SceneManage_EditSceneDisabled
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.scenemanage.v1.EditSceneDisabledRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /v1/data/scene/item/delete:
+        delete:
+            tags:
+                - SceneManage
+            description: 删除场景条目
+            operationId: SceneManage_DeleteSceneItem
+            parameters:
+                - name: sceneItemId
+                  in: query
+                  description: 条目id
+                  schema:
+                    type: integer
+                    format: uint64
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /v1/data/scene/list:
+        get:
+            tags:
+                - SceneManage
+            description: 场景模版列表
+            operationId: SceneManage_SceneTemplateList
+            parameters:
+                - name: pageSize
+                  in: query
+                  description: 每页条数（必填）
+                  schema:
+                    type: integer
+                    format: uint64
+                - name: pageNumber
+                  in: query
+                  description: 页码数,从1开始（必填）
+                  schema:
+                    type: integer
+                    format: uint64
+                - name: sortBy
+                  in: query
+                  description: 排序字段（非必须）
+                  schema:
+                    type: string
+                - name: order
+                  in: query
+                  description: 排序方式("asc" or "desc") （非必须）
+                  schema:
+                    type: string
+                - name: searchSceneName
+                  in: query
+                  description: 按照场景名称进行模糊搜索（非必须）
+                  schema:
+                    type: string
+                - name: searchSceneDisabled
+                  in: query
+                  description: 按照是否禁用搜索, all：搜索全部，disabled：搜索禁用的 enabled：搜索未禁用的
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.scenemanage.v1.SceneTemplateListReply'
+    /v1/data/user/add:
+        post:
+            tags:
+                - UserManage
+            description: 新增用户
+            operationId: UserManage_AddUser
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.usermanage.v1.AddUserRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.usermanage.v1.AddUserReply'
+    /v1/data/user/current/detail:
+        get:
+            tags:
+                - UserManage
+            description: 当前登陆用户详情
+            operationId: UserManage_CurrentUserDetail
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.usermanage.v1.UserDetailReply'
+    /v1/data/user/delete:
+        post:
+            tags:
+                - UserManage
+            description: 删除用户
+            operationId: UserManage_DeleteUser
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.usermanage.v1.DeleteUserRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /v1/data/user/detail:
+        get:
+            tags:
+                - UserManage
+            description: 用户详情
+            operationId: UserManage_UserDetail
+            parameters:
+                - name: userId
+                  in: query
+                  schema:
+                    type: integer
+                    format: uint32
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.usermanage.v1.UserDetailReply'
+    /v1/data/user/edit:
+        post:
+            tags:
+                - UserManage
+            description: 编辑用户
+            operationId: UserManage_EditUser
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.usermanage.v1.EditUserRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /v1/data/user/edit/status:
+        post:
+            tags:
+                - UserManage
+            description: 编辑用户状态
+            operationId: UserManage_EditUserDisabled
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.usermanage.v1.EditUserDisabledRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /v1/data/user/list:
+        get:
+            tags:
+                - UserManage
+            description: 用户列表
+            operationId: UserManage_UserList
+            parameters:
+                - name: pageSize
+                  in: query
+                  description: 每页条数（必填）
+                  schema:
+                    type: integer
+                    format: uint64
+                - name: pageNumber
+                  in: query
+                  description: 页码数,从1开始（必填）
+                  schema:
+                    type: integer
+                    format: uint64
+                - name: sortBy
+                  in: query
+                  description: 排序字段（非必须）
+                  schema:
+                    type: string
+                - name: order
+                  in: query
+                  description: 排序方式("asc" or "desc") （非必须）
+                  schema:
+                    type: string
+                - name: searchUserAccount
+                  in: query
+                  description: 用户账号，唯一不可修改
+                  schema:
+                    type: string
+                - name: searchUserNickname
+                  in: query
+                  description: 用户昵称
+                  schema:
+                    type: string
+                - name: searchUserEmail
+                  in: query
+                  description: 用户邮箱
+                  schema:
+                    type: string
+                - name: searchUserPhoneNum
+                  in: query
+                  description: 用户手机号码
+                  schema:
+                    type: string
+                - name: searchUserSex
+                  in: query
+                  description: 用户性别，列表为：男，女,默认未知
+                  schema:
+                    type: string
+                - name: searchUserDisabled
+                  in: query
+                  description: 按照是否禁用搜索, all：搜索全部，disabled：搜索禁用的 enabled：搜索未禁用的
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.usermanage.v1.UserListReply'
+    /v1/data/user/login:
+        get:
+            tags:
+                - UserManage
+            description: 登陆
+            operationId: UserManage_Login
+            parameters:
+                - name: userAccount
+                  in: query
+                  description: 用户账号，唯一不可修改
+                  schema:
+                    type: string
+                - name: userPassword
+                  in: query
+                  description: 用户密码
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.usermanage.v1.LoginReply'
+    /v1/data/user/password/random:
+        get:
+            tags:
+                - UserManage
+            description: 生成随机密码
+            operationId: UserManage_RandomPassword
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.usermanage.v1.RandomPasswordReply'
+    /v1/data/user/password/reset:
+        post:
+            tags:
+                - UserManage
+            description: 重置用户密码
+            operationId: UserManage_ResetUserPassword
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.usermanage.v1.ResetUserPasswordRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+components:
+    schemas:
+        api.businessmanage.v1.AddBusinessKnowledgeReply:
+            type: object
+            properties:
+                knowledgeId:
+                    type: integer
+                    description: 知识id
+                    format: uint64
+        api.businessmanage.v1.AddBusinessKnowledgeRequest:
+            type: object
+            properties:
+                sceneTemplateId:
+                    type: integer
+                    description: 模版场景id
+                    format: uint64
+                knowledge:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.businessmanage.v1.AddBusinessKnowledgeRequest_Knowledge'
+        api.businessmanage.v1.AddBusinessKnowledgeRequest_Knowledge:
+            type: object
+            properties:
+                sceneItemId:
+                    type: integer
+                    description: 条目id
+                    format: uint64
+                sceneItemType:
+                    type: string
+                    description: '类型，dict:字典类型，text: 文本，integer:整数，decimal:小数，datetime:日期，picture:图片，video:视频，audio:音频，file:文件'
+                sceneItemValue:
+                    type: array
+                    items:
+                        type: string
+                    description: 场景条目值, 如果是文件["picture","video","audio","file"]则为服务返回的文件地址，其他即为对应值
+                sceneItemSelectDictTreeIds:
+                    type: string
+                    description: '如果type是dict即为: 选择的字典全链结点id,是二维数组的字符串[[1,2,3],[4]]'
+        api.businessmanage.v1.BusinessDetailReply:
+            type: object
+            properties:
+                dictDetails:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.dictmanage.v1.DictDetailReplay'
+                    description: 左侧字典
+                sceneDetail:
+                    $ref: '#/components/schemas/api.scenemanage.v1.SceneDetailReplay'
+        api.businessmanage.v1.BusinessKnowledgeDataExportReply:
+            type: object
+            properties:
+                filePath:
+                    type: string
+                    description: 导出的文件路径
+        api.businessmanage.v1.BusinessKnowledgeDataImportRequest:
+            type: object
+            properties:
+                filePath:
+                    type: string
+                    description: 导入数据上传接口返回的的文件路径
+                sceneTemplateId:
+                    type: integer
+                    description: 模版场景id
+                    format: uint64
+        api.businessmanage.v1.BusinessKnowledgeDataNumStatisticsReply:
+            type: object
+            properties:
+                content:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.businessmanage.v1.BusinessKnowledgeDataNumStatisticsReply_knowledgeNum'
+                    description: 统计列表
+                totalElements:
+                    type: integer
+                    description: 统计总数
+                    format: int32
+        api.businessmanage.v1.BusinessKnowledgeDataNumStatisticsReply_knowledgeNum:
+            type: object
+            properties:
+                sceneName:
+                    type: string
+                    description: 场景名字
+                knowledgeNum:
+                    type: integer
+                    description: 知识数量
+                    format: uint32
+                knowledgeViewTimeCount:
+                    type: integer
+                    description: 知识点历史点击量统计
+                    format: uint32
+            description: 场景数组信息
+        api.businessmanage.v1.BusinessKnowledgeDataStatisticsBySceneAndCreatorReply:
+            type: object
+            properties:
+                content:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.businessmanage.v1.BusinessKnowledgeDataStatisticsBySceneAndCreatorReply_knowledge'
+                    description: 统计列表
+                totalElements:
+                    type: integer
+                    description: 统计总数
+                    format: int32
+        api.businessmanage.v1.BusinessKnowledgeDataStatisticsBySceneAndCreatorReply_knowledge:
+            type: object
+            properties:
+                knowledgeNum:
+                    type: integer
+                    description: 知识数量
+                    format: uint32
+                creatorName:
+                    type: string
+                    description: 创建人名字
+            description: 场景数组信息
+        api.businessmanage.v1.BusinessKnowledgeDetailReply:
+            type: object
+            properties:
+                knowledgeShow:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.businessmanage.v1.BusinessKnowledgeDetailReply_Knowledge'
+                    description: 需要显示的知识信息
+                knowledgeId:
+                    type: integer
+                    description: 知识id
+                    format: uint64
+                creatorName:
+                    type: string
+                    description: 创建人
+                viewTime:
+                    type: integer
+                    description: 点击次数
+                    format: uint32
+                updateTime:
+                    type: integer
+                    description: 更新时间
+                    format: int64
+                createTime:
+                    type: integer
+                    description: 创建时间
+                    format: int64
+        api.businessmanage.v1.BusinessKnowledgeDetailReply_Knowledge:
+            type: object
+            properties:
+                sceneItemId:
+                    type: integer
+                    description: 条目id
+                    format: uint64
+                sceneItemType:
+                    type: string
+                    description: '类型，dict:字典类型，text: 文本，integer:整数，decimal:小数，datetime:日期，picture:图片，video:视频，audio:音频，file:文件'
+                sceneItemValue:
+                    type: array
+                    items:
+                        type: string
+                    description: 场景条目值, 如果是文件["picture","video","audio","file"]则为服务返回的文件地址，其他即为对应值
+                sceneItemSelectDictTreeIds:
+                    type: string
+                    description: '如果type是dict即为选择的叶子结点id    repeated uint64 scene_item_select_dict_leaf_ids = 4; 如果type是dict即为: 选择的字典全链结点id,是二维数组的字符串[[1,2,3],[4]]'
+                sceneItemName:
+                    type: string
+                    description: 场景条目名字
+            description: 需要显示的知识信息
+        api.businessmanage.v1.BusinessKnowledgeListReply:
+            type: object
+            properties:
+                content:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.businessmanage.v1.BusinessKnowledgeDetailReply'
+                    description: 知识列表
+                totalElements:
+                    type: integer
+                    description: 知识总个数
+                    format: int32
+        api.businessmanage.v1.BusinessKnowledgeListRequest:
+            type: object
+            properties:
+                pageSize:
+                    type: integer
+                    description: 每页条数（必填）
+                    format: uint64
+                pageNumber:
+                    type: integer
+                    description: 页码数,从1开始（必填）
+                    format: uint64
+                sortBy:
+                    type: string
+                    description: 排序字段（选填）
+                order:
+                    type: string
+                    description: 排序方式("asc" or "desc") （选填）
+                searchUpdateTime:
+                    type: array
+                    items:
+                        type: string
+                    description: 按 更新时间 搜索范围，数组大小为2，[开始时间，结束时间]（选填） 这种格式字符串 '2025-01-02 15:30:00'
+                searchCreateTime:
+                    type: array
+                    items:
+                        type: string
+                    description: 按 创建时间 搜索范围，数组大小为2，[开始时间，结束时间]（选填）这种格式字符串 '2025-01-02 15:30:00'
+                searchCreatorId:
+                    type: string
+                    description: 按 创建人id 搜索（选填）
+                searchKnowledgeItem:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.businessmanage.v1.BusinessKnowledgeListRequest_Knowledge'
+                    description: 需要搜索的 主 知识信息 （选填）
+                sceneTemplateId:
+                    type: integer
+                    description: 模版场景id（必填）
+                    format: uint64
+        api.businessmanage.v1.BusinessKnowledgeListRequest_Knowledge:
+            type: object
+            properties:
+                sceneItemId:
+                    type: integer
+                    description: 条目id
+                    format: uint64
+                sceneItemValue:
+                    type: array
+                    items:
+                        type: string
+                    description: 场景条目值, 如果是文件["picture","video","audio","file"]则为服务返回的文件地址，其他即为对应值
+                sceneItemSelectDictIds:
+                    type: string
+                    description: 如果type是dict即为选择的结点id
+            description: 知识信息
+        api.businessmanage.v1.BusinessKnowledgeSettingRequest:
+            type: object
+            properties:
+                knowledgeId:
+                    type: integer
+                    description: 知识id
+                    format: uint64
+                createTime:
+                    type: integer
+                    description: 创建时间
+                    format: int64
+                creatorId:
+                    type: integer
+                    description: 创建人id
+                    format: uint32
+                creatorName:
+                    type: string
+                    description: 创建人名字
+                viewTime:
+                    type: integer
+                    description: 点击次数,正数即为增加值，负数为减少值
+                    format: int32
+                viewAt:
+                    type: integer
+                    description: 点击时间戳
+                    format: int64
+        api.businessmanage.v1.BusinessKnowledgeTemplateExportReply:
+            type: object
+            properties:
+                filePath:
+                    type: string
+                    description: 导出的文件路径
+        api.businessmanage.v1.DeleteBusinessKnowledgeRequest:
+            type: object
+            properties:
+                knowledgeId:
+                    type: integer
+                    description: 知识id
+                    format: uint64
+        api.businessmanage.v1.EditBusinessKnowledgeRequest:
+            type: object
+            properties:
+                knowledgeId:
+                    type: integer
+                    description: 知识id
+                    format: uint64
+                knowledgeItem:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.businessmanage.v1.EditBusinessKnowledgeRequest_Knowledge'
+                    description: 需要显示的知识信息
+        api.businessmanage.v1.EditBusinessKnowledgeRequest_Knowledge:
+            type: object
+            properties:
+                sceneItemId:
+                    type: integer
+                    description: 条目id
+                    format: uint64
+                sceneItemValue:
+                    type: array
+                    items:
+                        type: string
+                    description: 场景条目值, 如果是文件["picture","video","audio","file"]则为服务返回的文件地址，其他即为对应值
+                sceneItemSelectDictTreeIds:
+                    type: string
+                    description: '如果type是dict即为选择的叶子结点id    repeated uint64 scene_item_select_dict_leaf_ids = 4; 如果type是dict即为: 选择的字典全链结点id,是二维数组的字符串[[1,2,3],[4]]'
+            description: 知识信息
+        api.datamanage.v1.HelloReply:
+            type: object
+            properties:
+                message:
+                    type: string
+            description: The response message containing the greetings
+        api.dictmanage.v1.AddDictItem:
+            type: object
+            properties:
+                parentId:
+                    type: integer
+                    description: 字典目录父id，新增时必须传
+                    format: uint64
+                name:
+                    type: string
+                    description: 名字
+                level:
+                    type: integer
+                    description: 层级，根为0
+                    format: uint64
+                isDisabled:
+                    type: boolean
+                    description: 是否禁用, 否：0，禁用：1，默认0
+                children:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.dictmanage.v1.AddDictItem'
+                    description: 子目录
+        api.dictmanage.v1.CreateDictReply:
+            type: object
+            properties:
+                dictTemplateId:
+                    type: integer
+                    description: 字典模版id
+                    format: uint64
+        api.dictmanage.v1.CreateDictRequest:
+            type: object
+            properties:
+                dictName:
+                    type: string
+                    description: 字典模版名称
+                dictType:
+                    type: string
+                    description: tree:树形结构， plane：平面结构
+                treeDict:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.dictmanage.v1.CreateTreeDict'
+                    description: 树形字典目录相关信息（非必填）
+                planeDict:
+                    $ref: '#/components/schemas/api.dictmanage.v1.CreatePlaneDict'
+        api.dictmanage.v1.CreatePlaneDict:
+            type: object
+            properties:
+                planeDict:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.dictmanage.v1.CreatePlaneDict_Plane'
+                    description: 平面字典目录相关信息（非必填）
+        api.dictmanage.v1.CreatePlaneDict_Plane:
+            type: object
+            properties:
+                isDisabled:
+                    type: boolean
+                    description: 是否禁用, 否：0，禁用：1，默认0
+                name:
+                    type: string
+                    description: 目录名字
+        api.dictmanage.v1.CreateTreeDict:
+            type: object
+            properties:
+                name:
+                    type: string
+                    description: 名字
+                isDisabled:
+                    type: boolean
+                    description: 是否禁用, 否：0，禁用：1，默认0
+                children:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.dictmanage.v1.CreateTreeDict'
+                    description: 子目录
+        api.dictmanage.v1.Dict:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    description: 字典目录id(创建不用填)
+                    format: uint64
+                parentId:
+                    type: integer
+                    description: 字典目录父id，新增时必须传
+                    format: uint64
+                name:
+                    type: string
+                    description: 名字
+                level:
+                    type: integer
+                    description: 层级，根为0
+                    format: uint64
+                isDisabled:
+                    type: boolean
+                    description: 是否禁用, 否：0，禁用：1，默认0
+                isUsed:
+                    type: boolean
+                    description: 是否使用中，0否，1使用中
+                children:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.dictmanage.v1.Dict'
+                    description: 子目录
+        api.dictmanage.v1.DictDetailReplay:
+            type: object
+            properties:
+                dictTemplate:
+                    $ref: '#/components/schemas/api.dictmanage.v1.DictTemplate'
+                treeDict:
+                    $ref: '#/components/schemas/api.dictmanage.v1.TreeDict'
+                planeDict:
+                    $ref: '#/components/schemas/api.dictmanage.v1.PlaneDict'
+        api.dictmanage.v1.DictTemplate:
+            type: object
+            properties:
+                dictTemplateId:
+                    type: integer
+                    description: 模版字典id
+                    format: uint64
+                dictName:
+                    type: string
+                    description: 字典名称
+                dictType:
+                    type: string
+                    description: 字典类型
+                dictDisabled:
+                    type: boolean
+                    description: 字典是否禁用, 否：0，禁用：1
+                updateTime:
+                    type: integer
+                    description: 更新时间
+                    format: int64
+                creatorName:
+                    type: string
+                    description: 创建者
+                dictIsUsed:
+                    type: boolean
+                    description: 是否使用中，0否，1使用中
+        api.dictmanage.v1.DictTemplateListReply:
+            type: object
+            properties:
+                content:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.dictmanage.v1.DictTemplate'
+                    description: 字典模版列表
+                totalElements:
+                    type: integer
+                    description: 字典模版总个数
+                    format: int32
+        api.dictmanage.v1.EditDictDirectoryDisabledRequest:
+            type: object
+            properties:
+                dictDirectoryId:
+                    type: integer
+                    description: 字典目录id
+                    format: uint64
+                isDisabled:
+                    type: boolean
+                    description: 是否禁用, 否：0，禁用：1，默认0
+        api.dictmanage.v1.EditDictDirectoryNameRequest:
+            type: object
+            properties:
+                dictTemplateId:
+                    type: integer
+                    description: 模版字典id
+                    format: uint64
+                dictDirectoryId:
+                    type: integer
+                    description: 字典目录id
+                    format: uint64
+                dictDirectoryName:
+                    type: string
+                    description: 字典目录名字
+        api.dictmanage.v1.EditDictDisabledRequest:
+            type: object
+            properties:
+                dictTemplateId:
+                    type: integer
+                    description: 字典模版id
+                    format: uint64
+                isDisabled:
+                    type: boolean
+                    description: 是否禁用, 否：0，禁用：1，默认0
+        api.dictmanage.v1.EditDictRequest:
+            type: object
+            properties:
+                dictTemplateId:
+                    type: integer
+                    description: 模版字典id
+                    format: uint64
+                dictName:
+                    type: string
+                    description: 字典模版名称
+                treeDict:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.dictmanage.v1.AddDictItem'
+                    description: 树形字典目录相关信息（非必填）
+                planeDict:
+                    $ref: '#/components/schemas/api.dictmanage.v1.CreatePlaneDict'
+                isDisabled:
+                    type: boolean
+                    description: 是否禁用, 否：0，禁用：1，默认0
+        api.dictmanage.v1.PlaneDict:
+            type: object
+            properties:
+                planeDict:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.dictmanage.v1.PlaneDict_Plane'
+                    description: 平面字典目录相关信息（非必填）
+            description: 平面字典目录
+        api.dictmanage.v1.PlaneDict_Plane:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    description: 字典目录id(创建不用填)
+                    format: uint64
+                isDisabled:
+                    type: boolean
+                    description: 是否禁用, 否：0，禁用：1，默认0
+                name:
+                    type: string
+                    description: 目录名字
+                isUsed:
+                    type: boolean
+                    description: 是否使用中，0否，1使用中
+        api.dictmanage.v1.TreeDict:
+            type: object
+            properties:
+                treeDict:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.dictmanage.v1.Dict'
+                    description: 树形字典目录相关信息（非必填）
+            description: 树形字典目录
+        api.rolemanage.v1.AddRoleReply:
+            type: object
+            properties:
+                roleId:
+                    type: integer
+                    description: 角色id
+                    format: uint32
+        api.rolemanage.v1.AddRoleRequest:
+            type: object
+            properties:
+                roleName:
+                    type: string
+                    description: 角色名称
+                roleRemark:
+                    type: string
+                    description: 角色备注
+        api.rolemanage.v1.DeleteRoleRequest:
+            type: object
+            properties:
+                roleId:
+                    type: integer
+                    description: 角色id
+                    format: uint32
+        api.rolemanage.v1.EditRoleDisabledRequest:
+            type: object
+            properties:
+                roleId:
+                    type: integer
+                    description: 角色id
+                    format: uint32
+                isDisabled:
+                    type: boolean
+                    description: 是否禁用, 否：0，禁用：1，默认0
+        api.rolemanage.v1.EditRoleRequest:
+            type: object
+            properties:
+                roleId:
+                    type: integer
+                    description: 用户id
+                    format: uint32
+                roleName:
+                    type: string
+                    description: 角色名称
+                roleRemark:
+                    type: string
+                    description: 角色备注
+        api.rolemanage.v1.RoleDetailReply:
+            type: object
+            properties:
+                roleName:
+                    type: string
+                    description: 角色名称
+                roleRemark:
+                    type: string
+                    description: 角色备注
+                isDisabled:
+                    type: boolean
+                    description: 是否禁用
+                isUsed:
+                    type: boolean
+                    description: 是否使用
+                isBuiltin:
+                    type: boolean
+                    description: 是否内置
+                updateTime:
+                    type: integer
+                    description: 更新时间
+                    format: int64
+                createTime:
+                    type: integer
+                    description: 生成时间
+                    format: int64
+        api.rolemanage.v1.RoleListReply:
+            type: object
+            properties:
+                content:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.rolemanage.v1.RoleListReply_Role'
+                    description: 角色列表
+                totalElements:
+                    type: integer
+                    description: 用户总个数
+                    format: int32
+        api.rolemanage.v1.RoleListReply_Role:
+            type: object
+            properties:
+                roleName:
+                    type: string
+                    description: 角色名称
+                roleRemark:
+                    type: string
+                    description: 角色备注
+                isUsed:
+                    type: boolean
+                    description: 是否使用
+                isBuiltin:
+                    type: boolean
+                    description: 是否内置
+                isDisabled:
+                    type: boolean
+                    description: 是否禁用
+                roleId:
+                    type: integer
+                    description: 角色id
+                    format: uint32
+                updateTime:
+                    type: integer
+                    description: 更新时间
+                    format: int64
+                createTime:
+                    type: integer
+                    description: 生成时间
+                    format: int64
+        api.scenemanage.v1.AddSceneItem:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    description: 场景id,新增就是0，否则就是原来id
+                    format: uint64
+                sceneItemName:
+                    type: string
+                    description: 场景条目名字
+                type:
+                    type: string
+                    description: '类型，dict:字典类型，text: 文本，integer:整数，decimal:小数，datetime:日期，picture:图片，video:视频，audio:音频，file:文件'
+                dictTemplateId:
+                    type: integer
+                    description: 字典模版id,如果dict类型为dict,必填
+                    format: uint64
+                multiValue:
+                    type: boolean
+                    description: 是否可写多个值，0:否 1:是
+                isHide:
+                    type: boolean
+                    description: 是否隐藏，0:否 1:是
+                isRequired:
+                    type: boolean
+                    description: 是否必填，0:否 1:是
+                isSupportSearch:
+                    type: boolean
+                    description: 是否必填，0:否 1:是
+                sortNumber:
+                    type: integer
+                    description: item排列顺序，从1开始
+                    format: uint64
+            description: 增加的场景条目
+        api.scenemanage.v1.CopySceneReply:
+            type: object
+            properties:
+                sceneTemplateId:
+                    type: integer
+                    description: 模版场景id
+                    format: uint64
+        api.scenemanage.v1.CopySceneRequest:
+            type: object
+            properties:
+                sceneTemplateId:
+                    type: integer
+                    description: 模版场景id
+                    format: uint64
+                sceneName:
+                    type: string
+                    description: 新场景名字
+        api.scenemanage.v1.CreateSceneReply:
+            type: object
+            properties:
+                sceneTemplateId:
+                    type: integer
+                    description: 场景模版id
+                    format: uint64
+        api.scenemanage.v1.CreateSceneRequest:
+            type: object
+            properties:
+                sceneName:
+                    type: string
+                    description: 场景名字
+                sceneItem:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.scenemanage.v1.AddSceneItem'
+        api.scenemanage.v1.EditSceneDisabledRequest:
+            type: object
+            properties:
+                sceneTemplateId:
+                    type: integer
+                    description: 场景模版id
+                    format: uint64
+                isDisabled:
+                    type: boolean
+                    description: 是否禁用, 否：0，禁用：1，默认0
+        api.scenemanage.v1.EditSceneRequest:
+            type: object
+            properties:
+                sceneTemplateId:
+                    type: integer
+                    description: 模版场景id
+                    format: uint64
+                sceneName:
+                    type: string
+                    description: 场景名字
+                sceneItem:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.scenemanage.v1.AddSceneItem'
+                    description: 增加的场景条目
+        api.scenemanage.v1.SceneDetailReplay:
+            type: object
+            properties:
+                sceneItem:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.scenemanage.v1.SceneDetailReplay_SceneItem'
+                    description: 增加的场景条目
+                sceneTemplateDetail:
+                    $ref: '#/components/schemas/api.scenemanage.v1.SceneTemplate'
+        api.scenemanage.v1.SceneDetailReplay_SceneItem:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    description: 条目id
+                    format: uint64
+                type:
+                    type: string
+                    description: '类型，dict:字典类型，text: 文本，integer:整数，decimal:小数，datetime:日期，picture:图片，video:视频，audio:音频，file:文件'
+                dictTemplateId:
+                    type: integer
+                    description: 字典模版id,如果dict类型为dict
+                    format: uint64
+                dictTemplateName:
+                    type: string
+                    description: 字典模版名字,如果dict类型为dict
+                multiValue:
+                    type: boolean
+                    description: 是否可写多个值，0:否 1:是
+                isHide:
+                    type: boolean
+                    description: 是否隐藏，0:否 1:是
+                isRequired:
+                    type: boolean
+                    description: 是否必填，0:否 1:是
+                isSupportSearch:
+                    type: boolean
+                    description: 是否支持搜索，0:否 1:是
+                sortNumber:
+                    type: integer
+                    description: item排列顺序，从1开始
+                    format: uint64
+                sceneItemName:
+                    type: string
+                    description: 场景条目名字
+        api.scenemanage.v1.SceneTemplate:
+            type: object
+            properties:
+                sceneTemplateId:
+                    type: integer
+                    description: 模版场景id
+                    format: uint64
+                sceneName:
+                    type: string
+                    description: 场景名字
+                sceneIsDisabled:
+                    type: boolean
+                    description: 是否禁用, 否：0，禁用：1，默认0
+                sceneIsUsed:
+                    type: boolean
+                    description: 是否使用中，0否，1使用中
+                creatorName:
+                    type: string
+                    description: 创建者
+                updateTime:
+                    type: integer
+                    description: 更新时间
+                    format: int64
+        api.scenemanage.v1.SceneTemplateListReply:
+            type: object
+            properties:
+                content:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.scenemanage.v1.SceneTemplate'
+                    description: 场景模版列表
+                totalElements:
+                    type: integer
+                    description: 字典模版总个数
+                    format: int32
+        api.usermanage.v1.AddUserReply:
+            type: object
+            properties:
+                userId:
+                    type: integer
+                    description: 新增的用户id
+                    format: uint32
+        api.usermanage.v1.AddUserRequest:
+            type: object
+            properties:
+                userAccount:
+                    type: string
+                    description: 用户账号，唯一不可修改
+                userNickname:
+                    type: string
+                    description: 用户昵称
+                userEmail:
+                    type: string
+                    description: 用户邮箱
+                userPhoneNum:
+                    type: string
+                    description: 用户手机号码
+                userSex:
+                    type: string
+                    description: 用户性别，只能输入：男，女
+                userPassword:
+                    type: string
+                    description: 用户密码
+                userPicture:
+                    type: string
+                    description: 用户头像路径，先上传图片，此处为服务器返回的图片路径
+        api.usermanage.v1.DeleteUserRequest:
+            type: object
+            properties:
+                userId:
+                    type: integer
+                    description: 用户id
+                    format: uint32
+        api.usermanage.v1.EditUserDisabledRequest:
+            type: object
+            properties:
+                userId:
+                    type: integer
+                    description: 用户id
+                    format: uint32
+                isDisabled:
+                    type: boolean
+                    description: 是否禁用, 否：0，禁用：1，默认0
+        api.usermanage.v1.EditUserRequest:
+            type: object
+            properties:
+                userId:
+                    type: integer
+                    description: 用户id
+                    format: uint32
+                userNickname:
+                    type: string
+                    description: 用户昵称
+                userEmail:
+                    type: string
+                    description: 用户邮箱
+                userPhoneNum:
+                    type: string
+                    description: 用户手机号码
+                userSex:
+                    type: string
+                    description: 用户性别，只能输入：男，女,默认未知
+                userPicture:
+                    type: string
+                    description: 用户头像路径，先上传图片，此处为服务器返回的图片路径
+        api.usermanage.v1.LoginReply:
+            type: object
+            properties:
+                token:
+                    type: string
+                    description: 登陆token,放入header中，key为： Authorization，value为：Bearer+空格+返回的token
+        api.usermanage.v1.RandomPasswordReply:
+            type: object
+            properties:
+                randomPassword:
+                    type: string
+                    description: 生成随机密码
+        api.usermanage.v1.ResetUserPasswordRequest:
+            type: object
+            properties:
+                userId:
+                    type: integer
+                    description: 用户id
+                    format: uint32
+                userPassword:
+                    type: string
+                    description: 用户密码
+        api.usermanage.v1.UserDetailReply:
+            type: object
+            properties:
+                userAccount:
+                    type: string
+                    description: 用户账号，唯一不可修改
+                userNickname:
+                    type: string
+                    description: 用户昵称
+                userEmail:
+                    type: string
+                    description: 用户邮箱
+                userPhoneNum:
+                    type: string
+                    description: 用户手机号码
+                userSex:
+                    type: string
+                    description: 用户性别，只能输入：男，女,默认未知
+                userPicture:
+                    type: string
+                    description: 用户头像路径，先上传图片，此处为服务器返回的图片路径
+                isDisabled:
+                    type: boolean
+                    description: 是否禁用
+                isBuiltin:
+                    type: boolean
+                    description: 是否内置
+                updateTime:
+                    type: integer
+                    description: 更新时间
+                    format: int64
+                createTime:
+                    type: integer
+                    description: 生成时间
+                    format: int64
+        api.usermanage.v1.UserListReply:
+            type: object
+            properties:
+                content:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.usermanage.v1.UserListReply_User'
+                    description: 用户列表
+                totalElements:
+                    type: integer
+                    description: 用户总个数
+                    format: int32
+        api.usermanage.v1.UserListReply_User:
+            type: object
+            properties:
+                userAccount:
+                    type: string
+                    description: 用户账号，唯一不可修改
+                userNickname:
+                    type: string
+                    description: 用户昵称
+                userEmail:
+                    type: string
+                    description: 用户邮箱
+                userPhoneNum:
+                    type: string
+                    description: 用户手机号码
+                userSex:
+                    type: string
+                    description: 用户性别，只能输入：男，女,默认未知
+                userPicture:
+                    type: string
+                    description: 用户头像路径，先上传图片，此处为服务器返回的图片路径
+                isDisabled:
+                    type: boolean
+                    description: 是否禁用
+                userId:
+                    type: integer
+                    description: 用户id
+                    format: uint32
+                isBuiltin:
+                    type: boolean
+                    description: 是否内置
+                updateTime:
+                    type: integer
+                    description: 更新时间
+                    format: int64
+                createTime:
+                    type: integer
+                    description: 生成时间
+                    format: int64
+tags:
+    - name: BusinessManage
+      description: The BusinessManage service definition.
+    - name: DataManage
+      description: The DataManage service definition.
+    - name: DictManage
+      description: The DictManage service definition.
+    - name: RoleManage
+      description: The RoleManage service definition.
+    - name: SceneManage
+      description: The DictManage service definition.
+    - name: UserManage
+      description: The UserManage service definition.

@@ -1,0 +1,21 @@
+SELECT
+    k.creator_id AS creator_id,
+    "系统创建" AS creator_name,
+    COUNT(k.id) AS knowledge_count
+FROM
+    knowledge k
+WHERE
+    k.del = 0           -- 确保未被软删除
+    {%if SearchCreateTimeBegin%}
+        and k.create_at >= '{{SearchCreateTimeBegin}}'
+    {% endif %}
+    {%if SearchCreateTimeEnd%}
+        and k.create_at <= '{{SearchCreateTimeEnd}}'
+    {% endif %}
+    {%if SceneTemplateId %}
+    AND  k.scene_template_id = {{SceneTemplateId}}  -- 替换为指定的 SceneTemplateId
+    {% endif %}
+GROUP BY
+    k.creator_id
+ORDER BY
+    knowledge_count DESC;    -- 可选：按记录数降序排列

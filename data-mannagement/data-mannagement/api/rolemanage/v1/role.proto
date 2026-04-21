@@ -1,0 +1,171 @@
+syntax = "proto3";
+
+package api.rolemanage.v1;
+
+import "google/protobuf/empty.proto";
+import "google/api/annotations.proto";
+import "validate/validate.proto";
+
+
+
+option go_package = "gitee.com/kangdan0404/backend-of-knowledge-base/api/rolemanage/v1;v1";
+
+// The RoleManage service definition.
+service RoleManage {
+  //新增用户时获取当前角色设置模版
+//  rpc RoleTemplateSetting (RoleTemplateSettingRequest) returns (RoleTemplateSettingReply) {
+//    option (google.api.http) = {
+//      post: "/v1/data/role/current",
+//      body:"*"
+//    };
+//  }
+
+  //新增角色
+  rpc AddRole (AddRoleRequest) returns (AddRoleReply) {
+    option (google.api.http) = {
+      post: "/v1/data/role/add",
+      body:"*"
+    };
+  }
+
+
+  //编辑角色
+  rpc EditRole (EditRoleRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/data/role/edit",
+      body:"*"
+    };
+  }
+
+  // 编辑角色状态
+  rpc EditRoleDisabled (EditRoleDisabledRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/data/role/edit/status",
+      body:"*"
+    };
+  }
+
+  // 删除角色
+  rpc DeleteRole (DeleteRoleRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/data/role/delete",
+      body:"*"
+    };
+  }
+
+
+  // 角色详情
+  rpc RoleDetail (RoleDetailRequest) returns (RoleDetailReply) {
+    option (google.api.http) = {
+      get: "/v1/data/role/detail",
+    };
+  }
+
+
+  // 角色列表
+  rpc RoleList (RoleListRequest) returns (RoleListReply) {
+    option (google.api.http) = {
+      get: "/v1/data/role/list",
+    };
+  }
+
+
+
+}
+
+
+message RoleListRequest{
+  // 每页条数（必填）
+  uint64 page_size = 1 [(validate.rules).uint64.gt = 0];
+  // 页码数,从1开始（必填）
+  uint64 page_number = 2 [(validate.rules).uint64.gt = 0];
+  // 排序字段（非必须）
+  string sort_by = 3 [(validate.rules).string = {ignore_empty:true, in: ["id"]}];
+  // 排序方式("asc" or "desc") （非必须）
+  string order = 4 [(validate.rules).string = {ignore_empty:true, in: ["asc", "desc"]}];
+  // 角色名称
+  string search_role_name = 5;
+  // 角色备注
+  string search_role_remark = 6;
+  // 按照是否禁用搜索, all：搜索全部，disabled：搜索禁用的 enabled：搜索未禁用的
+  string search_role_disabled = 10[(validate.rules).string = {ignore_empty:true, in: ['all', 'disabled','enabled']}];
+}
+
+message RoleListReply{
+  message Role{
+    // 角色名称
+    string role_name = 1;
+    // 角色备注
+    string role_remark = 2;
+    // 是否使用
+    bool is_used  = 3;
+    // 是否内置
+    bool is_builtin  = 4;
+    // 是否禁用
+    bool is_disabled  = 5;
+    // 角色id
+    uint32 role_id = 6;
+    // 更新时间
+    int64 update_time = 10;
+    // 生成时间
+    int64 create_time = 11;
+  }
+  // 角色列表
+  repeated Role content = 1;
+  // 用户总个数
+  int32  totalElements = 2;
+}
+
+message RoleDetailRequest{
+  uint32 role_id = 1;
+}
+
+message RoleDetailReply{
+  // 角色名称
+  string role_name = 1[(validate.rules).string = { min_len:1,max_len:255}];
+  // 角色备注
+  string role_remark = 2[(validate.rules).string = { min_len:0,max_len:255}];
+  // 是否禁用
+  bool is_disabled  = 3;
+  // 是否使用
+  bool is_used  = 4;
+  // 是否内置
+  bool is_builtin  = 5;
+  // 更新时间
+  int64 update_time = 10;
+  // 生成时间
+  int64 create_time = 11;
+}
+
+
+message DeleteRoleRequest{
+  // 角色id
+  uint32 role_id = 1;
+}
+
+message EditRoleDisabledRequest{
+  // 角色id
+  uint32 role_id = 1;
+  // 是否禁用, 否：0，禁用：1，默认0
+  bool is_disabled = 2;
+}
+
+message EditRoleRequest{
+  // 用户id
+  uint32 role_id = 1;
+  // 角色名称
+  string role_name = 2[(validate.rules).string = { min_len:1,max_len:255}];
+  // 角色备注
+  string role_remark = 3[(validate.rules).string = { min_len:0,max_len:255}];
+}
+message AddRoleRequest{
+  // 角色名称
+  string role_name = 1[(validate.rules).string = { min_len:1,max_len:255}];
+  // 角色备注
+  string role_remark = 2[(validate.rules).string = { min_len:0,max_len:255}];
+}
+
+message AddRoleReply{
+  // 角色id
+  uint32 role_id = 1;
+}

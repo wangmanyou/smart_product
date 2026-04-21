@@ -1,0 +1,23 @@
+SELECT
+    st.id AS scene_template_id,
+    COALESCE(COUNT(k.id), 0) AS knowledge_count,
+    st.name AS scene_template_name,
+    sum(k.view_time) as knowledge_view_time_count
+FROM
+    scene_template st
+LEFT JOIN
+    knowledge k
+ON
+    st.id = k.scene_template_id AND k.del = 0 -- 确保 Knowledge 未被软删除
+WHERE
+    st.del = 0 -- 确保 SceneTemplate 未被软删除
+    {%if SearchCreateTimeBegin%}
+        and k.create_at >= '{{SearchCreateTimeBegin}}'
+    {% endif %}
+    {%if SearchCreateTimeEnd%}
+        and k.create_at <= '{{SearchCreateTimeEnd}}'
+    {% endif %}
+GROUP BY
+    st.id, st.name
+ORDER BY
+    knowledge_count DESC; -- 可选：按记录数降序排列

@@ -1,0 +1,42 @@
+SELECT count(distinct k.id)
+
+FROM
+    knowledge AS k
+LEFT JOIN
+    knowledge_item AS ki
+ON
+    k.id = ki.knowledge_id
+WHERE
+     k.del = 0
+     and k.scene_template_id={{SceneTemplateId}}
+     {%if SearchCreatorId %}
+        and k.creator_id = {{SearchCreatorId}}
+     {% endif %}
+
+     {%if SearchCreateTimeBegin%}
+         and k.update_at >= '{{SearchCreateTimeBegin}}'
+     {% endif %}
+     {%if SearchUpdateTimeEnd%}
+         and k.update_at <= '{{SearchUpdateTimeEnd}}'
+     {% endif %}
+
+     {%if SearchCreateTimeBegin%}
+         and k.create_at >= '{{SearchCreateTimeBegin}}'
+     {% endif %}
+     {%if SearchCreateTimeEnd%}
+         and k.create_at <= '{{SearchCreateTimeEnd}}'
+     {% endif %}
+{% if sql %}
+    AND EXISTS (
+            SELECT 1
+            FROM knowledge_item ki
+            WHERE ki.knowledge_id = k.id
+            AND (
+                1=1
+
+                        AND {{sql|safe}}
+                )
+    )
+{% endif %}
+;
+

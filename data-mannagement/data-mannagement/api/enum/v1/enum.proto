@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package api.enum.v1;
+
+
+option go_package = "git-plat.knowledge-net.net/ai-platform/data-center/api/enum/v1;enumV1";
+
+
+// 文件类型
+enum DatasetFileType {
+  // 全部
+  DATASET_FILE_ALL = 0;
+  // 图像
+  DATASET_FILE_IMAGE = 1;
+  // 文本
+  DATASET_FILE_TEXT = 2;
+  // 语音
+  DATASET_FILE_AUDIO = 3;
+  // 其他
+  DATASET_FILE_OTHER= 4;
+}
+
+
+// 模型类型
+enum ModelType {
+  // 无含义
+  MODEL_UNSPECIFIED = 0;
+  // 图像
+  MODEL_IMAGE = 1;
+  // 文本
+  MODEL_TEXT = 2;
+  // 语音
+  MODEL_AUDIO = 3;
+  // 其他
+  MODEL_OTHER= 4;
+}
+
+// 版本状态 0:创建中 1:创建失败 2:未发布 3:发布中 4:发布成功 5:发布失败
+enum DatasetVersionStatus {
+  // 创建中
+  DATASET_VERSION_CREATING = 0;
+  // 创建失败
+  DATASET_VERSION_CREATE_FAILED = 1;
+  // 未发布
+  DATASET_VERSION_NOT_PUBLISH = 2;
+  // 发布中
+  DATASET_VERSION_PUBLISHING = 3;
+  // 发布成功
+  DATASET_VERSION_PUBLISHED= 4;
+  // 发布失败
+  DATASET_VERSION_PUBLISH_FAILED = 5;
+}
+
+
+
+// 版本状态 0:创建中 1:创建失败 2:创建成功
+enum ModelVersionStatus {
+  // 创建中
+  MODEL_VERSION_CREATING = 0;
+  // 创建失败
+  MODEL_VERSION_CREATE_FAILED = 1;
+  // 创建成功
+  MODEL_VERSION_CREATE_SUCCEED = 2;
+}

@@ -1,0 +1,12 @@
+select  count(distinct d.id) from scene_template  as d
+    where 1=1
+    and d.del = 0
+    {%if SearchSceneDisabled == "enabled"%}
+              and d.is_disabled = false
+          {%elif SearchSceneDisabled == "disabled"%}
+              and d.is_disabled = true
+          {%endif%}
+
+     {%if SearchSceneName%}
+      and d.name like '%{{SearchSceneName}}%'
+     {%endif%}

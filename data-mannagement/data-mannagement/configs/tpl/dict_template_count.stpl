@@ -1,0 +1,14 @@
+select  count(distinct d.id) from dict_template  as d
+    where 1=1
+    and d.del = 0
+     {%if SearchDictDisabled == "enabled"%}
+          and d.is_disabled = false
+      {%elif SearchDictDisabled == "disabled"%}
+          and d.is_disabled = true
+      {%endif%}
+     {%if SearchDictType%}
+       and d.type = '{{SearchDictType|safe}}'
+     {%endif%}
+     {%if SearchDictName%}
+      and d.name like '%{{SearchDictName}}%'
+     {%endif%}

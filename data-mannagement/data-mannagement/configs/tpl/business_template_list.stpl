@@ -1,0 +1,60 @@
+SELECT
+    k.id AS knowledge_id,
+    k.scene_template_id,
+    k.view_time,
+    k.view_at,
+    k.create_at,
+    k.update_at,
+    k.creator_id,
+    k.creator_name,
+    JSON_OBJECTAGG(ki.scene_item_id, JSON_OBJECT(
+        'scene_item_value', ki.scene_item_value,
+        'select_dict_tree_ids', ki.select_dict_tree_ids
+    )) AS scene_item_map
+FROM
+    knowledge AS k
+LEFT JOIN
+    knowledge_item AS ki
+ON
+    k.id = ki.knowledge_id
+WHERE
+    k.del = 0
+    and k.scene_template_id={{SceneTemplateId}}
+    {%if SearchCreatorId %}
+       and k.creator_id = {{SearchCreatorId}}
+    {% endif %}
+    {%if SearchUpdateTimeBegin%}
+        and k.update_at >= '{{SearchUpdateTimeBegin}}'
+    {% endif %}
+    {%if SearchUpdateTimeEnd%}
+        and k.update_at <= '{{SearchUpdateTimeEnd}}'
+    {% endif %}
+
+    {%if SearchCreateTimeBegin%}
+        and k.create_at >= '{{SearchCreateTimeBegin}}'
+    {% endif %}
+    {%if SearchCreateTimeEnd%}
+        and k.create_at <= '{{SearchCreateTimeEnd}}'
+    {% endif %}
+{% if sql %}
+    AND EXISTS (
+            SELECT 1
+            FROM knowledge_item ki
+            WHERE ki.knowledge_id = k.id
+            AND (
+                1=1
+
+                        AND {{sql|safe}}
+                )
+    )
+{% endif %}
+GROUP BY
+    k.id
+{%if Sort and Order and Sort!="" and Order!=""%}
+        order by {{Sort}} {{Order}}
+{%else%}
+    order by k.id ASC
+{%endif%}
+{%if PageSize>0 and PageNumber>0%}
+limit {{PageSize}} offset {{PageSize*(PageNumber-1)}}
+{%endif%}

@@ -1,0 +1,93 @@
+:root {
+  --text-1: #0d1c28;
+  --text-1-1: #333;
+  --text-2: #454848;
+  --text-3: #636567;
+  --text-4: #727475;
+  --radius: 4px;
+  --primary: #397eec;
+  --error-color: #bd1a2d;
+  --bg-1: #bec0c3;
+  --bg-2: #e2e2e2;
+  --bg-3: #f1f2f3;
+  --bg-4: #f7f7f7;
+  --pink: #f5222d;
+  --pink-bg: #fff1f0;
+  --pink-line: #ffa39e;
+  --green: #52c41a;
+  --green-bg: #f6ffed;
+  --green-line: #b7eb8f;
+  --blue: #1890ff;
+  --blue-bg: #e6f7ff;
+  --blue-line: #91d5ff;
+  --yellow: #fa8c16;
+  --yellow-bg: #fff7e6;
+  --yellow-line: #ffd591;
+  --cyan: #13c2c2;
+  --cyan-bg: #e6fffb;
+  --cyan-line: #87e8de;
+  --gray: #636567;
+  --gray-bg: #f1f2f3;
+  --tray-line: #c7c7c7;
+  --bg-1: #bd1a2d1a;
+  --border: #d9d9d9;
+  --gray2: #8e959e;
+  --gray-100: #efefef;
+  --gray-200: #dcdcdc;
+  --gray-500: #8e959e;
+  --link: #3e97df;
+}
+
+body,
+div#root {
+  height: 100%;
+  font-size: 14px;
+  overflow: hidden;
+}
+
+.ant-design-pro,
+.ant-layout {
+  height: 100%;
+  overflow: hidden;
+
+  .ant-pro-page-container {
+    height: 100%;
+    overflow-y: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .ant-page-header {
+    width: 100%;
+    height: 49px;
+    padding: 0 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-direction: row-reverse;
+    border-bottom: solid 1px var(--bg-4);
+    flex-shrink: 0;
+  }
+
+  .ant-pro-grid-content {
+    flex: 1;
+    overflow-y: auto;
+    .ant-pro-grid-content-children {
+      padding: 24px;
+    }
+  }
+
+  .budiness-detail .ant-pro-grid-content .ant-pro-grid-content-children {
+    padding: 0 !important;
+  }
+}
+
+.user-role-config-modal {
+  .ant-modal-body {
+    height: calc(100vh - 400px);
+    overflow-y: hidden;
+  }
+  .ant-transfer {
+    height: 100%;
+    overflow-y: hidden;
+  }
+}

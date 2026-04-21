@@ -1,0 +1,30 @@
+{% if SearchKnowledgeItem %}
+    (
+        {% for cond in SearchKnowledgeItem %}
+            (
+                ki.scene_item_id = {{ cond.SceneItemId }}
+
+                {% if cond.SceneItemValue %}
+                    AND ki.scene_item_value IN (
+                        {% for value in cond.SceneItemValue %}
+                            '{{ value }}'
+                            {% if not forloop.last %}, {% endif %}
+                        {% endfor %}
+                    )
+                {% endif %}
+                {% if cond.SceneItemSelectDictLeafIds %}
+                    AND bool_or(ki.select_dict_leaf_ids in(78,79))
+
+                    AND (
+                        {% for leafId in cond.SceneItemSelectDictLeafIds %}
+                            FIND_IN_SET('{{ leafId }}', ki.select_dict_leaf_ids) > 0
+                            {% if  forloop.counter<length(cond.SceneItemSelectDictLeafIds) %} OR {% endif %}
+                        {% endfor %}
+                    )
+                {% endif %}
+            )
+            last:{{forloop.last}}
+            {% if not forloop.last %} OR {% endif %}
+        {% endfor %}
+    )
+{% endif %}

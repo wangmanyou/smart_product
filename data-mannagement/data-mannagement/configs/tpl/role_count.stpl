@@ -1,0 +1,14 @@
+SELECT count(distinct(u.id))
+FROM `role` u WHERE del=0
+    {%if searchRoleName%}
+       and u.name like '%{{searchRoleName}}%'
+     {%endif%}
+
+     {%if searchRoleRemark%}
+        and u.remark like '%{{searchRoleRemark}}%'
+      {%endif%}
+      {%if SearchRoleDisabled == "enabled"%}
+         and u.is_disabled = false
+     {%elif SearchRoleDisabled == "disabled"%}
+         and u.is_disabled = true
+     {%endif%}

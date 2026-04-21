@@ -1,0 +1,19 @@
+SELECT *
+FROM `role` u WHERE del=0
+    {%if searchRoleName%}
+       and u.name like '%{{searchRoleName}}%'
+     {%endif%}
+
+     {%if searchRoleRemark%}
+        and u.remark like '%{{searchRoleRemark}}%'
+      {%endif%}
+      {%if SearchRoleDisabled == "enabled"%}
+         and u.is_disabled = false
+     {%elif SearchRoleDisabled == "disabled"%}
+         and u.is_disabled = true
+     {%endif%}
+
+order by u.update_at desc, u.id desc
+{%if PageSize>0 and PageNumber>0%}
+limit {{PageSize}} offset {{PageSize*(PageNumber-1)}}
+{%endif%}

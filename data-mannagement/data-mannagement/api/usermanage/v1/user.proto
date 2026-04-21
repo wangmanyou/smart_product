@@ -1,0 +1,248 @@
+syntax = "proto3";
+
+package api.usermanage.v1;
+
+import "google/protobuf/empty.proto";
+import "google/api/annotations.proto";
+import "validate/validate.proto";
+
+
+
+option go_package = "gitee.com/kangdan0404/backend-of-knowledge-base/api/usermanage/v1;v1";
+
+// The UserManage service definition.
+service UserManage {
+  //新增用户
+  rpc AddUser (AddUserRequest) returns (AddUserReply) {
+    option (google.api.http) = {
+      post: "/v1/data/user/add",
+      body:"*"
+    };
+  }
+
+
+  // 生成随机密码
+  rpc RandomPassword (google.protobuf.Empty) returns (RandomPasswordReply) {
+    option (google.api.http) = {
+      get: "/v1/data/user/password/random",
+    };
+  }
+
+  // 用户详情
+  rpc UserDetail (UserDetailRequest) returns (UserDetailReply) {
+    option (google.api.http) = {
+      get: "/v1/data/user/detail",
+    };
+  }
+
+  // 当前登陆用户详情
+  rpc CurrentUserDetail (google.protobuf.Empty) returns (UserDetailReply) {
+    option (google.api.http) = {
+      get: "/v1/data/user/current/detail",
+    };
+  }
+
+  // 编辑用户
+  rpc EditUser (EditUserRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/data/user/edit",
+      body:"*"
+    };
+  }
+
+  // 编辑用户状态
+  rpc EditUserDisabled (EditUserDisabledRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/data/user/edit/status",
+      body:"*"
+    };
+  }
+
+  // 重置用户密码
+  rpc ResetUserPassword (ResetUserPasswordRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/data/user/password/reset",
+      body:"*"
+    };
+  }
+
+  // 删除用户
+  rpc DeleteUser (DeleteUserRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/data/user/delete",
+      body:"*"
+    };
+  }
+
+  // 用户列表
+  rpc UserList (UserListRequest) returns (UserListReply) {
+    option (google.api.http) = {
+      get: "/v1/data/user/list",
+    };
+  }
+
+  // 登陆
+  rpc Login (LoginRequest) returns (LoginReply) {
+    option (google.api.http) = {
+      get: "/v1/data/user/login",
+    };
+  }
+
+}
+
+
+message LoginRequest{
+  // 用户账号，唯一不可修改
+  string user_account = 1;
+  // 用户密码
+  string user_password = 2;
+}
+
+
+message LoginReply{
+  // 登陆token,放入header中，key为： Authorization，value为：Bearer+空格+返回的token
+  string token = 1;
+}
+
+message UserListRequest{
+  // 每页条数（必填）
+  uint64 page_size = 1 [(validate.rules).uint64.gt = 0];
+  // 页码数,从1开始（必填）
+  uint64 page_number = 2 [(validate.rules).uint64.gt = 0];
+  // 排序字段（非必须）
+  string sort_by = 3 [(validate.rules).string = {ignore_empty:true, in: ["id"]}];
+  // 排序方式("asc" or "desc") （非必须）
+  string order = 4 [(validate.rules).string = {ignore_empty:true, in: ["asc", "desc"]}];
+  // 用户账号，唯一不可修改
+  string search_user_account = 5;
+  // 用户昵称
+  string search_user_nickname = 6;
+  // 用户邮箱
+  string search_user_email = 7;
+  // 用户手机号码
+  string search_user_phone_num = 8;
+  // 用户性别，列表为：男，女,默认未知
+  string search_user_sex = 9;
+  // 按照是否禁用搜索, all：搜索全部，disabled：搜索禁用的 enabled：搜索未禁用的
+  string search_user_disabled = 10[(validate.rules).string = {ignore_empty:true, in: ['all', 'disabled','enabled']}];
+}
+
+message UserListReply{
+  message User{
+    // 用户账号，唯一不可修改
+    string user_account = 1;
+    // 用户昵称
+    string user_nickname = 2;
+    // 用户邮箱
+    string user_email = 3;
+    // 用户手机号码
+    string user_phone_num = 4;
+    // 用户性别，只能输入：男，女,默认未知
+    string user_sex = 5;
+    // 用户头像路径，先上传图片，此处为服务器返回的图片路径
+    string user_picture= 7;
+    // 是否禁用
+    bool is_disabled  = 8;
+    // 用户id
+    uint32 user_id = 9;
+    // 是否内置
+    bool is_builtin  = 12;
+    // 更新时间
+    int64 update_time = 10;
+    // 生成时间
+    int64 create_time = 11;
+  }
+  // 用户列表
+  repeated User content = 1;
+  // 用户总个数
+  int32  totalElements = 2;
+}
+
+message DeleteUserRequest{
+  // 用户id
+  uint32 user_id = 1;
+}
+
+message ResetUserPasswordRequest{
+  // 用户id
+  uint32 user_id = 1;
+  // 用户密码
+  string user_password = 2;
+}
+
+message EditUserDisabledRequest{
+  // 用户id
+  uint32 user_id = 1;
+  // 是否禁用, 否：0，禁用：1，默认0
+  bool is_disabled = 2;
+}
+
+message EditUserRequest{
+  // 用户id
+  uint32 user_id = 1;
+  // 用户昵称
+  string user_nickname = 2;
+  // 用户邮箱
+  string user_email = 3;
+  // 用户手机号码
+  string user_phone_num = 4;
+  // 用户性别，只能输入：男，女,默认未知
+  string user_sex = 5;
+  // 用户头像路径，先上传图片，此处为服务器返回的图片路径
+  string user_picture= 7;
+}
+
+message UserDetailRequest{
+  uint32 user_id = 1;
+}
+
+message UserDetailReply{
+  // 用户账号，唯一不可修改
+  string user_account = 1;
+  // 用户昵称
+  string user_nickname = 2;
+  // 用户邮箱
+  string user_email = 3;
+  // 用户手机号码
+  string user_phone_num = 4;
+  // 用户性别，只能输入：男，女,默认未知
+  string user_sex = 5;
+  // 用户头像路径，先上传图片，此处为服务器返回的图片路径
+  string user_picture= 7;
+  // 是否禁用
+  bool is_disabled  = 8;
+  // 是否内置
+  bool is_builtin  = 9;
+  // 更新时间
+  int64 update_time = 10;
+  // 生成时间
+  int64 create_time = 11;
+}
+
+
+message RandomPasswordReply{
+  // 生成随机密码
+  string random_password = 1;
+}
+
+message AddUserRequest{
+  // 用户账号，唯一不可修改
+  string user_account = 1[(validate.rules).string = { min_len:1,max_len:50}];
+  // 用户昵称
+  string user_nickname = 2[(validate.rules).string = { min_len:0,max_len:50}];
+  // 用户邮箱
+  string user_email = 3[(validate.rules).string = { min_len:0,max_len:255}];
+  // 用户手机号码
+  string user_phone_num = 4[(validate.rules).string = { min_len:0,max_len:11}];
+  // 用户性别，只能输入：男，女
+  string user_sex = 5[(validate.rules).string = {ignore_empty:true, in: ["男", "女"]}];
+  // 用户密码
+  string user_password = 6;
+  // 用户头像路径，先上传图片，此处为服务器返回的图片路径
+  string user_picture= 7;
+}
+
+message AddUserReply{
+  // 新增的用户id
+  uint32  user_id = 1;
+}

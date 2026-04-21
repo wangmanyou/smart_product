@@ -1,0 +1,206 @@
+syntax = "proto3";
+
+package api.scenemanage.v1;
+
+import "google/protobuf/empty.proto";
+import "google/api/annotations.proto";
+import "validate/validate.proto";
+
+option go_package = "gitee.com/kangdan0404/backend-of-knowledge-base/api/scenemanage/v1;v1";
+
+// The DictManage service definition.
+service SceneManage {
+  //创建场景
+  rpc CreateScene (CreateSceneRequest) returns (CreateSceneReply) {
+    option (google.api.http) = {
+      post: "/v1/data/scene/create",
+      body:"*"
+    };
+  }
+
+  //复制场景
+  rpc CopyScene (CopySceneRequest) returns (CopySceneReply) {
+    option (google.api.http) = {
+      post: "/v1/data/scene/copy",
+      body:"*"
+    };
+  }
+
+  // 编辑场景模版状态
+  rpc EditSceneDisabled (EditSceneDisabledRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/data/scene/edit/status",
+      body:"*"
+    };
+  }
+
+  // 编辑场景(包括编辑名字，新增场景item，默认为可用)
+  rpc EditScene (EditSceneRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/data/scene/edit",
+      body:"*"
+    };
+  }
+
+  // 场景详情
+  rpc SceneDetail (SceneDetailRequest) returns (SceneDetailReplay) {
+    option (google.api.http) = {
+      get: "/v1/data/scene/detail",
+    };
+  }
+
+  // 场景模版列表
+  rpc SceneTemplateList(SceneTemplateListRequest)returns(SceneTemplateListReply){
+    option (google.api.http) = {
+      get: "/v1/data/scene/list",
+    };
+  }
+
+  // 删除场景条目
+  rpc DeleteSceneItem(DeleteSceneItemRequest)returns(google.protobuf.Empty){
+    option (google.api.http) = {
+      delete: "/v1/data/scene/item/delete",
+    };
+  }
+
+
+}
+
+
+message CopySceneRequest{
+  // 模版场景id
+  uint64 scene_template_id =1[(validate.rules).uint64.gte = 0];
+  // 新场景名字
+  string  scene_name = 3[(validate.rules).string = {min_len:1,max_len:255}];
+}
+
+message CopySceneReply{
+  // 模版场景id
+  uint64 scene_template_id =1[(validate.rules).uint64.gte = 0];
+}
+
+message DeleteSceneItemRequest{
+  // 条目id
+  uint64 scene_item_id = 1;
+}
+message SceneTemplateListRequest{
+  // 每页条数（必填）
+  uint64 page_size = 1 [(validate.rules).uint64.gt = 0];
+  // 页码数,从1开始（必填）
+  uint64 page_number = 2 [(validate.rules).uint64.gt = 0];
+  // 排序字段（非必须）
+  string sort_by = 3 [(validate.rules).string = {ignore_empty:true, in: ["id"]}];
+  // 排序方式("asc" or "desc") （非必须）
+  string order = 4 [(validate.rules).string = {ignore_empty:true, in: ["asc", "desc"]}];
+  // 按照场景名称进行模糊搜索（非必须）
+  string search_scene_name = 5;
+  // 按照是否禁用搜索, all：搜索全部，disabled：搜索禁用的 enabled：搜索未禁用的
+  string search_scene_disabled = 6[(validate.rules).string = {ignore_empty:true, in: ['all', 'disabled','enabled']}];
+}
+
+message SceneTemplate{
+  // 模版场景id
+  uint64 scene_template_id =2[(validate.rules).uint64.gte = 0];
+  // 场景名字
+  string  scene_name = 3[(validate.rules).string = {min_len:1,max_len:255}];
+  // 是否禁用, 否：0，禁用：1，默认0
+  bool scene_is_disabled = 4;
+  // 是否使用中，0否，1使用中
+  bool scene_is_used = 5;
+  // 创建者
+  string creatorName = 6;
+  // 更新时间
+  int64 update_time = 7;
+}
+
+message SceneTemplateListReply{
+  // 场景模版列表
+  repeated SceneTemplate content = 1;
+  // 字典模版总个数
+  int32  totalElements = 2;
+}
+
+
+message SceneDetailRequest{
+  // 模版场景id
+  uint64 scene_template_id =1[(validate.rules).uint64.gte = 0];
+}
+
+message SceneDetailReplay{
+  message SceneItem{
+    // 条目id
+    uint64 id = 1;
+    // 类型，dict:字典类型，text: 文本，integer:整数，decimal:小数，datetime:日期，picture:图片，video:视频，audio:音频，file:文件
+    string  type = 2[(validate.rules).string = {in: ["dict", "text","integer","decimal","datetime","picture","video","audio","file"]}];
+    // 字典模版id,如果dict类型为dict
+    uint64 dict_template_id = 8;
+    // 字典模版名字,如果dict类型为dict
+    string dict_template_name = 10;
+    // 是否可写多个值，0:否 1:是
+    bool multi_value = 3;
+    //是否隐藏，0:否 1:是
+    bool is_hide  = 4;
+    // 是否必填，0:否 1:是
+    bool is_required = 5;
+    //是否支持搜索，0:否 1:是
+    bool is_support_search = 6;
+    //item排列顺序，从1开始
+    uint64 sort_number = 7[(validate.rules).uint64.gte = 1];
+    // 场景条目名字
+    string  scene_item_name = 9[(validate.rules).string = {min_len:1,max_len:255}];
+  }
+  // 增加的场景条目
+  repeated SceneItem scene_item = 1;
+  SceneTemplate scene_template_detail = 2;
+
+}
+
+message EditSceneRequest{
+  // 模版场景id
+  uint64 scene_template_id =1[(validate.rules).uint64.gte = 0];
+  // 场景名字
+  string  scene_name = 2[(validate.rules).string = {min_len:1,max_len:255}];
+  // 增加的场景条目
+  repeated AddSceneItem scene_item = 3;
+}
+
+message EditSceneDisabledRequest{
+  // 场景模版id
+  uint64 scene_template_id = 1[(validate.rules).uint64.gte = 0];
+  // 是否禁用, 否：0，禁用：1，默认0
+  bool is_disabled = 2;
+}
+
+// 增加的场景条目
+message AddSceneItem{
+  // 场景id,新增就是0，否则就是原来id
+  uint64 id = 9;
+  // 场景条目名字
+  string  scene_item_name = 8[(validate.rules).string = {min_len:1,max_len:255}];
+  // 类型，dict:字典类型，text: 文本，integer:整数，decimal:小数，datetime:日期，picture:图片，video:视频，audio:音频，file:文件
+  string  type = 2[(validate.rules).string = {in: ["dict", "text","integer","decimal","datetime","picture","video","audio","file"]}];
+ // 字典模版id,如果dict类型为dict,必填
+  uint64 dict_template_id = 1;
+  // 是否可写多个值，0:否 1:是
+  bool multi_value = 3;
+  //是否隐藏，0:否 1:是
+  bool is_hide  = 4;
+  // 是否必填，0:否 1:是
+  bool is_required = 5;
+  //是否必填，0:否 1:是
+  bool is_support_search = 6;
+  //item排列顺序，从1开始
+  uint64 sort_number = 7[(validate.rules).uint64.gte = 1];
+}
+
+
+message CreateSceneRequest{
+  // 场景名字
+  string  scene_name = 1[(validate.rules).string = {min_len:1,max_len:255}];
+  repeated AddSceneItem scene_item = 2;
+}
+
+message CreateSceneReply{
+  // 场景模版id
+  uint64 scene_template_id = 1;
+}
