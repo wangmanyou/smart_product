@@ -25,3 +25,6 @@ data-mannagement/data-mannagement/*.tar.zip
 .DS_Store
 Thumbs.db
 __MACOSX/
+
+# Java build outputs
+knowledge-hub-backend-spring/target/
