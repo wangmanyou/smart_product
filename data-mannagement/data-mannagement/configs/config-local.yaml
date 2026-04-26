@@ -1,6 +1,6 @@
 server:
   http:
-    addr: 0.0.0.0:8000
+    addr: 0.0.0.0:8001
     timeout: 1s
   grpc:
     addr: 0.0.0.0:9000
@@ -9,8 +9,8 @@ data:
   database:
     url: root:root@tcp(localhost:13306)/knowledge?charset=utf8mb4
     maxIdle: 10
-    tpl: ../../configs/tpl
-    init_db_file: ../../configs/db/init.sql
+    tpl: ./configs/tpl
+    init_db_file: ./configs/db/init.sql
   redis:
     addr: 127.0.0.1:16379  # Redis 的本地地址和端口
     password:     # Redis 密码，如果没有设置密码可以留空
