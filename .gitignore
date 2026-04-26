@@ -28,3 +28,7 @@ __MACOSX/
 
 # Java build outputs
 knowledge-hub-backend-spring/target/
+
+# IDE files
+.idea/
+**/.idea/

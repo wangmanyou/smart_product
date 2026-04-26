@@ -4,7 +4,10 @@ This is a fresh Spring Boot backend for local development with the existing Reac
 
 ## Run locally
 
-Make sure MySQL is available at `127.0.0.1:13306`, database `knowledge`, user `root`, password `root`.
+Make sure the existing Docker services are available:
+
+- MySQL: `127.0.0.1:13306`, database `knowledge`, user `root`, password `root`
+- Redis: `127.0.0.1:16379`, database `6`
 
 ```powershell
 cd knowledge-hub-backend-spring
@@ -29,8 +32,8 @@ proxy: {
 }
 ```
 
-Default admin for a newly initialized database:
+Newly initialized databases reuse the same bcrypt admin password hash as the Go backend seed data:
 
 ```text
-admin / Admin888888
+account: admin
 ```

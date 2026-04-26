@@ -1,4 +1,4 @@
-FROM m.daocloud.io/docker.io/library/node:22-alpine3.19 as build
+FROM m.daocloud.io/docker.io/library/node:22-alpine3.19 AS build
 RUN npm install -g pnpm
 WORKDIR /frontend-app
 COPY pnpm-lock.yaml ./

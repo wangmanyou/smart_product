@@ -1,4 +1,4 @@
-package com.smartproduct.user;
+package com.smartproduct.dto;
 
 public final class UserRequests {
     private UserRequests() {

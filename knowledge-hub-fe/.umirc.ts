@@ -36,12 +36,12 @@ export default defineConfig({
   tailwindcss: {},
   proxy: {
     '/api': {
-      target: 'http://192.168.10.5:8000',
+      target: 'http://127.0.0.1:8001',
       changeOrigin: true,
-      // pathRewrite: { '^/api': '' },
+      pathRewrite: { '^/api': '' },
     },
     '/data': {
-      target: 'http://192.168.10.5:8000',
+      target: 'http://127.0.0.1:8001',
       changeOrigin: true,
     },
   },

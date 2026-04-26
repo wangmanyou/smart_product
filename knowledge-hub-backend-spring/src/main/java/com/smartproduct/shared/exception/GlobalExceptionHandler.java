@@ -1,4 +1,4 @@
-package com.smartproduct.common;
+package com.smartproduct.shared.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

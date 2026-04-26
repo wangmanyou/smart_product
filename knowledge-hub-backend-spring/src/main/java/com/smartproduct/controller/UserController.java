@@ -1,5 +1,8 @@
-package com.smartproduct.user;
+package com.smartproduct.controller;
 
+import com.smartproduct.dto.UserDto;
+import com.smartproduct.dto.UserRequests;
+import com.smartproduct.service.UserService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;

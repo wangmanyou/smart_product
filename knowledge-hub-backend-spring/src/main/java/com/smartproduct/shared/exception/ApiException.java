@@ -1,4 +1,4 @@
-package com.smartproduct.common;
+package com.smartproduct.shared.exception;
 
 public class ApiException extends RuntimeException {
     private final int status;
