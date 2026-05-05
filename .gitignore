@@ -10,6 +10,15 @@ knowledge-hub-fe/src/.umi/
 knowledge-hub-fe/src/.umi-production/
 knowledge-hub-fe/src/.umi-test/
 knowledge-hub-fe/.mfsu/
+knowledge-hub-modern-fe/node_modules/
+knowledge-hub-modern-fe/dist/
+knowledge-hub-modern-fe/.umi/
+knowledge-hub-modern-fe/.umi-production/
+knowledge-hub-modern-fe/.umi-test/
+knowledge-hub-modern-fe/src/.umi/
+knowledge-hub-modern-fe/src/.umi-production/
+knowledge-hub-modern-fe/src/.umi-test/
+knowledge-hub-modern-fe/.mfsu/
 
 # Backend build outputs and bundled deployment artifacts
 data-mannagement/data-mannagement/bin/
