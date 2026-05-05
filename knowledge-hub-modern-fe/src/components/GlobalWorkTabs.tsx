@@ -33,7 +33,11 @@ function titleOf(path: string) {
   if (path === '/system/dicts') return '目录管理';
   if (path === '/system/scenes') return '场景管理';
   if (path === '/system/users') return '用户管理';
+  if (path === '/system/roles') return '角色管理';
+  if (path === '/system/approvals') return '变更审批';
   if (path === '/statistics') return '数据展板';
+  if (/^\/system\/roles\/new\/config/.test(path)) return '新增角色';
+  if (/^\/system\/roles\/[^/]+\/config/.test(path)) return '角色配置';
   if (/^\/system\/dicts\/new\/edit/.test(path)) return '新增目录';
   if (/^\/system\/dicts\/[^/]+\/edit/.test(path)) return '目录编辑';
   if (/^\/system\/dicts\/[^/]+/.test(path)) return '目录详情';
@@ -89,6 +93,9 @@ function inferredReplacePaths(path: string) {
     paths.push(`/system/scenes/${sceneEdit[1]}/view`);
     paths.push(`/system/scenes/${sceneEdit[1]}`);
   }
+
+  const roleEdit = path.match(/^\/system\/roles\/([^/]+)\/config/);
+  if (roleEdit) paths.push('/system/roles');
 
   const knowledgeEdit = path.match(/^\/knowledge\/scene\/([^/]+)\/edit\/([^/]+)/);
   if (knowledgeEdit) paths.push(`/knowledge/scene/${knowledgeEdit[1]}/detail/${knowledgeEdit[2]}`);

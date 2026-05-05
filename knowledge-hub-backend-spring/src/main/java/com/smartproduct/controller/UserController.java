@@ -3,6 +3,7 @@ package com.smartproduct.controller;
 import com.smartproduct.dto.UserDto;
 import com.smartproduct.dto.UserRequests;
 import com.smartproduct.service.UserService;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -31,11 +32,13 @@ public class UserController {
     }
 
     @GetMapping("/v1/data/user/detail")
+    @PreAuthorize("hasAuthority('system:manage')")
     public UserDto detail(@RequestParam Long userId) {
         return service.detail(userId);
     }
 
     @GetMapping("/v1/data/user/list")
+    @PreAuthorize("hasAuthority('system:manage')")
     public Map<String, Object> list(
             @RequestParam(defaultValue = "1") int pageNumber,
             @RequestParam(defaultValue = "10") int pageSize,
@@ -50,35 +53,41 @@ public class UserController {
     }
 
     @PostMapping("/v1/data/user/add")
+    @PreAuthorize("hasAuthority('system:manage')")
     public Map<String, Object> add(@RequestBody UserRequests.AddUserRequest request) {
         return service.add(request);
     }
 
     @PostMapping("/v1/data/user/edit")
+    @PreAuthorize("hasAuthority('system:manage')")
     public Map<String, Object> edit(@RequestBody UserRequests.EditUserRequest request) {
         service.edit(request);
         return Map.of();
     }
 
     @PostMapping("/v1/data/user/edit/status")
+    @PreAuthorize("hasAuthority('system:manage')")
     public Map<String, Object> editStatus(@RequestBody UserRequests.EditStatusRequest request) {
         service.editStatus(request);
         return Map.of();
     }
 
     @PostMapping("/v1/data/user/delete")
+    @PreAuthorize("hasAuthority('system:manage')")
     public Map<String, Object> delete(@RequestBody UserRequests.UserIdRequest request) {
         service.delete(request.userId);
         return Map.of();
     }
 
     @PostMapping("/v1/data/user/password/reset")
+    @PreAuthorize("hasAuthority('system:manage')")
     public Map<String, Object> resetPassword(@RequestBody UserRequests.ResetPasswordRequest request) {
         service.resetPassword(request);
         return Map.of();
     }
 
     @GetMapping("/v1/data/user/password/random")
+    @PreAuthorize("hasAuthority('system:manage')")
     public Map<String, Object> randomPassword() {
         return service.randomPassword();
     }

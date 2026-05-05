@@ -12,6 +12,7 @@ public final class UserRequests {
         public String userPhoneNum;
         public String userSex;
         public String userPicture;
+        public Long roleId;
     }
 
     public static class EditUserRequest {
@@ -21,6 +22,7 @@ public final class UserRequests {
         public String userPhoneNum;
         public String userSex;
         public String userPicture;
+        public Long roleId;
     }
 
     public static class UserIdRequest {

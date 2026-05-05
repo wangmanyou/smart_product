@@ -1,5 +1,6 @@
 import {
   BarChartOutlined,
+  BellOutlined,
   BookOutlined,
   DatabaseOutlined,
   HomeOutlined,
@@ -8,9 +9,10 @@ import {
 } from '@ant-design/icons';
 import type { RunTimeLayoutConfig } from '@umijs/max';
 import { history } from '@umijs/max';
-import { Avatar, Dropdown, message, Space } from 'antd';
-import { authApi } from './services/api';
+import { message } from 'antd';
 import GlobalWorkTabs from './components/GlobalWorkTabs';
+import HeaderUserMenu from './components/HeaderUserMenu';
+import { authApi } from './services/api';
 import './global.less';
 
 export function onRouteChange({ location }: any) {
@@ -42,21 +44,30 @@ export const layout: RunTimeLayoutConfig = () => ({
       paddingBlockPageContainerContent: 24,
     },
   },
-  menuDataRender: () => [
-    { path: '/home', name: '首页', icon: <HomeOutlined /> },
-    { path: '/knowledge', name: '知识中心', icon: <BookOutlined /> },
-    {
-      path: '/system',
-      name: '系统管理',
-      icon: <SettingOutlined />,
-      children: [
-        { path: '/system/dicts', name: '目录管理', icon: <DatabaseOutlined /> },
-        { path: '/system/scenes', name: '场景管理', icon: <BookOutlined /> },
-        { path: '/system/users', name: '用户管理', icon: <TeamOutlined /> },
-      ],
-    },
-    { path: '/statistics', name: '数据展板', icon: <BarChartOutlined /> },
-  ],
+  menuDataRender: () => {
+    const user = authApi.getCurrentUser();
+    const isAdmin = Boolean(user?.isBuiltin || user?.roleId === 1);
+    const pages = new Set(user?.setting?.pagePermissions || user?.pagePermissions || []);
+    const actions = new Set(user?.setting?.operationPermissions || user?.operationPermissions || []);
+    const canPage = (code: string) => isAdmin || pages.has(code) || (code.startsWith('page:system:') && actions.has('system:manage'));
+    return [
+      canPage('page:knowledge') ? { path: '/home', name: '首页', icon: <HomeOutlined /> } : null,
+      canPage('page:knowledge') ? { path: '/knowledge', name: '知识中心', icon: <BookOutlined /> } : null,
+      {
+        path: '/system',
+        name: '系统管理',
+        icon: <SettingOutlined />,
+        children: [
+          canPage('page:system:dicts') ? { path: '/system/dicts', name: '目录管理', icon: <DatabaseOutlined /> } : null,
+          canPage('page:system:scenes') ? { path: '/system/scenes', name: '场景管理', icon: <BookOutlined /> } : null,
+          canPage('page:system:users') ? { path: '/system/users', name: '用户管理', icon: <TeamOutlined /> } : null,
+          canPage('page:system:roles') ? { path: '/system/roles', name: '角色管理', icon: <SettingOutlined /> } : null,
+          canPage('page:system:approvals') ? { path: '/system/approvals', name: '变更审批', icon: <BellOutlined /> } : null,
+        ].filter(Boolean),
+      },
+      canPage('page:statistics') ? { path: '/statistics', name: '数据看板', icon: <BarChartOutlined /> } : null,
+    ].filter((item: any) => item && (item.path !== '/system' || item.children?.length));
+  },
   menuItemRender: (item, dom) => {
     if (item.children?.length) return dom;
     return (
@@ -72,26 +83,8 @@ export const layout: RunTimeLayoutConfig = () => ({
   },
   avatarProps: {
     size: 'small',
-    title: authApi.getCurrentUser()?.userNickname || '超级管理员',
-    render: (_, dom) => (
-      <Dropdown
-        menu={{
-          items: [{
-            key: 'logout',
-            label: '退出登录',
-            onClick: () => {
-              authApi.clear();
-              history.push('/login');
-            },
-          }],
-        }}
-      >
-        <Space className="modern-avatar">
-          <Avatar size={28}>{authApi.getCurrentUser()?.userNickname?.[0] || '管'}</Avatar>
-          {dom}
-        </Space>
-      </Dropdown>
-    ),
+    title: authApi.getCurrentUser()?.userNickname || authApi.getCurrentUser()?.userAccount || '管理员',
+    render: (_, dom) => <HeaderUserMenu dom={dom} />,
   },
   childrenRender: (children) => (
     <>

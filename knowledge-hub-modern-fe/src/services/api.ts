@@ -161,4 +161,53 @@ export const userApi = {
       method: 'GET',
       params: { pageNumber: 1, pageSize: 100, ...params },
     }),
+  add: (data: any) => post('/v1/data/user/add', data),
+  edit: (data: any) => post('/v1/data/user/edit', data),
+  editStatus: (data: any) => post('/v1/data/user/edit/status', data),
+  resetPassword: (data: any) => post('/v1/data/user/password/reset', data),
+};
+
+export const roleApi = {
+  list: (params?: any) =>
+    apiRequest('/v1/data/role/list', {
+      method: 'GET',
+      params: { pageNumber: 1, pageSize: 100, ...params },
+    }),
+  detail: (roleId: number | string) =>
+    apiRequest('/v1/data/role/detail', {
+      method: 'GET',
+      params: { roleId },
+    }),
+  add: (data: any) => post('/v1/data/role/add', data),
+  edit: (data: any) => post('/v1/data/role/edit', data),
+  editStatus: (data: any) => post('/v1/data/role/edit/status', data),
+  delete: (roleId: number | string) => post('/v1/data/role/delete', { roleId: Number(roleId) }),
+};
+
+export const permissionApi = {
+  list: () => apiRequest('/v1/data/permission/list', { method: 'GET' }),
+  add: (data: any) => post('/v1/data/permission/add', data),
+  edit: (data: any) => post('/v1/data/permission/edit', data),
+  editStatus: (data: any) => post('/v1/data/permission/edit/status', data),
+  delete: (permissionId: number | string) => post('/v1/data/permission/delete', { permissionId: Number(permissionId) }),
+};
+
+export const approvalApi = {
+  mine: (params?: any) =>
+    apiRequest('/v1/data/business/knowledge/change-request/my', {
+      method: 'GET',
+      params: { pageNumber: 1, pageSize: 10, ...params },
+    }),
+  list: (params?: any) =>
+    apiRequest('/v1/data/business/knowledge/change-request/list', {
+      method: 'GET',
+      params: { pageNumber: 1, pageSize: 10, ...params },
+    }),
+  update: (data: any) => post('/v1/data/business/knowledge/change-request/update', data),
+  withdraw: (changeRequestId: number | string) =>
+    post('/v1/data/business/knowledge/change-request/withdraw', { changeRequestId: Number(changeRequestId) }),
+  delete: (changeRequestId: number | string) =>
+    post('/v1/data/business/knowledge/change-request/delete', { changeRequestId: Number(changeRequestId) }),
+  approve: (data: any) => post('/v1/data/business/knowledge/change-request/approve', data),
+  reject: (data: any) => post('/v1/data/business/knowledge/change-request/reject', data),
 };

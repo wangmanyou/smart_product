@@ -48,6 +48,10 @@ export default defineConfig({
     { path: '/system/scenes/:id/view', component: './SceneConfig' },
     { path: '/system/scenes/:id/config', component: './SceneConfig' },
     { path: '/system/users', component: './UserManagement' },
+    { path: '/system/roles', component: './RoleManagement' },
+    { path: '/system/roles/new/config', component: './RoleConfig' },
+    { path: '/system/roles/:id/config', component: './RoleConfig' },
+    { path: '/system/approvals', component: './ChangeApprovals' },
     { path: '/statistics', component: './Statistics' },
   ],
   proxy: {

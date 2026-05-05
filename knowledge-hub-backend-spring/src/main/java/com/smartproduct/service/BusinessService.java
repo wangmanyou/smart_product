@@ -7,12 +7,19 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartproduct.entity.KnowledgeEntity;
 import com.smartproduct.entity.KnowledgeItemEntity;
+import com.smartproduct.entity.KnowledgeChangeRequestEntity;
 import com.smartproduct.entity.SceneItemEntity;
 import com.smartproduct.entity.SceneTemplateEntity;
+import com.smartproduct.mapper.KnowledgeChangeRequestMapper;
 import com.smartproduct.mapper.KnowledgeItemMapper;
 import com.smartproduct.mapper.KnowledgeMapper;
 import com.smartproduct.mapper.SceneItemMapper;
 import com.smartproduct.mapper.SceneTemplateMapper;
+import com.smartproduct.security.CurrentUser;
+import com.smartproduct.security.CurrentUserService;
+import com.smartproduct.security.PermissionCodes;
+import com.smartproduct.shared.exception.ApiException;
+import org.springframework.http.HttpStatus;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -55,9 +62,12 @@ public class BusinessService {
     private final SceneService sceneService;
     private final DictService dictService;
     private final TokenService tokens;
+    private final CurrentUserService currentUsers;
+    private final KnowledgeChangeRequestMapper changeRequests;
 
     public BusinessService(KnowledgeMapper knowledge, KnowledgeItemMapper knowledgeItems, SceneItemMapper sceneItems,
-                           SceneTemplateMapper scenes, SceneService sceneService, DictService dictService, TokenService tokens) {
+                           SceneTemplateMapper scenes, SceneService sceneService, DictService dictService, TokenService tokens,
+                           CurrentUserService currentUsers, KnowledgeChangeRequestMapper changeRequests) {
         this.knowledge = knowledge;
         this.knowledgeItems = knowledgeItems;
         this.sceneItems = sceneItems;
@@ -65,9 +75,12 @@ public class BusinessService {
         this.sceneService = sceneService;
         this.dictService = dictService;
         this.tokens = tokens;
+        this.currentUsers = currentUsers;
+        this.changeRequests = changeRequests;
     }
 
     public Map<String, Object> businessDetail(Long sceneTemplateId) {
+        requireSceneAccess(currentUsers.current(), sceneTemplateId);
         Map<String, Object> result = new LinkedHashMap<>();
         Map<String, Object> sceneDetail = sceneService.detail(sceneTemplateId);
         result.put("sceneDetail", sceneDetail);
@@ -84,13 +97,23 @@ public class BusinessService {
 
     @Transactional
     public Map<String, Object> addKnowledge(Map<String, Object> request, String authorization) {
-        TokenService.TokenUser user = resolveUser(authorization);
+        CurrentUser user = currentUsers.current();
+        Long sceneTemplateId = DictService.num(request.get("sceneTemplateId"));
+        requireSceneAccess(user, sceneTemplateId);
+        if (user.requiresApproval(PermissionCodes.KNOWLEDGE_CREATE)) {
+            return submitChange(KnowledgeChangeRequestStatus.CREATE, null, sceneTemplateId, request, null, user);
+        }
+        return addKnowledgeDirect(request, user.userId(), user.account());
+    }
+
+    @Transactional
+    public Map<String, Object> addKnowledgeDirect(Map<String, Object> request, Long userId, String userAccount) {
         LocalDateTime now = LocalDateTime.now();
         KnowledgeEntity row = new KnowledgeEntity();
         row.sceneTemplateId = DictService.num(request.get("sceneTemplateId"));
         row.viewTime = 0L;
-        row.creatorId = user.userId();
-        row.creatorName = user.userAccount();
+        row.creatorId = userId;
+        row.creatorName = userAccount;
         row.createAt = now;
         row.updateAt = now;
         row.del = 0;
@@ -104,12 +127,41 @@ public class BusinessService {
     public void editKnowledge(Map<String, Object> request) {
         Long id = DictService.num(request.get("knowledgeId"));
         KnowledgeEntity row = knowledge.selectById(id);
+        CurrentUser user = currentUsers.current();
+        requireKnowledge(row);
+        requireSceneAccess(user, row.sceneTemplateId);
+        assertNoPendingChange(id);
+        if (user.requiresApproval(PermissionCodes.KNOWLEDGE_UPDATE)) {
+            submitChange(KnowledgeChangeRequestStatus.UPDATE, id, row.sceneTemplateId, request, detail(id), user);
+            return;
+        }
+        editKnowledgeDirect(request);
+    }
+
+    @Transactional
+    public void editKnowledgeDirect(Map<String, Object> request) {
+        Long id = DictService.num(request.get("knowledgeId"));
+        KnowledgeEntity row = knowledge.selectById(id);
         knowledge.update(new UpdateWrapper<KnowledgeEntity>().eq("id", id).set("update_at", LocalDateTime.now()));
         saveKnowledgeItems(id, row == null ? null : row.sceneTemplateId, request.get("knowledgeItem"), false);
     }
 
     @Transactional
     public void deleteKnowledge(Long knowledgeId) {
+        KnowledgeEntity row = knowledge.selectById(knowledgeId);
+        CurrentUser user = currentUsers.current();
+        requireKnowledge(row);
+        requireSceneAccess(user, row.sceneTemplateId);
+        assertNoPendingChange(knowledgeId);
+        if (user.requiresApproval(PermissionCodes.KNOWLEDGE_DELETE)) {
+            submitChange(KnowledgeChangeRequestStatus.DELETE, knowledgeId, row.sceneTemplateId, Map.of("knowledgeId", knowledgeId), detail(knowledgeId), user);
+            return;
+        }
+        deleteKnowledgeDirect(knowledgeId);
+    }
+
+    @Transactional
+    public void deleteKnowledgeDirect(Long knowledgeId) {
         KnowledgeEntity row = knowledge.selectById(knowledgeId);
         knowledge.deleteById(knowledgeId);
         knowledgeItems.delete(new QueryWrapper<KnowledgeItemEntity>().eq("knowledge_id", knowledgeId));
@@ -135,6 +187,8 @@ public class BusinessService {
 
     public Map<String, Object> detail(Long knowledgeId) {
         KnowledgeEntity row = knowledge.selectById(knowledgeId);
+        requireKnowledge(row);
+        requireSceneAccess(currentUsers.current(), row.sceneTemplateId);
         if (row != null) {
             long next = (row.viewTime == null ? 0 : row.viewTime) + 1;
             knowledge.update(new UpdateWrapper<KnowledgeEntity>()
@@ -147,9 +201,11 @@ public class BusinessService {
     }
 
     public Map<String, Object> list(Map<String, Object> request) {
+        Long sceneTemplateId = DictService.num(request.get("sceneTemplateId"));
+        requireSceneAccess(currentUsers.current(), sceneTemplateId);
         QueryWrapper<KnowledgeEntity> query = new QueryWrapper<KnowledgeEntity>()
                 .eq("del", 0)
-                .eq("scene_template_id", DictService.num(request.get("sceneTemplateId")));
+                .eq("scene_template_id", sceneTemplateId);
         if (request.get("searchCreatorId") != null && !DictService.str(request.get("searchCreatorId")).isBlank()) {
             query.eq("creator_id", DictService.num(request.get("searchCreatorId")));
         }
@@ -179,7 +235,54 @@ public class BusinessService {
         return Map.of("content", content, "totalElements", page.getTotal());
     }
 
+    private Map<String, Object> submitChange(String requestType, Long knowledgeId, Long sceneTemplateId,
+                                             Map<String, Object> payload, Object before, CurrentUser user) {
+        try {
+            LocalDateTime now = LocalDateTime.now();
+            KnowledgeChangeRequestEntity row = new KnowledgeChangeRequestEntity();
+            row.requestType = requestType;
+            row.status = KnowledgeChangeRequestStatus.PENDING;
+            row.knowledgeId = knowledgeId;
+            row.sceneTemplateId = sceneTemplateId;
+            row.payloadJson = JSON.writeValueAsString(payload == null ? Map.of() : payload);
+            row.beforeJson = before == null ? null : JSON.writeValueAsString(before);
+            row.applicantId = user.userId();
+            row.applicantName = user.account();
+            row.createAt = now;
+            row.updateAt = now;
+            row.del = 0;
+            changeRequests.insert(row);
+            return Map.of("changeRequestId", row.id, "status", row.status);
+        } catch (Exception ex) {
+            throw new IllegalStateException("保存知识审批申请失败", ex);
+        }
+    }
+
+    private void assertNoPendingChange(Long knowledgeId) {
+        Long count = changeRequests.selectCount(new QueryWrapper<KnowledgeChangeRequestEntity>()
+                .eq("knowledge_id", knowledgeId)
+                .eq("status", KnowledgeChangeRequestStatus.PENDING)
+                .eq("del", 0)
+                .in("request_type", List.of(KnowledgeChangeRequestStatus.UPDATE, KnowledgeChangeRequestStatus.DELETE)));
+        if (count != null && count > 0) {
+            throw new ApiException(HttpStatus.BAD_REQUEST.value(), "该知识已有待审批变更，暂不能再次提交修改或删除");
+        }
+    }
+
+    private static void requireKnowledge(KnowledgeEntity row) {
+        if (row == null || row.del != null && row.del != 0) {
+            throw new ApiException(HttpStatus.NOT_FOUND.value(), "知识不存在");
+        }
+    }
+
+    private static void requireSceneAccess(CurrentUser user, Long sceneTemplateId) {
+        if (!user.canAccessScene(sceneTemplateId)) {
+            throw new ApiException(HttpStatus.FORBIDDEN.value(), "没有该场景的数据权限");
+        }
+    }
+
     public Map<String, Object> templateExport(Long sceneTemplateId) {
+        requireSceneAccess(currentUsers.current(), sceneTemplateId);
         SceneTemplateEntity scene = scenes.selectById(sceneTemplateId);
         List<SceneItemEntity> headers = exportableTemplateHeaders(sceneTemplateId);
         try (Workbook workbook = new XSSFWorkbook()) {
@@ -198,6 +301,7 @@ public class BusinessService {
     }
 
     public Map<String, Object> dataExport(Long sceneTemplateId) {
+        requireSceneAccess(currentUsers.current(), sceneTemplateId);
         SceneTemplateEntity scene = scenes.selectById(sceneTemplateId);
         List<SceneItemEntity> headers = visibleSceneItems(sceneTemplateId);
         List<KnowledgeEntity> rows = knowledge.selectList(new QueryWrapper<KnowledgeEntity>()
@@ -295,8 +399,9 @@ public class BusinessService {
     }
 
     public Map<String, Object> statisticsKnowledge(List<String> searchCreateTime) {
+        CurrentUser user = currentUsers.current();
         List<SceneTemplateEntity> sceneList = scenes.selectList(new QueryWrapper<SceneTemplateEntity>().eq("del", 0));
-        List<Map<String, Object>> content = sceneList.stream().map(scene -> {
+        List<Map<String, Object>> content = sceneList.stream().filter(scene -> user.canAccessScene(scene.id)).map(scene -> {
             QueryWrapper<KnowledgeEntity> query = new QueryWrapper<KnowledgeEntity>().eq("scene_template_id", scene.id).eq("del", 0);
             applyStatisticsRange(query, searchCreateTime);
             Long count = knowledge.selectCount(query);
@@ -314,6 +419,7 @@ public class BusinessService {
     }
 
     public Map<String, Object> statisticsCreator(Long sceneTemplateId) {
+        requireSceneAccess(currentUsers.current(), sceneTemplateId);
         List<KnowledgeEntity> rows = knowledge.selectList(new QueryWrapper<KnowledgeEntity>().eq("scene_template_id", sceneTemplateId).eq("del", 0));
         Map<String, Long> grouped = rows.stream().collect(java.util.stream.Collectors.groupingBy(row -> row.creatorName == null ? "" : row.creatorName, java.util.stream.Collectors.counting()));
         List<Map<String, Object>> content = grouped.entrySet().stream().map(entry -> {

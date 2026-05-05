@@ -49,6 +49,7 @@ public class RoleService {
         RoleEntity role = new RoleEntity();
         role.name = str(request.get("roleName"));
         role.remark = str(request.get("roleRemark"));
+        role.settingJson = settingJson(request.get("setting"));
         role.isDisabled = false;
         role.isBuiltin = false;
         role.isUsed = false;
@@ -62,7 +63,8 @@ public class RoleService {
                 .eq("id", num(request.get("roleId")))
                 .eq("del", 0)
                 .set("name", str(request.get("roleName")))
-                .set("remark", str(request.get("roleRemark"))));
+                .set("remark", str(request.get("roleRemark")))
+                .set(request.containsKey("setting"), "setting_json", settingJson(request.get("setting"))));
     }
 
     public void editStatus(Map<String, Object> request) {
@@ -82,6 +84,7 @@ public class RoleService {
         Map<String, Object> dto = new LinkedHashMap<>();
         dto.put("roleName", role.name);
         dto.put("roleRemark", role.remark);
+        dto.put("setting", parseSetting(role.settingJson));
         dto.put("isUsed", Boolean.TRUE.equals(role.isUsed));
         dto.put("isBuiltin", Boolean.TRUE.equals(role.isBuiltin));
         dto.put("isDisabled", Boolean.TRUE.equals(role.isDisabled));
@@ -101,5 +104,30 @@ public class RoleService {
 
     private static boolean bool(Object value) {
         return value instanceof Boolean b ? b : Boolean.parseBoolean(String.valueOf(value));
+    }
+
+    private static String settingJson(Object value) {
+        if (value == null) {
+            return "{}";
+        }
+        if (value instanceof String text) {
+            return text.isBlank() ? "{}" : text;
+        }
+        try {
+            return new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(value);
+        } catch (Exception ex) {
+            return "{}";
+        }
+    }
+
+    private static Object parseSetting(String value) {
+        if (value == null || value.isBlank()) {
+            return Map.of();
+        }
+        try {
+            return new com.fasterxml.jackson.databind.ObjectMapper().readValue(value, Object.class);
+        } catch (Exception ex) {
+            return Map.of();
+        }
     }
 }
