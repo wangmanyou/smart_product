@@ -3,7 +3,7 @@ import { history, useLocation, useParams } from '@umijs/max';
 import { Alert, Button, Card, Form, Input, Select, Space, message } from 'antd';
 import { useEffect, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
-import { businessApi } from '@/services/api';
+import { authApi, businessApi } from '@/services/api';
 import {
   buildKnowledgePayload,
   dictNodes,
@@ -23,6 +23,10 @@ export default function KnowledgeForm() {
   const [sceneDetail, setSceneDetail] = useState<any>();
 
   const formatted = formatBusinessDetail(sceneDetail);
+  const currentUser = authApi.getCurrentUser();
+  const isAdmin = Boolean(currentUser?.isBuiltin || currentUser?.roleId === 1 || currentUser?.roleIds?.includes?.(1));
+  const operationPermissions = new Set(currentUser?.setting?.operationPermissions || currentUser?.operationPermissions || []);
+  const canSave = isAdmin || operationPermissions.has(isCreate ? 'knowledge:create' : 'knowledge:update');
 
   const load = async () => {
     if (!sceneId) return;
@@ -74,8 +78,8 @@ export default function KnowledgeForm() {
       breadcrumb={`知识中心 / ${formatted.scene.sceneName || ''} / ${isCreate ? '新增知识' : '编辑知识'}`}
       extra={[
         <Button key="back" onClick={() => history.push({ pathname: `/knowledge/scene/${sceneId}`, state: { tabLabel: formatted.scene.sceneName || '知识列表' } })}>返回列表</Button>,
-        <Button key="save" type="primary" icon={<SaveOutlined />} onClick={() => form.submit()}>保存</Button>,
-      ]}
+        canSave ? <Button key="save" type="primary" icon={<SaveOutlined />} onClick={() => form.submit()}>保存</Button> : null,
+      ].filter(Boolean)}
     >
       <Alert
         style={{ marginBottom: 18 }}

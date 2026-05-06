@@ -1,5 +1,7 @@
 package com.smartproduct.dto;
 
+import java.util.List;
+
 public final class UserRequests {
     private UserRequests() {
     }
@@ -13,6 +15,7 @@ public final class UserRequests {
         public String userSex;
         public String userPicture;
         public Long roleId;
+        public List<Long> roleIds;
     }
 
     public static class EditUserRequest {
@@ -23,6 +26,7 @@ public final class UserRequests {
         public String userSex;
         public String userPicture;
         public Long roleId;
+        public List<Long> roleIds;
     }
 
     public static class UserIdRequest {

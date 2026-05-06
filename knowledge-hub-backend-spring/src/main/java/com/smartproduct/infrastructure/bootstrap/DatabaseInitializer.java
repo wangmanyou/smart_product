@@ -33,6 +33,7 @@ public class DatabaseInitializer implements CommandLineRunner {
             seedPermissions();
             seedAdminRole();
             seedAdmin();
+            syncLegacyUserRoles();
         } finally {
             if (lockValue.equals(redis.opsForValue().get(LOCK_KEY))) {
                 redis.delete(LOCK_KEY);
@@ -162,6 +163,17 @@ public class DatabaseInitializer implements CommandLineRunner {
                 )
                 """);
         jdbc.execute("""
+                create table if not exists user_role (
+                    id bigint unsigned not null auto_increment primary key,
+                    user_id bigint unsigned not null,
+                    role_id bigint unsigned not null,
+                    create_at datetime null,
+                    unique key uk_user_role (user_id, role_id),
+                    index idx_user_role_user (user_id),
+                    index idx_user_role_role (role_id)
+                )
+                """);
+        jdbc.execute("""
                 create table if not exists sys_permission (
                     id bigint unsigned not null auto_increment primary key,
                     code varchar(100) not null,
@@ -219,7 +231,13 @@ public class DatabaseInitializer implements CommandLineRunner {
         upsertPermission("page:system:users", "用户管理", "PAGE", "页面权限", "访问用户管理页面", 140);
         upsertPermission("page:system:roles", "角色管理", "PAGE", "页面权限", "访问角色管理页面", 150);
         upsertPermission("page:system:approvals", "变更审批", "PAGE", "页面权限", "访问变更审批页面", 160);
-        upsertPermission("system:manage", "系统管理", "ACTION", "系统管理", "管理用户、角色和系统配置", 170);
+        upsertPermission("system:dict:manage", "目录管理", "ACTION", "系统管理", "管理目录及目录字典配置", 170);
+        upsertPermission("system:scene:manage", "场景管理", "ACTION", "系统管理", "管理业务场景和字段配置", 180);
+        upsertPermission("system:user:manage", "用户管理", "ACTION", "系统管理", "管理用户、停用用户和重置密码", 190);
+        upsertPermission("system:role:manage", "角色管理", "ACTION", "系统管理", "管理角色、页面权限、操作权限和授权场景", 200);
+        upsertPermission("system:permission:manage", "权限管理", "ACTION", "系统管理", "维护权限字典", 210);
+        upsertPermission("system:approval:manage", "审批管理", "ACTION", "系统管理", "查看和处理知识变更审批", 220);
+        upsertPermission("system:manage", "系统管理", "ACTION", "系统管理", "兼容旧角色的系统管理总权限", 230);
     }
 
     private void upsertPermission(String code, String name, String type, String module, String description, int sortNumber) {
@@ -255,5 +273,14 @@ public class DatabaseInitializer implements CommandLineRunner {
                     values (true, 'admin', '超级管理员', 1, ?, '', false, '', '未知', '', 0, now(), now())
                     """, DEFAULT_ADMIN_PASSWORD_HASH);
         }
+    }
+
+    private void syncLegacyUserRoles() {
+        jdbc.update("""
+                insert ignore into user_role (user_id, role_id, create_at)
+                select id, role_id, now()
+                from `user`
+                where role_id is not null and role_id > 0 and del = 0
+                """);
     }
 }

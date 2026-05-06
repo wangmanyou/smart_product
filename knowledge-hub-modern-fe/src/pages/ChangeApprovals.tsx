@@ -20,7 +20,7 @@ const typeMap: Record<string, string> = {
 
 export default function ChangeApprovals() {
   const user = authApi.getCurrentUser();
-  const isAdmin = Boolean(user?.isBuiltin || user?.roleId === 1);
+  const isAdmin = Boolean(user?.isBuiltin || user?.roleId === 1 || user?.roleIds?.includes?.(1));
   const [scope, setScope] = useState(isAdmin ? 'all' : 'mine');
   const [status, setStatus] = useState('PENDING');
   const [loading, setLoading] = useState(false);

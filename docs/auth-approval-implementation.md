@@ -7,7 +7,7 @@
 系统拆分为管理员和普通用户：
 
 - 管理员拥有全部权限。
-- 普通用户通过一个角色控制权限。
+- 普通用户可以拥有多个角色，最终权限按多个角色合并。
 - 角色可配置页面权限、操作权限、授权场景。
 - 普通用户新增、编辑、删除知识是否需要审批，由角色配置决定。
 - 待审批的新增、编辑、删除不直接写入正式知识表，管理员审批通过后才生效。
@@ -30,9 +30,17 @@ docker exec -i smart-product-mysql mysql -uroot -proot knowledge < db/auth_appro
 
 ```text
 user.role_id
+user_role
 role.setting_json
 sys_permission
 knowledge_change_request
+```
+
+说明：
+
+```text
+user.role_id 保留为兼容字段，旧数据会自动迁移到 user_role。
+新逻辑以 user_role 为准，用户可以拥有多个角色。
 ```
 
 `role.setting_json` 示例：
@@ -239,6 +247,20 @@ Tab 标题：
 src/components/GlobalWorkTabs.tsx
 ```
 
+## 多角色合并规则
+
+用户拥有多个角色时：
+
+```text
+页面权限：取并集
+操作权限：取并集
+授权场景：取并集
+管理员角色：任一角色为 admin=true 或拥有内置管理员角色即视为管理员
+审批要求：任一角色要求审批，则对应操作需要审批
+```
+
+因此，如果一个用户同时拥有“知识编辑员”和“系统管理员助理”两个角色，最终会同时获得两个角色的页面、操作和场景范围。
+
 ## 页面权限规则
 
 页面权限控制菜单入口：
@@ -256,10 +278,17 @@ page:system:approvals
 特殊规则：
 
 ```text
-只要角色拥有 system:manage 操作权限，系统管理相关页面会默认开放。
+system:manage 是兼容旧角色的系统管理总权限。
+新角色建议使用更细的模块权限：
+system:dict:manage 自动开放目录管理页面
+system:scene:manage 自动开放场景管理页面
+system:user:manage 自动开放用户管理页面
+system:role:manage 自动开放角色管理页面
+system:permission:manage 自动开放角色管理页面里的权限字典能力
+system:approval:manage 自动开放变更审批页面
 ```
 
-因此角色配置页不会再要求手动勾选系统管理相关页面。
+因此角色配置页不会再要求手动勾选系统管理相关页面，勾选对应模块权限即可。
 
 ## 操作权限规则
 
@@ -276,6 +305,12 @@ knowledge:change-request:view-all
 knowledge:change-request:approve
 knowledge:change-request:reject
 system:manage
+system:dict:manage
+system:scene:manage
+system:user:manage
+system:role:manage
+system:permission:manage
+system:approval:manage
 ```
 
 审批规则只对已拥有的操作权限出现：

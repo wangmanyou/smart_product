@@ -46,10 +46,21 @@ export const layout: RunTimeLayoutConfig = () => ({
   },
   menuDataRender: () => {
     const user = authApi.getCurrentUser();
-    const isAdmin = Boolean(user?.isBuiltin || user?.roleId === 1);
+    const isAdmin = Boolean(user?.isBuiltin || user?.roleId === 1 || user?.roleIds?.includes?.(1));
     const pages = new Set(user?.setting?.pagePermissions || user?.pagePermissions || []);
     const actions = new Set(user?.setting?.operationPermissions || user?.operationPermissions || []);
-    const canPage = (code: string) => isAdmin || pages.has(code) || (code.startsWith('page:system:') && actions.has('system:manage'));
+    const modulePageMap: Record<string, string[]> = {
+      'page:system:dicts': ['system:dict:manage'],
+      'page:system:scenes': ['system:scene:manage'],
+      'page:system:users': ['system:user:manage'],
+      'page:system:roles': ['system:role:manage', 'system:permission:manage'],
+      'page:system:approvals': ['system:approval:manage'],
+    };
+    const canPage = (code: string) =>
+      isAdmin ||
+      pages.has(code) ||
+      actions.has('system:manage') ||
+      Boolean(modulePageMap[code]?.some((permissionCode) => actions.has(permissionCode)));
     return [
       canPage('page:knowledge') ? { path: '/home', name: '首页', icon: <HomeOutlined /> } : null,
       canPage('page:knowledge') ? { path: '/knowledge', name: '知识中心', icon: <BookOutlined /> } : null,

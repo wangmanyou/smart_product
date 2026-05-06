@@ -1,5 +1,6 @@
-import { EditOutlined, PlusOutlined } from '@ant-design/icons';
-import { Button, Card, Form, Input, Modal, Select, Space, Switch, Table, message } from 'antd';
+import { EditOutlined, KeyOutlined, PlusOutlined, StopOutlined } from '@ant-design/icons';
+import { history } from '@umijs/max';
+import { Button, Card, Input, Modal, Space, Switch, Table, Tag, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useMemo, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
@@ -7,12 +8,9 @@ import StatusTag from '@/components/StatusTag';
 import { roleApi, userApi } from '@/services/api';
 
 export default function UserManagement() {
-  const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<any[]>([]);
   const [roles, setRoles] = useState<any[]>([]);
-  const [editing, setEditing] = useState<any>(null);
-  const [open, setOpen] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -37,51 +35,72 @@ export default function UserManagement() {
     [roles],
   );
 
-  const showEditor = (record?: any) => {
-    setEditing(record || null);
-    form.setFieldsValue(
-      record
-        ? {
-            userAccount: record.userAccount,
-            userNickname: record.userNickname,
-            userEmail: record.userEmail,
-            userPhoneNum: record.userPhoneNum,
-            roleId: record.roleId || undefined,
-          }
-        : { roleId: roles[0]?.roleId },
-    );
-    setOpen(true);
+  const openEditor = (record?: any) => {
+    history.push({
+      pathname: record ? `/system/users/${record.userId}/config` : '/system/users/new/config',
+      state: {
+        tabLabel: record ? `${record.userAccount}用户编辑` : '新增用户',
+        replacePath: record ? undefined : '/system/users',
+      },
+    });
   };
 
-  const submit = async () => {
-    const values = await form.validateFields();
-    if (editing) {
-      await userApi.edit({ ...values, userId: editing.userId });
-      message.success('用户已更新');
-    } else {
-      await userApi.add(values);
-      message.success('用户已创建');
-    }
-    setOpen(false);
-    load();
+  const resetPassword = (record: any) => {
+    let nextPassword = '';
+    Modal.confirm({
+      title: `重置 ${record.userAccount} 的密码`,
+      content: (
+        <Input.Password
+          autoFocus
+          placeholder="请输入新密码"
+          onChange={(event) => {
+            nextPassword = event.target.value;
+          }}
+        />
+      ),
+      okText: '确认重置',
+      onOk: async () => {
+        if (!nextPassword.trim()) {
+          message.warning('请输入新密码');
+          return Promise.reject();
+        }
+        await userApi.resetPassword({ userId: record.userId, userPassword: nextPassword });
+        message.success('密码已重置');
+      },
+    });
   };
 
   const columns: ColumnsType<any> = [
-    { title: '账号', width: 180, dataIndex: 'userAccount' },
-    { title: '昵称', width: 180, dataIndex: 'userNickname' },
-    { title: '角色', width: 180, render: (_, record) => roleMap.get(Number(record.roleId)) || '--' },
+    { title: '账号', width: 170, dataIndex: 'userAccount' },
+    { title: '昵称', width: 170, dataIndex: 'userNickname' },
+    {
+      title: '角色',
+      render: (_, record) => {
+        const names = record.roleNames?.length
+          ? record.roleNames
+          : (record.roleIds || [record.roleId]).map((roleId: number) => roleMap.get(Number(roleId))).filter(Boolean);
+        return names?.length ? (
+          <Space size={4} wrap>
+            {names.map((name: string) => <Tag key={name}>{name}</Tag>)}
+          </Space>
+        ) : '--';
+      },
+    },
     { title: '邮箱', width: 220, dataIndex: 'userEmail' },
     { title: '手机号', width: 160, dataIndex: 'userPhoneNum' },
-    { title: '状态', width: 120, render: (_, record) => <StatusTag disabled={record.isDisabled} /> },
+    { title: '状态', width: 100, render: (_, record) => <StatusTag disabled={record.isDisabled} /> },
     {
-      title: '启用',
+      title: '停用',
       width: 100,
       render: (_, record) => (
         <Switch
-          checked={!record.isDisabled}
+          checked={Boolean(record.isDisabled)}
           disabled={record.isBuiltin}
+          checkedChildren="停用"
+          unCheckedChildren="启用"
           onChange={async (checked) => {
-            await userApi.editStatus({ userId: record.userId, isDisabled: !checked });
+            await userApi.editStatus({ userId: record.userId, isDisabled: checked });
+            message.success(checked ? '用户已停用' : '用户已启用');
             load();
           }}
         />
@@ -89,11 +108,16 @@ export default function UserManagement() {
     },
     {
       title: '操作',
-      width: 120,
+      width: 210,
       render: (_, record) => (
-        <Button type="link" icon={<EditOutlined />} onClick={() => showEditor(record)}>
-          编辑
-        </Button>
+        <Space>
+          <Button type="link" icon={<EditOutlined />} onClick={() => openEditor(record)}>
+            编辑
+          </Button>
+          <Button type="link" icon={<KeyOutlined />} onClick={() => resetPassword(record)}>
+            重置密码
+          </Button>
+        </Space>
       ),
     },
   ];
@@ -102,8 +126,8 @@ export default function UserManagement() {
     <PageHeader
       title="用户管理"
       breadcrumb="系统管理 / 用户管理"
-      description="维护系统账号，并为用户分配一个角色。"
-      extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => showEditor()}>新增用户</Button>}
+      description="维护系统账号、停用状态、登录密码，并通过穿梭框为用户分配多个角色。"
+      extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => openEditor()}>新增用户</Button>}
     >
       <Card className="modern-table-card" bodyStyle={{ padding: 0 }}>
         <Table
@@ -114,42 +138,6 @@ export default function UserManagement() {
           pagination={{ pageSize: 10, showTotal: (count) => `共 ${count} 条` }}
         />
       </Card>
-
-      <Modal
-        title={editing ? '编辑用户' : '新增用户'}
-        open={open}
-        onCancel={() => setOpen(false)}
-        onOk={submit}
-        destroyOnClose
-      >
-        <Form form={form} layout="vertical">
-          <Form.Item name="userAccount" label="账号" rules={[{ required: true, message: '请输入账号' }]}>
-            <Input disabled={Boolean(editing)} />
-          </Form.Item>
-          {!editing ? (
-            <Form.Item name="userPassword" label="初始密码" rules={[{ required: true, message: '请输入初始密码' }]}>
-              <Input.Password />
-            </Form.Item>
-          ) : null}
-          <Form.Item name="userNickname" label="昵称">
-            <Input />
-          </Form.Item>
-          <Space.Compact block>
-            <Form.Item name="userEmail" label="邮箱" style={{ width: '50%' }}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="userPhoneNum" label="手机号" style={{ width: '50%' }}>
-              <Input />
-            </Form.Item>
-          </Space.Compact>
-          <Form.Item name="roleId" label="角色" rules={[{ required: true, message: '请选择角色' }]}>
-            <Select
-              options={roles.map((role) => ({ value: role.roleId, label: role.roleName }))}
-              placeholder="请选择角色"
-            />
-          </Form.Item>
-        </Form>
-      </Modal>
     </PageHeader>
   );
 }
