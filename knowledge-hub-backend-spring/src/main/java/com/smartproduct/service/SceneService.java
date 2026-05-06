@@ -9,6 +9,10 @@ import com.smartproduct.entity.SceneTemplateEntity;
 import com.smartproduct.mapper.DictTemplateMapper;
 import com.smartproduct.mapper.SceneItemMapper;
 import com.smartproduct.mapper.SceneTemplateMapper;
+import com.smartproduct.security.CurrentUser;
+import com.smartproduct.security.CurrentUserService;
+import com.smartproduct.shared.exception.ApiException;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,12 +28,15 @@ public class SceneService {
     private final SceneItemMapper items;
     private final DictTemplateMapper dicts;
     private final TokenService tokens;
+    private final CurrentUserService currentUsers;
 
-    public SceneService(SceneTemplateMapper templates, SceneItemMapper items, DictTemplateMapper dicts, TokenService tokens) {
+    public SceneService(SceneTemplateMapper templates, SceneItemMapper items, DictTemplateMapper dicts, TokenService tokens,
+                        CurrentUserService currentUsers) {
         this.templates = templates;
         this.items = items;
         this.dicts = dicts;
         this.tokens = tokens;
+        this.currentUsers = currentUsers;
     }
 
     public Map<String, Object> list(int pageNumber, int pageSize, String name, String disabled) {
@@ -41,6 +48,14 @@ public class SceneService {
             query.eq("is_disabled", false);
         } else if ("disabled".equals(disabled)) {
             query.eq("is_disabled", true);
+        }
+        CurrentUser user = currentUsers.current();
+        if (!user.admin()) {
+            if (user.sceneTemplateIds().isEmpty()) {
+                query.eq("id", -1);
+            } else {
+                query.in("id", user.sceneTemplateIds());
+            }
         }
         query.orderByDesc("update_at").orderByDesc("id");
         Page<SceneTemplateEntity> page = templates.selectPage(Page.of(Math.max(pageNumber, 1), Math.max(pageSize, 1)), query);
@@ -103,6 +118,10 @@ public class SceneService {
     }
 
     public Map<String, Object> detail(Long sceneTemplateId) {
+        CurrentUser user = currentUsers.current();
+        if (!user.canAccessScene(sceneTemplateId)) {
+            throw new ApiException(HttpStatus.FORBIDDEN.value(), "没有该场景的数据权限");
+        }
         SceneTemplateEntity template = templates.selectById(sceneTemplateId);
         List<SceneItemEntity> sceneItems = items.selectList(new QueryWrapper<SceneItemEntity>()
                 .eq("scene_template_id", sceneTemplateId)

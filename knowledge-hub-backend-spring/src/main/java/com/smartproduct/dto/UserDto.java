@@ -12,8 +12,10 @@ public class UserDto {
     public String userPhoneNum;
     public String userSex;
     public String userPicture;
+    public Long roleId;
     public Boolean isDisabled;
     public Boolean isBuiltin;
+    public Object setting;
     public Long createTime;
     public Long updateTime;
 
@@ -26,6 +28,7 @@ public class UserDto {
         dto.userPhoneNum = user.getPhoneNum();
         dto.userSex = user.getSex();
         dto.userPicture = user.getPicture();
+        dto.roleId = user.getRoleId();
         dto.isDisabled = user.getDisabled();
         dto.isBuiltin = user.getBuiltin();
         dto.createTime = toEpoch(user.getCreateAt());

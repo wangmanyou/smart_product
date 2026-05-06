@@ -6,6 +6,8 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.smartproduct.dto.UserDto;
 import com.smartproduct.dto.UserRequests;
 import com.smartproduct.entity.UserEntity;
+import com.smartproduct.entity.RoleEntity;
+import com.smartproduct.mapper.RoleMapper;
 import com.smartproduct.mapper.UserMapper;
 import com.smartproduct.shared.exception.ApiException;
 import org.springframework.http.HttpStatus;
@@ -23,12 +25,14 @@ public class UserService {
     private static final String PASSWORD_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:,.<>?/~";
 
     private final UserMapper users;
+    private final RoleMapper roles;
     private final TokenService tokens;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     private final Random random = new SecureRandom();
 
-    public UserService(UserMapper users, TokenService tokens) {
+    public UserService(UserMapper users, RoleMapper roles, TokenService tokens) {
         this.users = users;
+        this.roles = roles;
         this.tokens = tokens;
     }
 
@@ -59,7 +63,10 @@ public class UserService {
         if (user == null) {
             throw new ApiException(HttpStatus.NOT_FOUND.value(), "用户不存在");
         }
-        return UserDto.fromEntity(user);
+        UserDto dto = UserDto.fromEntity(user);
+        RoleEntity role = user.getRoleId() == null ? null : roles.selectById(user.getRoleId());
+        dto.setting = parseSetting(role == null ? null : role.settingJson);
+        return dto;
     }
 
     public Map<String, Object> list(int pageNumber, int pageSize, String account, String nickname, String email, String phone, String sex, String disabled) {
@@ -92,7 +99,7 @@ public class UserService {
         user.setBuiltin(false);
         user.setAccount(request.userAccount);
         user.setNickname(empty(request.userNickname));
-        user.setRoleId(0L);
+        user.setRoleId(request.roleId == null ? 0L : request.roleId);
         user.setPassword(passwordEncoder.encode(request.userPassword));
         user.setEmail(empty(request.userEmail));
         user.setDisabled(false);
@@ -118,6 +125,7 @@ public class UserService {
                 .set(UserEntity::getPhoneNum, empty(request.userPhoneNum))
                 .set(UserEntity::getSex, empty(request.userSex))
                 .set(UserEntity::getPicture, empty(request.userPicture))
+                .set(request.roleId != null, UserEntity::getRoleId, request.roleId)
                 .set(UserEntity::getUpdateAt, LocalDateTime.now()));
     }
 
@@ -179,5 +187,16 @@ public class UserService {
 
     private static String empty(String value) {
         return value == null ? "" : value;
+    }
+
+    private static Object parseSetting(String value) {
+        if (value == null || value.isBlank()) {
+            return Map.of();
+        }
+        try {
+            return new com.fasterxml.jackson.databind.ObjectMapper().readValue(value, Object.class);
+        } catch (Exception ex) {
+            return Map.of();
+        }
     }
 }
