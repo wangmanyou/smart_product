@@ -17,6 +17,12 @@ public final class PermissionCodes {
     public static final String CHANGE_REQUEST_APPROVE = "knowledge:change-request:approve";
     public static final String CHANGE_REQUEST_REJECT = "knowledge:change-request:reject";
     public static final String SYSTEM_MANAGE = "system:manage";
+    public static final String SYSTEM_DICT_MANAGE = "system:dict:manage";
+    public static final String SYSTEM_SCENE_MANAGE = "system:scene:manage";
+    public static final String SYSTEM_USER_MANAGE = "system:user:manage";
+    public static final String SYSTEM_ROLE_MANAGE = "system:role:manage";
+    public static final String SYSTEM_PERMISSION_MANAGE = "system:permission:manage";
+    public static final String SYSTEM_APPROVAL_MANAGE = "system:approval:manage";
 
     public static List<String> allOperationPermissions() {
         return List.of(
@@ -29,7 +35,13 @@ public final class PermissionCodes {
                 CHANGE_REQUEST_VIEW_ALL,
                 CHANGE_REQUEST_APPROVE,
                 CHANGE_REQUEST_REJECT,
-                SYSTEM_MANAGE
+                SYSTEM_MANAGE,
+                SYSTEM_DICT_MANAGE,
+                SYSTEM_SCENE_MANAGE,
+                SYSTEM_USER_MANAGE,
+                SYSTEM_ROLE_MANAGE,
+                SYSTEM_PERMISSION_MANAGE,
+                SYSTEM_APPROVAL_MANAGE
         );
     }
 }

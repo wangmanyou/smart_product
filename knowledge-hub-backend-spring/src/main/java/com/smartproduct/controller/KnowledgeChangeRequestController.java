@@ -26,7 +26,7 @@ public class KnowledgeChangeRequestController {
         return service.listMine(pageNumber, pageSize, status);
     }
 
-    @PreAuthorize("hasAuthority('knowledge:change-request:view-all')")
+    @PreAuthorize("hasAnyAuthority('knowledge:change-request:view-all','system:manage','system:approval:manage')")
     @GetMapping("/v1/data/business/knowledge/change-request/list")
     public Map<String, Object> listAll(@RequestParam(defaultValue = "1") int pageNumber,
                                        @RequestParam(defaultValue = "10") int pageSize,
@@ -55,14 +55,14 @@ public class KnowledgeChangeRequestController {
         return Map.of();
     }
 
-    @PreAuthorize("hasAuthority('knowledge:change-request:approve')")
+    @PreAuthorize("hasAnyAuthority('knowledge:change-request:approve','system:manage','system:approval:manage')")
     @PostMapping("/v1/data/business/knowledge/change-request/approve")
     public Map<String, Object> approve(@RequestBody Map<String, Object> request) {
         service.approve(num(request.get("changeRequestId")), str(request.get("reviewComment")));
         return Map.of();
     }
 
-    @PreAuthorize("hasAuthority('knowledge:change-request:reject')")
+    @PreAuthorize("hasAnyAuthority('knowledge:change-request:reject','system:manage','system:approval:manage')")
     @PostMapping("/v1/data/business/knowledge/change-request/reject")
     public Map<String, Object> reject(@RequestBody Map<String, Object> request) {
         service.reject(num(request.get("changeRequestId")), str(request.get("reviewComment")));

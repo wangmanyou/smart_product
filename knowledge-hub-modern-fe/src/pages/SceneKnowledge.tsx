@@ -9,7 +9,7 @@ import { Button, Card, Col, Form, Input, Popconfirm, Row, Space, Table, Tree, Ty
 import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useMemo, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
-import { businessApi } from '@/services/api';
+import { authApi, businessApi } from '@/services/api';
 import {
   dictForSceneItem,
   dictNodes,
@@ -43,6 +43,14 @@ export default function SceneKnowledge() {
   const treeData = useMemo(() => toAntTree(dictDetail?.treeDict?.treeDict || []), [dictDetail]);
   const visibleItems = formatted.sceneItems.filter((item: any) => !item.isHide);
   const textItems = visibleItems.filter((item: any) => item.type !== 'dict').slice(0, 4);
+  const currentUser = authApi.getCurrentUser();
+  const isAdmin = Boolean(currentUser?.isBuiltin || currentUser?.roleId === 1 || currentUser?.roleIds?.includes?.(1));
+  const operationPermissions = new Set(currentUser?.setting?.operationPermissions || currentUser?.operationPermissions || []);
+  const hasPermission = (code: string) => isAdmin || operationPermissions.has(code);
+  const canCreate = hasPermission('knowledge:create');
+  const canUpdate = hasPermission('knowledge:update');
+  const canDelete = hasPermission('knowledge:delete');
+  const canImport = hasPermission('knowledge:import');
   const sceneName = formatted.scene.sceneName || '场景知识列表';
 
   const getKnowledgeTitle = (record: any) =>
@@ -145,6 +153,7 @@ export default function SceneKnowledge() {
           >
             查看
           </Button>
+          {canUpdate ? (
           <Button
             type="link"
             onClick={() => history.push({
@@ -154,7 +163,9 @@ export default function SceneKnowledge() {
           >
             编辑
           </Button>
-          <Popconfirm
+          ) : null}
+          {canDelete ? (
+            <Popconfirm
             title="确认删除这条知识？"
             okText="删除"
             cancelText="取消"
@@ -165,7 +176,8 @@ export default function SceneKnowledge() {
             }}
           >
             <Button type="link" danger>删除</Button>
-          </Popconfirm>
+            </Popconfirm>
+          ) : null}
         </Space>
       ),
     },
@@ -186,10 +198,10 @@ export default function SceneKnowledge() {
       breadcrumb={`知识中心 / ${sceneName} / 知识列表`}
       extra={[
         <Button key="back" onClick={() => history.push('/knowledge')}>返回知识中心</Button>,
-        <Button key="create" type="primary" icon={<PlusOutlined />} onClick={() => history.push({ pathname: `/knowledge/scene/${id}/create`, state: { tabLabel: '新增知识' } })}>新增知识</Button>,
-        <Button key="import" icon={<ImportOutlined />} onClick={() => history.push({ pathname: `/knowledge/scene/${id}/import`, state: { tabLabel: '批量导入' } })}>批量导入</Button>,
+        canCreate ? <Button key="create" type="primary" icon={<PlusOutlined />} onClick={() => history.push({ pathname: `/knowledge/scene/${id}/create`, state: { tabLabel: '新增知识' } })}>新增知识</Button> : null,
+        canImport ? <Button key="import" icon={<ImportOutlined />} onClick={() => history.push({ pathname: `/knowledge/scene/${id}/import`, state: { tabLabel: '批量导入' } })}>批量导入</Button> : null,
         <Button key="template" icon={<DownloadOutlined />} onClick={exportTemplate}>导出模板</Button>,
-      ]}
+      ].filter(Boolean)}
     >
       <Row gutter={18} align="stretch">
         <Col flex="300px">

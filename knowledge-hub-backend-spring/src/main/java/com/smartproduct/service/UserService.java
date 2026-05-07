@@ -7,8 +7,10 @@ import com.smartproduct.dto.UserDto;
 import com.smartproduct.dto.UserRequests;
 import com.smartproduct.entity.UserEntity;
 import com.smartproduct.entity.RoleEntity;
+import com.smartproduct.entity.UserRoleEntity;
 import com.smartproduct.mapper.RoleMapper;
 import com.smartproduct.mapper.UserMapper;
+import com.smartproduct.mapper.UserRoleMapper;
 import com.smartproduct.shared.exception.ApiException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -17,8 +19,11 @@ import org.springframework.stereotype.Service;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 
 @Service
 public class UserService {
@@ -26,13 +31,15 @@ public class UserService {
 
     private final UserMapper users;
     private final RoleMapper roles;
+    private final UserRoleMapper userRoles;
     private final TokenService tokens;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     private final Random random = new SecureRandom();
 
-    public UserService(UserMapper users, RoleMapper roles, TokenService tokens) {
+    public UserService(UserMapper users, RoleMapper roles, UserRoleMapper userRoles, TokenService tokens) {
         this.users = users;
         this.roles = roles;
+        this.userRoles = userRoles;
         this.tokens = tokens;
     }
 
@@ -64,8 +71,7 @@ public class UserService {
             throw new ApiException(HttpStatus.NOT_FOUND.value(), "用户不存在");
         }
         UserDto dto = UserDto.fromEntity(user);
-        RoleEntity role = user.getRoleId() == null ? null : roles.selectById(user.getRoleId());
-        dto.setting = parseSetting(role == null ? null : role.settingJson);
+        fillRoles(dto, user);
         return dto;
     }
 
@@ -75,7 +81,11 @@ public class UserService {
                 .orderByDesc(UserEntity::getId));
 
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("content", page.getRecords().stream().map(UserDto::fromEntity).toList());
+        result.put("content", page.getRecords().stream().map(row -> {
+            UserDto dto = UserDto.fromEntity(row);
+            fillRoles(dto, row);
+            return dto;
+        }).toList());
         result.put("totalElements", page.getTotal());
         return result;
     }
@@ -99,7 +109,8 @@ public class UserService {
         user.setBuiltin(false);
         user.setAccount(request.userAccount);
         user.setNickname(empty(request.userNickname));
-        user.setRoleId(request.roleId == null ? 0L : request.roleId);
+        List<Long> roleIds = normalizeRoleIds(request.roleIds, request.roleId);
+        user.setRoleId(roleIds.isEmpty() ? 0L : roleIds.get(0));
         user.setPassword(passwordEncoder.encode(request.userPassword));
         user.setEmail(empty(request.userEmail));
         user.setDisabled(false);
@@ -110,6 +121,7 @@ public class UserService {
         user.setCreateAt(now);
         user.setUpdateAt(now);
         users.insert(user);
+        saveUserRoles(user.getId(), roleIds);
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("userId", user.getId());
@@ -117,6 +129,7 @@ public class UserService {
     }
 
     public void edit(UserRequests.EditUserRequest request) {
+        List<Long> roleIds = normalizeRoleIds(request.roleIds, request.roleId);
         users.update(new LambdaUpdateWrapper<UserEntity>()
                 .eq(UserEntity::getId, request.userId)
                 .eq(UserEntity::getDel, 0)
@@ -125,8 +138,11 @@ public class UserService {
                 .set(UserEntity::getPhoneNum, empty(request.userPhoneNum))
                 .set(UserEntity::getSex, empty(request.userSex))
                 .set(UserEntity::getPicture, empty(request.userPicture))
-                .set(request.roleId != null, UserEntity::getRoleId, request.roleId)
+                .set(!roleIds.isEmpty(), UserEntity::getRoleId, roleIds.isEmpty() ? 0L : roleIds.get(0))
                 .set(UserEntity::getUpdateAt, LocalDateTime.now()));
+        if (request.roleIds != null || request.roleId != null) {
+            saveUserRoles(request.userId, roleIds);
+        }
     }
 
     public void editStatus(UserRequests.EditStatusRequest request) {
@@ -198,5 +214,90 @@ public class UserService {
         } catch (Exception ex) {
             return Map.of();
         }
+    }
+
+    private void fillRoles(UserDto dto, UserEntity user) {
+        List<Long> roleIds = roleIds(user);
+        dto.roleIds = roleIds;
+        List<RoleEntity> roleList = roleIds.isEmpty() ? List.of() : roles.selectBatchIds(roleIds);
+        dto.roleNames = roleList.stream().map(role -> role.name).toList();
+        dto.setting = mergeSettings(roleList);
+    }
+
+    private List<Long> roleIds(UserEntity user) {
+        Set<Long> ids = userRoles.selectList(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<UserRoleEntity>()
+                        .eq("user_id", user.getId()))
+                .stream()
+                .map(row -> row.roleId)
+                .filter(id -> id != null && id > 0)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        if (ids.isEmpty() && user.getRoleId() != null && user.getRoleId() > 0) {
+            ids.add(user.getRoleId());
+        }
+        return List.copyOf(ids);
+    }
+
+    private void saveUserRoles(Long userId, List<Long> roleIds) {
+        userRoles.delete(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<UserRoleEntity>().eq("user_id", userId));
+        LocalDateTime now = LocalDateTime.now();
+        for (Long roleId : roleIds) {
+            UserRoleEntity row = new UserRoleEntity();
+            row.userId = userId;
+            row.roleId = roleId;
+            row.createAt = now;
+            userRoles.insert(row);
+        }
+    }
+
+    private static List<Long> normalizeRoleIds(List<Long> roleIds, Long legacyRoleId) {
+        Set<Long> ids = new LinkedHashSet<>();
+        if (roleIds != null) {
+            roleIds.stream().filter(id -> id != null && id > 0).forEach(ids::add);
+        }
+        if (ids.isEmpty() && legacyRoleId != null && legacyRoleId > 0) {
+            ids.add(legacyRoleId);
+        }
+        return List.copyOf(ids);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> mergeSettings(List<RoleEntity> roleList) {
+        boolean admin = false;
+        Set<String> pagePermissions = new LinkedHashSet<>();
+        Set<String> operationPermissions = new LinkedHashSet<>();
+        Set<Long> sceneTemplateIds = new LinkedHashSet<>();
+        Map<String, Boolean> approvalRequired = new LinkedHashMap<>();
+        for (RoleEntity role : roleList) {
+            Object parsed = parseSetting(role.settingJson);
+            if (!(parsed instanceof Map<?, ?> setting)) {
+                continue;
+            }
+            admin = admin || Boolean.TRUE.equals(setting.get("admin"));
+            list(setting.get("pagePermissions")).forEach(value -> pagePermissions.add(String.valueOf(value)));
+            list(setting.get("operationPermissions")).forEach(value -> operationPermissions.add(String.valueOf(value)));
+            list(setting.get("sceneTemplateIds")).forEach(value -> {
+                if (value instanceof Number number) {
+                    sceneTemplateIds.add(number.longValue());
+                }
+            });
+            if (setting.get("approvalRequired") instanceof Map<?, ?> map) {
+                map.forEach((key, value) -> {
+                    if (Boolean.TRUE.equals(value)) {
+                        approvalRequired.put(String.valueOf(key), true);
+                    }
+                });
+            }
+        }
+        Map<String, Object> merged = new LinkedHashMap<>();
+        merged.put("admin", admin);
+        merged.put("pagePermissions", List.copyOf(pagePermissions));
+        merged.put("operationPermissions", List.copyOf(operationPermissions));
+        merged.put("sceneTemplateIds", List.copyOf(sceneTemplateIds));
+        merged.put("approvalRequired", approvalRequired);
+        return merged;
+    }
+
+    private static List<?> list(Object value) {
+        return value instanceof List<?> list ? list : List.of();
     }
 }

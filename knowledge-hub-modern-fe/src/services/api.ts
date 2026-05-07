@@ -30,7 +30,14 @@ async function apiRequest(path: string, options: RequestInit & { params?: any } 
   });
 
   const text = await response.text();
-  const data = text ? JSON.parse(text) : {};
+  let data: any = {};
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { message: text };
+    }
+  }
 
   if (!response.ok) {
     const msg = data?.message || `请求失败：${response.status}`;
@@ -160,6 +167,11 @@ export const userApi = {
     apiRequest('/v1/data/user/list', {
       method: 'GET',
       params: { pageNumber: 1, pageSize: 100, ...params },
+    }),
+  detail: (userId: number | string) =>
+    apiRequest('/v1/data/user/detail', {
+      method: 'GET',
+      params: { userId },
     }),
   add: (data: any) => post('/v1/data/user/add', data),
   edit: (data: any) => post('/v1/data/user/edit', data),

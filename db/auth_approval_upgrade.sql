@@ -38,6 +38,16 @@ CREATE TABLE IF NOT EXISTS sys_permission (
     UNIQUE KEY uk_sys_permission_code (code)
 );
 
+CREATE TABLE IF NOT EXISTS user_role (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT UNSIGNED NOT NULL,
+    role_id BIGINT UNSIGNED NOT NULL,
+    create_at DATETIME NULL,
+    UNIQUE KEY uk_user_role (user_id, role_id),
+    INDEX idx_user_role_user (user_id),
+    INDEX idx_user_role_role (role_id)
+);
+
 CREATE TABLE IF NOT EXISTS knowledge_change_request (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
     request_type VARCHAR(30) NOT NULL,
@@ -85,7 +95,13 @@ VALUES
 ('page:system:users', '用户管理', 'PAGE', '页面权限', '访问用户管理页面', 'ENABLED', 140, NOW(), NOW()),
 ('page:system:roles', '角色管理', 'PAGE', '页面权限', '访问角色管理页面', 'ENABLED', 150, NOW(), NOW()),
 ('page:system:approvals', '变更审批', 'PAGE', '页面权限', '访问变更审批页面', 'ENABLED', 160, NOW(), NOW()),
-('system:manage', '系统管理', 'ACTION', '系统管理', '管理用户、角色和系统配置', 'ENABLED', 170, NOW(), NOW())
+('system:dict:manage', '目录管理', 'ACTION', '系统管理', '管理目录及目录字典配置', 'ENABLED', 170, NOW(), NOW()),
+('system:scene:manage', '场景管理', 'ACTION', '系统管理', '管理业务场景和字段配置', 'ENABLED', 180, NOW(), NOW()),
+('system:user:manage', '用户管理', 'ACTION', '系统管理', '管理用户、停用用户和重置密码', 'ENABLED', 190, NOW(), NOW()),
+('system:role:manage', '角色管理', 'ACTION', '系统管理', '管理角色、页面权限、操作权限和授权场景', 'ENABLED', 200, NOW(), NOW()),
+('system:permission:manage', '权限管理', 'ACTION', '系统管理', '维护权限字典', 'ENABLED', 210, NOW(), NOW()),
+('system:approval:manage', '审批管理', 'ACTION', '系统管理', '查看和处理知识变更审批', 'ENABLED', 220, NOW(), NOW()),
+('system:manage', '系统管理', 'ACTION', '系统管理', '兼容旧角色的系统管理总权限', 'ENABLED', 230, NOW(), NOW())
 ON DUPLICATE KEY UPDATE
     name = VALUES(name),
     type = VALUES(type),
@@ -107,3 +123,8 @@ ON DUPLICATE KEY UPDATE
 UPDATE `user`
 SET role_id = 1
 WHERE account = 'admin';
+
+INSERT IGNORE INTO user_role (user_id, role_id, create_at)
+SELECT id, role_id, NOW()
+FROM `user`
+WHERE role_id IS NOT NULL AND role_id > 0 AND del = 0;

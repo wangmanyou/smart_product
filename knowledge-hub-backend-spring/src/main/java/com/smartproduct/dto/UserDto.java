@@ -3,6 +3,7 @@ package com.smartproduct.dto;
 import com.smartproduct.entity.UserEntity;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public class UserDto {
     public Long userId;
@@ -13,6 +14,8 @@ public class UserDto {
     public String userSex;
     public String userPicture;
     public Long roleId;
+    public List<Long> roleIds;
+    public List<String> roleNames;
     public Boolean isDisabled;
     public Boolean isBuiltin;
     public Object setting;

@@ -12,7 +12,7 @@ import { history, useLocation, useParams } from '@umijs/max';
 import { Button, Card, Col, Descriptions, Image, Popconfirm, Row, Space, Tag, Typography, message } from 'antd';
 import { useEffect, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
-import { businessApi } from '@/services/api';
+import { authApi, businessApi } from '@/services/api';
 import {
   displayKnowledgeValue,
   findKnowledgeItem,
@@ -171,6 +171,11 @@ export default function KnowledgeDetail() {
   const dictItems = detailItems.filter((item: DetailItem) => item.type === 'dict');
   const mediaItems = detailItems.filter((item: DetailItem) => ['picture', 'video', 'audio', 'file'].includes(item.type || ''));
   const normalItems = detailItems.filter((item: DetailItem) => item.type !== 'dict' && !['picture', 'video', 'audio', 'file'].includes(item.type || ''));
+  const currentUser = authApi.getCurrentUser();
+  const isAdmin = Boolean(currentUser?.isBuiltin || currentUser?.roleId === 1 || currentUser?.roleIds?.includes?.(1));
+  const operationPermissions = new Set(currentUser?.setting?.operationPermissions || currentUser?.operationPermissions || []);
+  const canUpdate = isAdmin || operationPermissions.has('knowledge:update');
+  const canDelete = isAdmin || operationPermissions.has('knowledge:delete');
 
   useEffect(() => {
     let mounted = true;
@@ -207,7 +212,7 @@ export default function KnowledgeDetail() {
       breadcrumb={`知识中心 / ${sceneName} / 知识详情`}
       extra={[
         <Button key="back" onClick={() => history.push({ pathname: `/knowledge/scene/${sceneId}`, state: { tabLabel: `${sceneName}知识列表` } })}>返回列表</Button>,
-        <Button
+        canUpdate ? <Button
           key="edit"
           type="primary"
           icon={<EditOutlined />}
@@ -220,11 +225,11 @@ export default function KnowledgeDetail() {
           })}
         >
           修改
-        </Button>,
-        <Popconfirm key="delete" title="确认删除这条知识？" onConfirm={remove}>
+        </Button> : null,
+        canDelete ? <Popconfirm key="delete" title="确认删除这条知识？" onConfirm={remove}>
           <Button danger icon={<DeleteOutlined />}>删除</Button>
-        </Popconfirm>,
-      ]}
+        </Popconfirm> : null,
+      ].filter(Boolean)}
     >
       <Row gutter={20} className="knowledge-detail-layout">
         <Col flex="auto">

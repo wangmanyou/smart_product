@@ -17,33 +17,33 @@ public class SysPermissionController {
         this.service = service;
     }
 
-    @PreAuthorize("hasAuthority('system:manage')")
+    @PreAuthorize("hasAnyAuthority('system:manage','system:permission:manage','system:role:manage')")
     @GetMapping("/v1/data/permission/list")
     public Map<String, Object> list() {
         return service.list();
     }
 
-    @PreAuthorize("hasAuthority('system:manage')")
+    @PreAuthorize("hasAnyAuthority('system:manage','system:permission:manage')")
     @PostMapping("/v1/data/permission/add")
     public Map<String, Object> add(@RequestBody Map<String, Object> request) {
         return service.add(request);
     }
 
-    @PreAuthorize("hasAuthority('system:manage')")
+    @PreAuthorize("hasAnyAuthority('system:manage','system:permission:manage')")
     @PostMapping("/v1/data/permission/edit")
     public Map<String, Object> edit(@RequestBody Map<String, Object> request) {
         service.edit(request);
         return Map.of();
     }
 
-    @PreAuthorize("hasAuthority('system:manage')")
+    @PreAuthorize("hasAnyAuthority('system:manage','system:permission:manage')")
     @PostMapping("/v1/data/permission/edit/status")
     public Map<String, Object> editStatus(@RequestBody Map<String, Object> request) {
         service.editStatus(request);
         return Map.of();
     }
 
-    @PreAuthorize("hasAuthority('system:manage')")
+    @PreAuthorize("hasAnyAuthority('system:manage','system:permission:manage')")
     @PostMapping("/v1/data/permission/delete")
     public Map<String, Object> delete(@RequestBody Map<String, Object> request) {
         service.delete(((Number) request.get("permissionId")).longValue());

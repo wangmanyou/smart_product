@@ -1,6 +1,7 @@
 package com.smartproduct.controller;
 
 import com.smartproduct.service.SceneService;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -20,6 +21,7 @@ public class SceneController {
     }
 
     @GetMapping("/v1/data/scene/list")
+    @PreAuthorize("hasAnyAuthority('system:manage','system:scene:manage','knowledge:view')")
     public Map<String, Object> list(@RequestParam(defaultValue = "1") int pageNumber,
                                     @RequestParam(defaultValue = "10") int pageSize,
                                     @RequestParam(required = false) String searchSceneName,
@@ -28,35 +30,41 @@ public class SceneController {
     }
 
     @GetMapping("/v1/data/scene/detail")
+    @PreAuthorize("hasAnyAuthority('system:manage','system:scene:manage','knowledge:view')")
     public Map<String, Object> detail(@RequestParam Long sceneTemplateId) {
         return service.detail(sceneTemplateId);
     }
 
     @PostMapping("/v1/data/scene/create")
+    @PreAuthorize("hasAnyAuthority('system:manage','system:scene:manage')")
     public Map<String, Object> create(@RequestBody Map<String, Object> request,
                                       @RequestHeader(value = "Authorization", required = false) String authorization) {
         return service.create(request, authorization);
     }
 
     @PostMapping("/v1/data/scene/copy")
+    @PreAuthorize("hasAnyAuthority('system:manage','system:scene:manage')")
     public Map<String, Object> copy(@RequestBody Map<String, Object> request,
                                     @RequestHeader(value = "Authorization", required = false) String authorization) {
         return service.copy(request, authorization);
     }
 
     @PostMapping("/v1/data/scene/edit")
+    @PreAuthorize("hasAnyAuthority('system:manage','system:scene:manage')")
     public Map<String, Object> edit(@RequestBody Map<String, Object> request) {
         service.edit(request);
         return Map.of();
     }
 
     @PostMapping("/v1/data/scene/edit/status")
+    @PreAuthorize("hasAnyAuthority('system:manage','system:scene:manage')")
     public Map<String, Object> editStatus(@RequestBody Map<String, Object> request) {
         service.editStatus(request);
         return Map.of();
     }
 
     @DeleteMapping("/v1/data/scene/item/delete")
+    @PreAuthorize("hasAnyAuthority('system:manage','system:scene:manage')")
     public Map<String, Object> deleteItem(@RequestParam Long sceneItemId) {
         service.deleteItem(sceneItemId);
         return Map.of();

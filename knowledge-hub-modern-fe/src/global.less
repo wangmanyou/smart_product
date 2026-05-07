@@ -916,9 +916,99 @@ body {
 
 .role-permission-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
   width: 100%;
+}
+
+.role-permission-panel {
+  border: 1px solid var(--modern-line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.role-permission-panel-title {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--modern-line);
+  color: var(--modern-text);
+  font-weight: 600;
+}
+
+.role-permission-panel .ant-tree {
+  padding: 8px 14px 12px;
+}
+
+.role-tree-node {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 16px;
+  width: 100%;
+}
+
+.role-approval-checkbox {
+  flex: 0 0 auto;
+  margin-left: 12px;
+  padding: 3px 8px;
+  border: 1px solid #91caff;
+  border-radius: 6px;
+  background: #f0f7ff;
+}
+
+.role-tree-node > span:first-child {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.role-tree-node strong {
+  color: var(--modern-text);
+  font-weight: 600;
+}
+
+.role-tree-node em {
+  color: var(--modern-muted);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.role-config-section .ant-tree {
+  padding: 4px 0;
+}
+
+.role-config-section .ant-tree-treenode {
+  width: 100%;
+  padding: 6px 0;
+}
+
+.role-config-section .ant-tree-node-content-wrapper {
+  flex: 1;
+}
+
+.user-config-layout {
+  display: grid;
+  grid-template-columns: minmax(360px, 0.85fr) minmax(520px, 1.15fr);
+  gap: 16px;
+  width: 100%;
+}
+
+.user-config-card {
+  border: 1px solid var(--modern-line);
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+@media (max-width: 980px) {
+  .user-config-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .role-tree-node {
+    width: 100%;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
 }
 
 .role-permission-grid .ant-checkbox-wrapper,
@@ -972,6 +1062,10 @@ body {
 
 @media (max-width: 980px) {
   .role-config-top {
+    grid-template-columns: 1fr;
+  }
+
+  .role-permission-grid {
     grid-template-columns: 1fr;
   }
 }
