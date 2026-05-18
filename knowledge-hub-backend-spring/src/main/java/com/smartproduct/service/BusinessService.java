@@ -418,9 +418,26 @@ public class BusinessService {
         return Map.of("content", content, "totalElements", content.size());
     }
 
-    public Map<String, Object> statisticsCreator(Long sceneTemplateId) {
-        requireSceneAccess(currentUsers.current(), sceneTemplateId);
-        List<KnowledgeEntity> rows = knowledge.selectList(new QueryWrapper<KnowledgeEntity>().eq("scene_template_id", sceneTemplateId).eq("del", 0));
+    public Map<String, Object> statisticsCreator(Long sceneTemplateId, List<String> searchCreateTime) {
+        CurrentUser user = currentUsers.current();
+        boolean allScenes = sceneTemplateId == null || sceneTemplateId == 0;
+        if (!allScenes) {
+            requireSceneAccess(user, sceneTemplateId);
+        }
+        QueryWrapper<KnowledgeEntity> query = new QueryWrapper<KnowledgeEntity>().eq("del", 0);
+        if (allScenes) {
+            if (!user.admin()) {
+                if (user.sceneTemplateIds().isEmpty()) {
+                    query.eq("scene_template_id", -1);
+                } else {
+                    query.in("scene_template_id", user.sceneTemplateIds());
+                }
+            }
+        } else {
+            query.eq("scene_template_id", sceneTemplateId);
+        }
+        applyStatisticsRange(query, searchCreateTime);
+        List<KnowledgeEntity> rows = knowledge.selectList(query);
         Map<String, Long> grouped = rows.stream().collect(java.util.stream.Collectors.groupingBy(row -> row.creatorName == null ? "" : row.creatorName, java.util.stream.Collectors.counting()));
         List<Map<String, Object>> content = grouped.entrySet().stream().map(entry -> {
             Map<String, Object> dto = new LinkedHashMap<>();
@@ -685,11 +702,6 @@ public class BusinessService {
 
     private static void applyStatisticsRange(QueryWrapper<KnowledgeEntity> query, List<String> searchCreateTime) {
         if (searchCreateTime == null || searchCreateTime.isEmpty()) {
-            LocalDateTime now = LocalDateTime.now();
-            LocalDateTime begin = now.withDayOfMonth(1).toLocalDate().atStartOfDay();
-            LocalDateTime end = begin.plusMonths(1).minusSeconds(1);
-            query.ge("create_at", begin.format(SECOND_FORMAT));
-            query.le("create_at", end.format(SECOND_FORMAT));
             return;
         }
         if (!searchCreateTime.get(0).isBlank()) {

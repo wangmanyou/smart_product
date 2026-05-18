@@ -22,7 +22,7 @@ public class BusinessController {
 
     @GetMapping("/v1/data/business/detail")
     @PreAuthorize("hasAuthority('knowledge:view')")
-    public Map<String, Object> detail(@RequestParam Long sceneTemplateId) {
+    public Map<String, Object> detail(@RequestParam("sceneTemplateId") Long sceneTemplateId) {
         return service.businessDetail(sceneTemplateId);
     }
 
@@ -35,7 +35,7 @@ public class BusinessController {
 
     @GetMapping("/v1/data/business/knowledge/detail")
     @PreAuthorize("hasAuthority('knowledge:view')")
-    public Map<String, Object> knowledgeDetail(@RequestParam Long knowledgeId) {
+    public Map<String, Object> knowledgeDetail(@RequestParam("knowledgeId") Long knowledgeId) {
         return service.detail(knowledgeId);
     }
 
@@ -68,13 +68,13 @@ public class BusinessController {
 
     @GetMapping("/v1/data/business/knowledge/template/export")
     @PreAuthorize("hasAuthority('knowledge:import')")
-    public Map<String, Object> templateExport(@RequestParam Long sceneTemplateId) {
+    public Map<String, Object> templateExport(@RequestParam("sceneTemplateId") Long sceneTemplateId) {
         return service.templateExport(sceneTemplateId);
     }
 
     @GetMapping("/v1/data/business/knowledge/data/export")
     @PreAuthorize("hasAuthority('knowledge:view')")
-    public Map<String, Object> dataExport(@RequestParam Long sceneTemplateId) {
+    public Map<String, Object> dataExport(@RequestParam("sceneTemplateId") Long sceneTemplateId) {
         return service.dataExport(sceneTemplateId);
     }
 
@@ -94,7 +94,8 @@ public class BusinessController {
 
     @GetMapping("/v1/data/business/statistics/creator")
     @PreAuthorize("hasAuthority('knowledge:view')")
-    public Map<String, Object> statisticsCreator(@RequestParam Long sceneTemplateId) {
-        return service.statisticsCreator(sceneTemplateId);
+    public Map<String, Object> statisticsCreator(@RequestParam(value = "sceneTemplateId", required = false) Long sceneTemplateId,
+                                                 @RequestParam(required = false) List<String> searchCreateTime) {
+        return service.statisticsCreator(sceneTemplateId, searchCreateTime);
     }
 }

@@ -1,6 +1,6 @@
-import { EditOutlined, KeyOutlined, PlusOutlined, StopOutlined } from '@ant-design/icons';
+import { EditOutlined, KeyOutlined, PlusOutlined } from '@ant-design/icons';
 import { history } from '@umijs/max';
-import { Button, Card, Input, Modal, Space, Switch, Table, Tag, message } from 'antd';
+import { Button, Card, Input, Modal, Popconfirm, Space, Table, Tag, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useMemo, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
@@ -90,30 +90,28 @@ export default function UserManagement() {
     { title: '手机号', width: 160, dataIndex: 'userPhoneNum' },
     { title: '状态', width: 100, render: (_, record) => <StatusTag disabled={record.isDisabled} /> },
     {
-      title: '停用',
-      width: 100,
-      render: (_, record) => (
-        <Switch
-          checked={Boolean(record.isDisabled)}
-          disabled={record.isBuiltin}
-          checkedChildren="停用"
-          unCheckedChildren="启用"
-          onChange={async (checked) => {
-            await userApi.editStatus({ userId: record.userId, isDisabled: checked });
-            message.success(checked ? '用户已停用' : '用户已启用');
-            load();
-          }}
-        />
-      ),
-    },
-    {
       title: '操作',
-      width: 210,
+      width: 270,
       render: (_, record) => (
         <Space>
           <Button type="link" icon={<EditOutlined />} onClick={() => openEditor(record)}>
             编辑
           </Button>
+          <Popconfirm
+            title={record.isDisabled ? '确认启用该用户？' : '确认禁用该用户？'}
+            okText="确认"
+            cancelText="取消"
+            disabled={record.isBuiltin}
+            onConfirm={async () => {
+              await userApi.editStatus({ userId: record.userId, isDisabled: !record.isDisabled });
+              message.success(record.isDisabled ? '用户已启用' : '用户已禁用');
+              load();
+            }}
+          >
+            <Button type="link" disabled={record.isBuiltin}>
+              {record.isDisabled ? '启用' : '禁用'}
+            </Button>
+          </Popconfirm>
           <Button type="link" icon={<KeyOutlined />} onClick={() => resetPassword(record)}>
             重置密码
           </Button>

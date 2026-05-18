@@ -37,15 +37,26 @@ export default function Login() {
 
   return (
     <div className="login-page">
+      <div className="login-brand-bar">
+        <span>知识管理系统</span>
+        <em>常州 · 智能制造知识平台</em>
+      </div>
       <Card className="login-panel">
-        <Typography.Title level={2}>知识管理系统</Typography.Title>
-        <Typography.Paragraph type="secondary">欢迎登录知识管理系统</Typography.Paragraph>
+        <div className="login-panel-head">
+          <Typography.Title level={2}>欢迎登录</Typography.Title>
+          <Typography.Paragraph type="secondary">进入企业知识管理与智能制造协同平台</Typography.Paragraph>
+        </div>
         <Form form={form} layout="vertical" onFinish={submit} autoComplete="off">
           <Form.Item name="userAccount" rules={[{ required: true, message: '请输入用户名' }]}>
             <Input size="large" prefix={<UserOutlined />} placeholder="请输入用户名" autoComplete="off" />
           </Form.Item>
           <Form.Item name="userPassword" rules={[{ required: true, message: '请输入密码' }]}>
-            <Input.Password size="large" prefix={<LockOutlined />} placeholder="请输入密码" autoComplete="new-password" />
+            <Input.Password
+              size="large"
+              prefix={<LockOutlined />}
+              placeholder="请输入密码"
+              autoComplete="new-password"
+            />
           </Form.Item>
           <Form.Item name="autoLogin" valuePropName="checked">
             <Checkbox>记住账号</Checkbox>

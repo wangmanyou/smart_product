@@ -1,7 +1,7 @@
 import { CloseOutlined } from '@ant-design/icons';
 import { history, useLocation } from '@umijs/max';
-import { Tabs } from 'antd';
-import { useEffect, useMemo, useState } from 'react';
+import { Tabs, message } from 'antd';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 type TabItem = {
   key: string;
@@ -13,6 +13,7 @@ type TabItem = {
 
 const STORE_KEY = 'knowledge-work-tabs-v6';
 const OLD_STORE_KEYS = ['knowledge-work-tabs-v5', 'knowledge-work-tabs-v4', 'knowledge-work-tabs-v3', 'knowledge-work-tabs'];
+const MAX_GROUP_TABS = 8;
 
 function shouldOpenTab(path: string) {
   if (path === '/login') return false;
@@ -99,9 +100,6 @@ function inferredReplacePaths(path: string) {
   const roleEdit = path.match(/^\/system\/roles\/([^/]+)\/config/);
   if (roleEdit) paths.push('/system/roles');
 
-  const userEdit = path.match(/^\/system\/users\/([^/]+)\/config/);
-  if (userEdit) paths.push('/system/users');
-
   const knowledgeEdit = path.match(/^\/knowledge\/scene\/([^/]+)\/edit\/([^/]+)/);
   if (knowledgeEdit) paths.push(`/knowledge/scene/${knowledgeEdit[1]}/detail/${knowledgeEdit[2]}`);
   return paths;
@@ -110,6 +108,7 @@ function inferredReplacePaths(path: string) {
 export default function GlobalWorkTabs() {
   const location = useLocation();
   const [tabs, setTabs] = useState<TabItem[]>([]);
+  const lastPathRef = useRef('/knowledge');
   const pathname = location.pathname;
   const routeState = location.state as { tabLabel?: string; resetTabs?: boolean; replacePath?: string } | undefined;
   const routeLabel = routeState?.tabLabel;
@@ -143,10 +142,21 @@ export default function GlobalWorkTabs() {
         closable: true,
       };
       const exists = base.some((tab) => tab.path === pathname);
+      if (!exists && ['knowledge', 'system'].includes(currentGroup) && base.length >= MAX_GROUP_TABS) {
+        message.warning(`最多只能打开 ${MAX_GROUP_TABS} 个页签，请先关闭不用的页签再打开新页面`);
+        const fallback = base.find((tab) => tab.path === lastPathRef.current)?.path || base[base.length - 1]?.path || '/knowledge';
+        setTimeout(() => {
+          if (history.location.pathname === pathname) {
+            history.replace(fallback);
+          }
+        });
+        return base;
+      }
       const next = exists
         ? base.map((tab) => (tab.path === pathname ? { ...tab, label: nextTab.label } : tab))
         : [...base, nextTab];
       localStorage.setItem(STORE_KEY, JSON.stringify(next));
+      lastPathRef.current = pathname;
       return next;
     });
   }, [pathname, routeLabel, resetTabs, replacePath]);
@@ -164,8 +174,22 @@ export default function GlobalWorkTabs() {
         return next;
       });
     };
+    const handleTabClose = (event: Event) => {
+      const detail = (event as CustomEvent<{ path?: string }>).detail;
+      if (!detail?.path) return;
+      setTabs((prev) => {
+        const source = prev.length ? prev : readTabs();
+        const next = source.filter((tab) => tab.path !== detail.path);
+        localStorage.setItem(STORE_KEY, JSON.stringify(next));
+        return next;
+      });
+    };
     window.addEventListener('work-tab-label-change', handleLabelChange);
-    return () => window.removeEventListener('work-tab-label-change', handleLabelChange);
+    window.addEventListener('work-tab-close', handleTabClose);
+    return () => {
+      window.removeEventListener('work-tab-label-change', handleLabelChange);
+      window.removeEventListener('work-tab-close', handleTabClose);
+    };
   }, [pathname]);
 
   const items = useMemo(

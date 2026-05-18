@@ -31,7 +31,7 @@ public class SceneController {
 
     @GetMapping("/v1/data/scene/detail")
     @PreAuthorize("hasAnyAuthority('system:manage','system:scene:manage','knowledge:view')")
-    public Map<String, Object> detail(@RequestParam Long sceneTemplateId) {
+    public Map<String, Object> detail(@RequestParam("sceneTemplateId") Long sceneTemplateId) {
         return service.detail(sceneTemplateId);
     }
 
@@ -65,7 +65,7 @@ public class SceneController {
 
     @DeleteMapping("/v1/data/scene/item/delete")
     @PreAuthorize("hasAnyAuthority('system:manage','system:scene:manage')")
-    public Map<String, Object> deleteItem(@RequestParam Long sceneItemId) {
+    public Map<String, Object> deleteItem(@RequestParam("sceneItemId") Long sceneItemId) {
         service.deleteItem(sceneItemId);
         return Map.of();
     }

@@ -1,6 +1,6 @@
 import { ArrowLeftOutlined, SaveOutlined } from '@ant-design/icons';
 import { history, useLocation, useParams } from '@umijs/max';
-import { Button, Card, Form, Input, Space, Transfer, message } from 'antd';
+import { Alert, Button, Card, Form, Input, Space, Transfer, message } from 'antd';
 import type { TransferProps } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
@@ -15,6 +15,7 @@ export default function UserConfig() {
   const [loading, setLoading] = useState(false);
   const [roles, setRoles] = useState<any[]>([]);
   const [roleIds, setRoleIds] = useState<string[]>([]);
+  const [initialRoleIds, setInitialRoleIds] = useState<string[]>([]);
   const [user, setUser] = useState<any>(null);
 
   const roleItems = useMemo(
@@ -25,6 +26,14 @@ export default function UserConfig() {
       disabled: role.isDisabled,
     })),
     [roles],
+  );
+  const unsavedRoleIds = useMemo(
+    () => roleIds.filter((key) => !initialRoleIds.includes(key)),
+    [roleIds, initialRoleIds],
+  );
+  const removedRoleIds = useMemo(
+    () => initialRoleIds.filter((key) => !roleIds.includes(key)),
+    [roleIds, initialRoleIds],
   );
 
   const load = async () => {
@@ -45,11 +54,14 @@ export default function UserConfig() {
           userSex: userRes.userSex,
           userPicture: userRes.userPicture,
         });
-        setRoleIds((userRes.roleIds?.length ? userRes.roleIds : userRes.roleId ? [userRes.roleId] : []).map(String));
+        const loadedRoleIds = (userRes.roleIds?.length ? userRes.roleIds : userRes.roleId ? [userRes.roleId] : []).map(String);
+        setRoleIds(loadedRoleIds);
+        setInitialRoleIds(loadedRoleIds);
         setWorkTabLabel(location.pathname, `${userRes.userAccount}用户编辑`);
       } else {
         form.resetFields();
         setRoleIds([]);
+        setInitialRoleIds([]);
         setWorkTabLabel(location.pathname, '新增用户');
       }
     } finally {
@@ -121,6 +133,12 @@ export default function UserConfig() {
         </Card>
 
         <Card title="角色分配" className="user-config-card">
+          <Alert
+            type="info"
+            showIcon
+            className="user-role-change-note"
+            message="浅绿色表示本次新增但尚未保存的角色；浅红色表示本次移除但尚未保存的角色。"
+          />
           <Transfer
             showSearch
             oneWay={false}
@@ -128,7 +146,11 @@ export default function UserConfig() {
             targetKeys={roleIds}
             titles={['待选角色', '已有角色']}
             listStyle={{ width: '45%', height: 360 }}
-            render={(item) => item.title}
+            render={(item) => (
+              <span className={`user-role-transfer-option ${roleIds.includes(String(item.key)) ? 'is-assigned' : ''} ${unsavedRoleIds.includes(String(item.key)) ? 'is-unsaved' : ''} ${removedRoleIds.includes(String(item.key)) ? 'is-removed' : ''}`}>
+                {item.title}
+              </span>
+            )}
             filterOption={(input, item) =>
               String(item.title).includes(input) || String(item.description || '').includes(input)
             }

@@ -9,6 +9,14 @@ function buildUrl(path: string, params?: any) {
   const url = new URL(`${API_PREFIX}${path}`, window.location.origin);
   Object.entries(params || {}).forEach(([key, value]) => {
     if (value === undefined || value === null || value === '') return;
+    if (Array.isArray(value)) {
+      value.forEach((item) => {
+        if (item !== undefined && item !== null && item !== '') {
+          url.searchParams.append(key, String(item));
+        }
+      });
+      return;
+    }
     url.searchParams.set(key, String(value));
   });
   return `${url.pathname}${url.search}`;
@@ -146,8 +154,8 @@ export const businessApi = {
       params: { sceneTemplateId },
     }),
   importData: (data: any) => post('/v1/data/business/knowledge/data/import', data),
-  statisticsKnowledge: () =>
-    apiRequest('/v1/data/business/statistics/knowledge', { method: 'GET' }),
+  statisticsKnowledge: (params?: any) =>
+    apiRequest('/v1/data/business/statistics/knowledge', { method: 'GET', params }),
 };
 
 export const fileApi = {

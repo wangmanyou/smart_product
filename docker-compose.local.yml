@@ -1,8 +1,8 @@
 services:
   mysql:
     image: mysql:8.0
-    container_name: smart-product-mysql
-    restart: always
+    container_name: smart-product-local-mysql
+    restart: unless-stopped
     environment:
       LANG: C.UTF-8
       MYSQL_ROOT_PASSWORD: root
@@ -14,28 +14,28 @@ services:
       - "13306:3306"
     command: mysqld
     networks:
-      - smart-product-net
+      - smart-product-local-net
 
   redis:
     image: redis:6.2
-    container_name: smart-product-redis
-    restart: always
+    container_name: smart-product-local-redis
+    restart: unless-stopped
     volumes:
       - ./data-mannagement/data-mannagement/deploy/redis.conf:/usr/local/redis/conf/redis.conf:ro
       - ./data-mannagement/data-mannagement/deploy/data/redis/db:/data
-    command: [ "redis-server", "/usr/local/redis/conf/redis.conf", "--appendonly", "yes" ]
+    command: ["redis-server", "/usr/local/redis/conf/redis.conf", "--appendonly", "yes"]
     ports:
       - "16379:6379"
     networks:
-      - smart-product-net
+      - smart-product-local-net
 
   spring-server:
     build:
       context: ./knowledge-hub-backend-spring
       dockerfile: Dockerfile
-    image: smart-product-spring:v1.0
-    container_name: smart-product-spring
-    restart: always
+    image: smart-product-local-spring:v1.0
+    container_name: smart-product-local-spring
+    restart: unless-stopped
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/knowledge?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
       SPRING_DATASOURCE_USERNAME: root
@@ -45,29 +45,30 @@ services:
       SPRING_DATA_REDIS_DATABASE: 6
       SERVER_PORT: 8001
     volumes:
-      - ./deploy-data/files:/app/target/uploads
-    ports:
-      - "8001:8001"
+      - ./testdata:/app/target/uploads
     depends_on:
       - mysql
       - redis
     networks:
-      - smart-product-net
+      - smart-product-local-net
 
   web:
-    image: m.daocloud.io/docker.io/library/nginx:1.26-alpine3.19
-    container_name: smart-product-web
-    restart: always
+    build:
+      context: ./knowledge-hub-modern-fe
+      dockerfile: Dockerfile.local
+    image: smart-product-local-web:v1.0
+    container_name: smart-product-local-web
+    restart: unless-stopped
     volumes:
-      - ./knowledge-hub-modern-fe/dist:/usr/share/nginx/html:ro
-      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-    ports:
-      - "8000:80"
+      - ./deploy/nginx.local.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./testdata:/data:ro
     depends_on:
       - spring-server
+    ports:
+      - "8000:80"
     networks:
-      - smart-product-net
+      - smart-product-local-net
 
 networks:
-  smart-product-net:
-    name: smart-product-net
+  smart-product-local-net:
+    name: smart-product-local-net

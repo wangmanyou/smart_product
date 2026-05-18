@@ -5,8 +5,10 @@ import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.smartproduct.entity.DictDirectoryEntity;
 import com.smartproduct.entity.DictTemplateEntity;
+import com.smartproduct.entity.SceneItemEntity;
 import com.smartproduct.mapper.DictDirectoryMapper;
 import com.smartproduct.mapper.DictTemplateMapper;
+import com.smartproduct.mapper.SceneItemMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,11 +24,13 @@ import java.util.stream.Collectors;
 public class DictService {
     private final DictTemplateMapper templates;
     private final DictDirectoryMapper directories;
+    private final SceneItemMapper sceneItems;
     private final TokenService tokens;
 
-    public DictService(DictTemplateMapper templates, DictDirectoryMapper directories, TokenService tokens) {
+    public DictService(DictTemplateMapper templates, DictDirectoryMapper directories, SceneItemMapper sceneItems, TokenService tokens) {
         this.templates = templates;
         this.directories = directories;
+        this.sceneItems = sceneItems;
         this.tokens = tokens;
     }
 
@@ -203,8 +207,17 @@ public class DictService {
         dto.put("dictDisabled", Boolean.TRUE.equals(item.isDisabled));
         dto.put("updateTime", item.updateAt == null ? null : item.updateAt.atZone(ZoneId.systemDefault()).toEpochSecond());
         dto.put("creatorName", item.creatorName);
-        dto.put("dictIsUsed", Boolean.TRUE.equals(item.isUsed));
+        dto.put("dictIsUsed", Boolean.TRUE.equals(item.isUsed) || isReferencedByScene(item.id));
         return dto;
+    }
+
+    private boolean isReferencedByScene(Long dictTemplateId) {
+        if (dictTemplateId == null || dictTemplateId <= 0) {
+            return false;
+        }
+        return sceneItems.selectCount(new QueryWrapper<SceneItemEntity>()
+                .eq("dict_template_id", dictTemplateId)
+                .eq("del", 0)) > 0;
     }
 
     private Map<String, Object> planeDto(DictDirectoryEntity item) {

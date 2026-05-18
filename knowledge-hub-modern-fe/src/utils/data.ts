@@ -1,4 +1,4 @@
-import dayjs from 'dayjs';
+﻿import dayjs from 'dayjs';
 
 export const sceneTypeText: Record<string, string> = {
   dict: '数据目录',
@@ -85,6 +85,10 @@ export function displayKnowledgeValue(value: any, sceneItem: any, dictDetails: a
       .filter(Boolean);
     return names.length ? names.join(' / ') : '--';
   }
+  if (['picture', 'video', 'audio', 'file'].includes(sceneItem?.type || '')) {
+    const count = value.sceneItemValue?.length || 0;
+    return count ? `${count} 个${sceneTypeText[sceneItem.type] || '附件'}` : '--';
+  }
   const values = value.sceneItemValue || [];
   return values.length ? values.join('，') : '--';
 }
@@ -119,6 +123,10 @@ export function setWorkTabLabel(path: string, label: string) {
   window.dispatchEvent(new CustomEvent('work-tab-label-change', { detail: { path, label } }));
 }
 
+export function closeWorkTab(path: string) {
+  window.dispatchEvent(new CustomEvent('work-tab-close', { detail: { path } }));
+}
+
 export function buildKnowledgePayload(values: Record<string, any>, sceneItems: any[]) {
   return sceneItems.map((item) => {
     const raw = values[item.id];
@@ -128,6 +136,24 @@ export function buildKnowledgePayload(values: Record<string, any>, sceneItems: a
         sceneItemId: item.id,
         sceneItemValue: [],
         sceneItemSelectDictTreeIds: JSON.stringify(arr.map((id) => Number(id))),
+      };
+    }
+    if (['picture', 'video', 'audio', 'file'].includes(item.type || '')) {
+      const fileList = Array.isArray(raw) ? raw : [];
+      return {
+        sceneItemId: item.id,
+        sceneItemValue: fileList
+          .map((file: any) => file?.response?.filePath || file?.response?.file_path || file?.url || file?.filePath || file?.file_path)
+          .filter(Boolean),
+      };
+    }
+    if (item.type === 'datetime') {
+      const dates = Array.isArray(raw) ? raw : raw ? [raw] : [];
+      return {
+        sceneItemId: item.id,
+        sceneItemValue: dates
+          .map((date: any) => dayjs.isDayjs(date) ? date.format('YYYY-MM-DD HH:mm:ss') : String(date || ''))
+          .filter(Boolean),
       };
     }
     const arr = Array.isArray(raw) ? raw : raw ? [raw] : [];

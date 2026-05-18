@@ -41,7 +41,10 @@ public class KnowledgeChangeRequestService {
     }
 
     public Map<String, Object> listAll(int pageNumber, int pageSize, String status) {
-        return page(pageNumber, pageSize, baseQuery(status));
+        CurrentUser user = currentUsers.current();
+        QueryWrapper<KnowledgeChangeRequestEntity> query = baseQuery(status);
+        applySceneScope(query, user);
+        return page(pageNumber, pageSize, query);
     }
 
     @Transactional
@@ -91,6 +94,7 @@ public class KnowledgeChangeRequestService {
     public void approve(Long requestId, String reviewComment) {
         CurrentUser reviewer = currentUsers.current();
         KnowledgeChangeRequestEntity row = requirePending(requestId);
+        requireReviewSceneAccess(reviewer, row);
         Map<String, Object> payload = parsePayload(row.payloadJson);
         if (KnowledgeChangeRequestStatus.CREATE.equals(row.requestType)) {
             businessService.addKnowledgeDirect(payload, row.applicantId, row.applicantName);
@@ -114,6 +118,7 @@ public class KnowledgeChangeRequestService {
     public void reject(Long requestId, String reviewComment) {
         CurrentUser reviewer = currentUsers.current();
         KnowledgeChangeRequestEntity row = requirePending(requestId);
+        requireReviewSceneAccess(reviewer, row);
         requests.update(new UpdateWrapper<KnowledgeChangeRequestEntity>()
                 .eq("id", row.id)
                 .eq("status", KnowledgeChangeRequestStatus.PENDING)
@@ -132,6 +137,23 @@ public class KnowledgeChangeRequestService {
         }
         query.orderByDesc("update_at").orderByDesc("id");
         return query;
+    }
+
+    private void applySceneScope(QueryWrapper<KnowledgeChangeRequestEntity> query, CurrentUser user) {
+        if (user.admin()) {
+            return;
+        }
+        if (user.sceneTemplateIds().isEmpty()) {
+            query.eq("scene_template_id", -1L);
+            return;
+        }
+        query.in("scene_template_id", user.sceneTemplateIds());
+    }
+
+    private void requireReviewSceneAccess(CurrentUser reviewer, KnowledgeChangeRequestEntity row) {
+        if (!reviewer.canAccessScene(row.sceneTemplateId)) {
+            throw new ApiException(HttpStatus.FORBIDDEN.value(), "只能审批已授权场景下的知识变更申请");
+        }
     }
 
     private Map<String, Object> page(int pageNumber, int pageSize, QueryWrapper<KnowledgeChangeRequestEntity> query) {

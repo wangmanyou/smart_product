@@ -59,6 +59,10 @@ export default function SceneConfig() {
   }, [id]);
 
   const updateRow = (rowId: SceneRow['id'], patch: Partial<SceneRow>) => {
+    if (patch.type === 'dict' && rows.some((item) => item.id !== rowId && item.type === 'dict')) {
+      message.warning('每个场景只能配置一个目录字段');
+      return;
+    }
     setRows((prev) => prev.map((item) => (item.id === rowId ? { ...item, ...patch } : item)));
   };
 
@@ -89,6 +93,10 @@ export default function SceneConfig() {
         isSupportSearch: item.isSupportSearch !== false,
         sortNumber: index + 1,
       }));
+    if (sceneItem.filter((item) => item.type === 'dict').length > 1) {
+      message.warning('每个场景只能配置一个目录字段');
+      return;
+    }
 
     if (isCreate) {
       await sceneApi.create({ sceneName: values.sceneName, sceneItem });
@@ -131,7 +139,10 @@ export default function SceneConfig() {
             <Select
               value={record.type}
               style={{ width: record.type === 'dict' ? '46%' : '100%' }}
-              options={typeOptions}
+              options={typeOptions.map((option) => ({
+                ...option,
+                disabled: option.value === 'dict' && record.type !== 'dict' && rows.some((item) => item.type === 'dict'),
+              }))}
               onChange={(value) => updateRow(record.id, { type: value })}
             />
             {record.type === 'dict' ? (

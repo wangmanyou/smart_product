@@ -1,6 +1,6 @@
 import { CopyOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { history } from '@umijs/max';
-import { Button, Card, Form, Input, Space, Table } from 'antd';
+import { Button, Card, Form, Input, Popconfirm, Space, Table, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
@@ -47,7 +47,7 @@ export default function SceneManagement() {
     { title: '更新时间', dataIndex: 'updateTime', width: 160, render: formatTime },
     {
       title: '操作',
-      width: 160,
+      width: 220,
       render: (_, record) => (
         <Space>
           <Button
@@ -68,6 +68,23 @@ export default function SceneManagement() {
           >
             编辑
           </Button>
+          <Popconfirm
+            title={record.sceneIsDisabled ? '确认启用该场景？' : '确认禁用该场景？'}
+            okText="确认"
+            cancelText="取消"
+            onConfirm={async () => {
+              await sceneApi.editStatus({
+                sceneTemplateId: record.sceneTemplateId,
+                isDisabled: !record.sceneIsDisabled,
+              });
+              message.success(record.sceneIsDisabled ? '场景已启用' : '场景已禁用');
+              load(form.getFieldsValue());
+            }}
+          >
+            <Button type="link">
+              {record.sceneIsDisabled ? '启用' : '禁用'}
+            </Button>
+          </Popconfirm>
         </Space>
       ),
     },

@@ -8,6 +8,29 @@ import { permissionApi, roleApi, sceneApi } from '@/services/api';
 import { setWorkTabLabel } from '@/utils/data';
 
 const approvalCodes = ['knowledge:create', 'knowledge:update', 'knowledge:delete'];
+const approvalViewOwnCode = 'knowledge:change-request:view-own';
+const approvalManageCode = 'system:approval:manage';
+const systemManageCode = 'system:manage';
+const approvalPageCode = 'page:system:approvals';
+const hiddenPermissionCodes = [approvalManageCode, systemManageCode];
+const permissionDisplayMap: Record<string, { name: string; description: string }> = {
+  [approvalViewOwnCode]: {
+    name: '查看我的申请',
+    description: '查看自己提交的知识变更申请',
+  },
+  'knowledge:change-request:view-all': {
+    name: '查看全部申请',
+    description: '查看所有人的知识变更申请',
+  },
+  'knowledge:change-request:approve': {
+    name: '审批通过',
+    description: '通过知识变更申请',
+  },
+  'knowledge:change-request:reject': {
+    name: '审批驳回',
+    description: '驳回知识变更申请',
+  },
+};
 const systemPageCodes = [
   'page:system:dicts',
   'page:system:scenes',
@@ -21,8 +44,9 @@ const systemModulePageMap: Record<string, string[]> = {
   'system:user:manage': ['page:system:users'],
   'system:role:manage': ['page:system:roles'],
   'system:permission:manage': ['page:system:roles'],
-  'system:approval:manage': ['page:system:approvals'],
-  'system:manage': systemPageCodes,
+  [approvalManageCode]: ['page:system:approvals'],
+  [approvalViewOwnCode]: [approvalPageCode],
+  [systemManageCode]: systemPageCodes,
 };
 
 export default function RoleConfig() {
@@ -38,6 +62,9 @@ export default function RoleConfig() {
   const [checkedPermissions, setCheckedPermissions] = useState<string[]>([]);
   const [approvalRequired, setApprovalRequired] = useState<string[]>([]);
   const [sceneKeys, setSceneKeys] = useState<string[]>([]);
+  const [selectedSceneKeys, setSelectedSceneKeys] = useState<string[]>([]);
+  const [initialSceneKeys, setInitialSceneKeys] = useState<string[]>([]);
+  const [initialPermissionKeys, setInitialPermissionKeys] = useState<string[]>([]);
   const isAdmin = Form.useWatch('admin', form);
 
   const load = async () => {
@@ -60,13 +87,17 @@ export default function RoleConfig() {
         roleRemark: roleRes?.roleRemark || '',
         admin: Boolean(setting.admin),
       });
-      setCheckedPermissions([...pagePermissions, ...operationPermissions]);
+      const loadedPermissions = [...pagePermissions, ...operationPermissions].map(String);
+      const loadedSceneKeys = (setting.sceneTemplateIds || []).map(String);
+      setCheckedPermissions(loadedPermissions);
+      setInitialPermissionKeys(loadedPermissions);
       setApprovalRequired(
         Object.entries(setting.approvalRequired || {})
           .filter(([, required]) => required)
           .map(([code]) => code),
       );
-      setSceneKeys((setting.sceneTemplateIds || []).map(String));
+      setSceneKeys(loadedSceneKeys);
+      setInitialSceneKeys(loadedSceneKeys);
       setWorkTabLabel(location.pathname, roleRes?.roleName ? `${roleRes.roleName}角色配置` : '新增角色');
     } finally {
       setLoading(false);
@@ -81,22 +112,45 @@ export default function RoleConfig() {
     setApprovalRequired((prev) => prev.filter((code) => checkedPermissions.includes(code)));
   }, [checkedPermissions.join('|')]);
 
+  useEffect(() => {
+    if (approvalRequired.length && !checkedPermissions.includes(approvalViewOwnCode)) {
+      setCheckedPermissions((prev) => Array.from(new Set([...prev, approvalViewOwnCode])));
+    }
+  }, [approvalRequired.join('|'), checkedPermissions.join('|')]);
+
   const permissionMap = useMemo(
     () => new Map(permissions.map((item) => [item.code, item])),
     [permissions],
   );
+  const unsavedSceneKeys = useMemo(
+    () => sceneKeys.filter((key) => !initialSceneKeys.includes(key)),
+    [sceneKeys, initialSceneKeys],
+  );
+  const removedSceneKeys = useMemo(
+    () => initialSceneKeys.filter((key) => !sceneKeys.includes(key)),
+    [sceneKeys, initialSceneKeys],
+  );
+  const unsavedPermissionKeys = useMemo(
+    () => checkedPermissions.filter((code) => !initialPermissionKeys.includes(code)),
+    [checkedPermissions, initialPermissionKeys],
+  );
+  const removedPermissionKeys = useMemo(
+    () => initialPermissionKeys.filter((code) => !checkedPermissions.includes(code)),
+    [checkedPermissions, initialPermissionKeys],
+  );
 
   const treeData = useMemo(() => {
-    const pageNodes = permissions
+    const visiblePermissions = permissions.filter((item) => !hiddenPermissionCodes.includes(item.code));
+    const pageNodes = visiblePermissions
       .filter((item) => item.type === 'PAGE' && !systemPageCodes.includes(item.code))
       .map((item) => node(item));
-    const knowledgeNodes = permissions
+    const knowledgeNodes = visiblePermissions
       .filter((item) => item.type === 'ACTION' && item.code.startsWith('knowledge:') && !item.code.includes('change-request'))
       .map((item) => node(item));
-    const approvalNodes = permissions
+    const approvalNodes = visiblePermissions
       .filter((item) => item.type === 'ACTION' && item.code.includes('change-request'))
       .map((item) => node(item));
-    const systemNodes = permissions
+    const systemNodes = visiblePermissions
       .filter((item) => item.type === 'ACTION' && item.code.startsWith('system:'))
       .map((item) => node(item));
     return [
@@ -105,7 +159,7 @@ export default function RoleConfig() {
       { title: '审批操作', key: 'group:approval', selectable: false, children: approvalNodes },
       { title: '系统管理', key: 'group:system', selectable: false, children: systemNodes },
     ];
-  }, [permissions, checkedPermissions, approvalRequired]);
+  }, [permissions, checkedPermissions, approvalRequired, unsavedPermissionKeys, removedPermissionKeys]);
 
   const expandedKeys = ['group:pages', 'group:knowledge', 'group:approval', 'group:system'];
 
@@ -117,13 +171,14 @@ export default function RoleConfig() {
       treeData: items.map((item) => node(item)),
     });
 
-    const pageItems = permissions
+    const visiblePermissions = permissions.filter((item) => !hiddenPermissionCodes.includes(item.code));
+    const pageItems = visiblePermissions
       .filter((item) => item.type === 'PAGE' && !systemPageCodes.includes(item.code));
-    const knowledgeItems = permissions
+    const knowledgeItems = visiblePermissions
       .filter((item) => item.type === 'ACTION' && item.code.startsWith('knowledge:') && !item.code.includes('change-request'));
-    const approvalItems = permissions
+    const approvalItems = visiblePermissions
       .filter((item) => item.type === 'ACTION' && item.code.includes('change-request'));
-    const systemItems = permissions
+    const systemItems = visiblePermissions
       .filter((item) => item.type === 'ACTION' && item.code.startsWith('system:'));
 
     return [
@@ -132,7 +187,7 @@ export default function RoleConfig() {
       buildGroup('approval', '审批操作', approvalItems),
       buildGroup('system', '系统管理', systemItems),
     ];
-  }, [permissions, checkedPermissions, approvalRequired]);
+  }, [permissions, checkedPermissions, approvalRequired, unsavedPermissionKeys, removedPermissionKeys]);
 
   const sceneItems = useMemo(
     () => scenes.map((scene) => ({
@@ -143,27 +198,59 @@ export default function RoleConfig() {
     })),
     [scenes],
   );
+  const handleSceneChange = (nextKeys: TransferProps['targetKeys']) => {
+    const next = (nextKeys || []).map(String);
+    setSceneKeys(next);
+    setSelectedSceneKeys((prev) => prev.filter((key) => next.includes(key)));
+  };
+
+  const handleSceneSelectChange: TransferProps['onSelectChange'] = (sourceSelectedKeys, targetSelectedKeys) => {
+    const selected = sourceSelectedKeys.map(String).filter((key) => !sceneKeys.includes(key));
+    if (selected.length) {
+      setSceneKeys((prev) => Array.from(new Set([...prev, ...selected])));
+    }
+    setSelectedSceneKeys(targetSelectedKeys.map(String));
+  };
+
+  const setGroupPermissions = (groupCodes: string[], nextGroupKeys: string[]) => {
+    setCheckedPermissions((prev) => [
+      ...prev.filter((code) => !groupCodes.includes(code)),
+      ...nextGroupKeys,
+    ]);
+  };
+
+  const setApprovalRequiredChecked = (code: string, checked: boolean) => {
+    setApprovalRequired((prev) => {
+      const next = checked
+        ? Array.from(new Set([...prev, code]))
+        : prev.filter((item) => item !== code);
+      if (next.length) {
+        setCheckedPermissions((permissionsPrev) => Array.from(new Set([...permissionsPrev, approvalViewOwnCode])));
+      }
+      return next;
+    });
+  };
 
   function node(item: any) {
+    const checked = checkedPermissions.includes(item.code);
+    const unsaved = unsavedPermissionKeys.includes(item.code);
+    const removed = removedPermissionKeys.includes(item.code);
+    const display = permissionDisplayMap[item.code] || item;
     return {
       key: item.code,
       title: (
-        <span className="role-tree-node">
+        <span className={`role-tree-node ${checked ? 'is-checked' : ''} ${unsaved ? 'is-unsaved' : ''} ${removed ? 'is-removed' : ''}`}>
           <span>
-            <strong>{item.name}</strong>
-            {item.description ? <em>{item.description}</em> : null}
+            <strong>{display.name}</strong>
+            {display.description ? <em>{display.description}</em> : null}
           </span>
-          {approvalCodes.includes(item.code) && checkedPermissions.includes(item.code) ? (
+          {approvalCodes.includes(item.code) && checked ? (
             <Checkbox
               className="role-approval-checkbox"
               checked={approvalRequired.includes(item.code)}
               onClick={(event) => event.stopPropagation()}
               onChange={(event) => {
-                setApprovalRequired((prev) =>
-                  event.target.checked
-                    ? Array.from(new Set([...prev, item.code]))
-                    : prev.filter((code) => code !== item.code),
-                );
+                setApprovalRequiredChecked(item.code, event.target.checked);
               }}
             >
               需要审批
@@ -177,6 +264,9 @@ export default function RoleConfig() {
   const submit = async () => {
     const values = await form.validateFields();
     const selected = new Set(checkedPermissions);
+    if (approvalRequired.length) {
+      selected.add(approvalViewOwnCode);
+    }
     Object.entries(systemModulePageMap).forEach(([permissionCode, pageCodes]) => {
       if (selected.has(permissionCode)) {
         pageCodes.forEach((code) => selected.add(code));
@@ -245,18 +335,32 @@ export default function RoleConfig() {
             {isAdmin ? (
               <Alert type="info" showIcon message="管理员角色默认可访问全部场景。" />
             ) : (
-              <Transfer
-                showSearch
-                dataSource={sceneItems}
-                targetKeys={sceneKeys}
-                titles={['待选场景', '已授权场景']}
-                listStyle={{ width: '45%', height: 300 }}
-                render={(item) => item.title}
-                filterOption={(input, item) =>
-                  String(item.title).includes(input) || String(item.description || '').includes(input)
-                }
-                onChange={(nextKeys: TransferProps['targetKeys']) => setSceneKeys((nextKeys || []).map(String))}
-              />
+              <>
+                <Alert
+                  type="success"
+                  showIcon
+                  className="role-config-note"
+                  message="左侧选择后会自动加入右侧，浅绿色标识表示本次新增但尚未保存的配置。"
+                />
+                <Transfer
+                  showSearch
+                  dataSource={sceneItems}
+                  targetKeys={sceneKeys}
+                  selectedKeys={selectedSceneKeys}
+                  titles={['待选场景', '已授权场景']}
+                  listStyle={{ width: '45%', height: 300 }}
+                  render={(item) => (
+                    <span className={`role-transfer-option ${sceneKeys.includes(String(item.key)) ? 'is-authorized' : ''} ${unsavedSceneKeys.includes(String(item.key)) ? 'is-unsaved' : ''} ${removedSceneKeys.includes(String(item.key)) ? 'is-removed' : ''}`}>
+                      {item.title}
+                    </span>
+                  )}
+                  filterOption={(input, item) =>
+                    String(item.title).includes(input) || String(item.description || '').includes(input)
+                  }
+                  onSelectChange={handleSceneSelectChange}
+                  onChange={handleSceneChange}
+                />
+              </>
             )}
           </Card>
         </div>
@@ -286,10 +390,7 @@ export default function RoleConfig() {
                     onCheck={(keys) => {
                       const next = Array.isArray(keys) ? keys : keys.checked;
                       const nextGroupKeys = next.map(String);
-                      setCheckedPermissions((prev) => [
-                        ...prev.filter((code) => !group.codes.includes(code)),
-                        ...nextGroupKeys,
-                      ]);
+                      setGroupPermissions(group.codes, nextGroupKeys);
                     }}
                   />
                 </div>

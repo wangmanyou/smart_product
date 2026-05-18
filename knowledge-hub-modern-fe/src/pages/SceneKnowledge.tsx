@@ -5,7 +5,7 @@ import {
   SearchOutlined,
 } from '@ant-design/icons';
 import { history, useLocation, useParams } from '@umijs/max';
-import { Button, Card, Col, Form, Input, Popconfirm, Row, Space, Table, Tree, Typography, message } from 'antd';
+import { Button, Card, Form, Input, Popconfirm, Space, Table, Tree, Typography, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useMemo, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
@@ -22,6 +22,19 @@ import {
   toAntTree,
 } from '@/utils/data';
 
+function readListState(sceneId: string) {
+  try {
+    const value = sessionStorage.getItem(`scene-knowledge-list-state:${sceneId}`);
+    return value ? JSON.parse(value) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeListState(sceneId: string, state: Record<string, any>) {
+  sessionStorage.setItem(`scene-knowledge-list-state:${sceneId}`, JSON.stringify(state));
+}
+
 export default function SceneKnowledge() {
   const { id = '' } = useParams();
   const location = useLocation();
@@ -32,6 +45,8 @@ export default function SceneKnowledge() {
   const [detail, setDetail] = useState<any>();
   const [knowledgeRows, setKnowledgeRows] = useState<any[]>([]);
   const [knowledgeTotal, setKnowledgeTotal] = useState(0);
+  const [pageNumber, setPageNumber] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const formatted = formatBusinessDetail(detail);
   const dictField =
@@ -56,7 +71,15 @@ export default function SceneKnowledge() {
   const getKnowledgeTitle = (record: any) =>
     knowledgeDisplayTitle(record, formatted.sceneItems, formatted.dictDetails);
 
-  const runList = async (dictId?: string, values: any = {}) => {
+  const runList = async (dictId?: string, values: any = {}, nextPage = 1, nextPageSize = pageSize) => {
+    setPageNumber(nextPage);
+    setPageSize(nextPageSize);
+    writeListState(id, {
+      selectedDictId: dictId,
+      values,
+      pageNumber: nextPage,
+      pageSize: nextPageSize,
+    });
     setListLoading(true);
     try {
       const searchKnowledgeItem =
@@ -65,8 +88,8 @@ export default function SceneKnowledge() {
           : undefined;
       const res = await businessApi.knowledgeList({
         sceneTemplateId: Number(id),
-        pageNumber: 1,
-        pageSize: 10,
+        pageNumber: nextPage,
+        pageSize: nextPageSize,
         ...values,
         searchKnowledgeItem,
       });
@@ -97,7 +120,17 @@ export default function SceneKnowledge() {
   }, [id]);
 
   useEffect(() => {
-    if (detail) runList(undefined, form.getFieldsValue());
+    if (!detail) return;
+    const saved = readListState(id);
+    const savedValues = saved.values || {};
+    form.setFieldsValue(savedValues);
+    setSelectedDictId(saved.selectedDictId);
+    runList(
+      saved.selectedDictId,
+      savedValues,
+      Number(saved.pageNumber || 1),
+      Number(saved.pageSize || pageSize),
+    );
   }, [detail]);
 
   const columns: ColumnsType<any> = [
@@ -172,7 +205,7 @@ export default function SceneKnowledge() {
             onConfirm={async () => {
               await businessApi.deleteKnowledge(record.knowledgeId);
               message.success('已删除');
-              runList(selectedDictId, form.getFieldsValue());
+              runList(selectedDictId, form.getFieldsValue(), pageNumber, pageSize);
             }}
           >
             <Button type="link" danger>删除</Button>
@@ -203,13 +236,13 @@ export default function SceneKnowledge() {
         <Button key="template" icon={<DownloadOutlined />} onClick={exportTemplate}>导出模板</Button>,
       ].filter(Boolean)}
     >
-      <Row gutter={18} align="stretch">
-        <Col flex="300px">
+      <div className="knowledge-layout">
+        <div>
           <Card
             loading={detailLoading}
             className="directory-tree-card"
             title={dictDetail?.dictTemplate?.dictName || '目录'}
-            extra={<Button type="link" onClick={() => { setSelectedDictId(undefined); runList(undefined, form.getFieldsValue()); }}>全部</Button>}
+            extra={<Button type="link" onClick={() => { setSelectedDictId(undefined); runList(undefined, form.getFieldsValue(), 1, pageSize); }}>全部</Button>}
           >
             {isTree ? (
               <Tree
@@ -220,7 +253,7 @@ export default function SceneKnowledge() {
                 onSelect={(keys) => {
                   const key = keys[0] ? String(keys[0]) : undefined;
                   setSelectedDictId(key);
-                  runList(key, form.getFieldsValue());
+                  runList(key, form.getFieldsValue(), 1, pageSize);
                 }}
               />
             ) : (
@@ -233,7 +266,7 @@ export default function SceneKnowledge() {
                     onClick={() => {
                       const key = String(node.id);
                       setSelectedDictId(key);
-                      runList(key, form.getFieldsValue());
+                      runList(key, form.getFieldsValue(), 1, pageSize);
                     }}
                   >
                     {node.name}
@@ -243,13 +276,13 @@ export default function SceneKnowledge() {
               </Space>
             )}
           </Card>
-        </Col>
-        <Col flex="auto">
+        </div>
+        <div>
           <Card className="toolbar-card">
             <Form
               form={form}
               layout="inline"
-              onFinish={(values) => runList(selectedDictId, values)}
+              onFinish={(values) => runList(selectedDictId, values, 1, pageSize)}
             >
               <Form.Item name="keyword" label="关键词">
                 <Input allowClear placeholder="搜索主题、内容、标签" style={{ width: 320 }} />
@@ -257,7 +290,7 @@ export default function SceneKnowledge() {
               <Form.Item>
                 <Space>
                   <Button type="primary" htmlType="submit" icon={<SearchOutlined />}>查询</Button>
-                  <Button onClick={() => { form.resetFields(); runList(selectedDictId); }}>重置</Button>
+                  <Button onClick={() => { form.resetFields(); runList(selectedDictId, {}, 1, pageSize); }}>重置</Button>
                 </Space>
               </Form.Item>
             </Form>
@@ -272,13 +305,16 @@ export default function SceneKnowledge() {
               scroll={{ x: 1100 }}
               pagination={{
                 total: knowledgeTotal,
-                pageSize: 10,
+                current: pageNumber,
+                pageSize,
                 showTotal: (total) => `共 ${total} 条`,
+                onChange: (nextPage, nextPageSize) =>
+                  runList(selectedDictId, form.getFieldsValue(), nextPage, nextPageSize),
               }}
             />
           </Card>
-        </Col>
-      </Row>
+        </div>
+      </div>
     </PageHeader>
   );
 }
