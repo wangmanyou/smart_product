@@ -1,0 +1,75 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: smart-product-mysql
+    restart: always
+    environment:
+      LANG: C.UTF-8
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: knowledge
+    volumes:
+      - ../deploy-data/mysql:/var/lib/mysql
+      - ./deploy/mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+    ports:
+      - "13306:3306"
+    command: mysqld
+    networks:
+      - smart-product-net
+
+  redis:
+    image: redis:6.2
+    container_name: smart-product-redis
+    restart: always
+    volumes:
+      - ./deploy/redis/redis.conf:/usr/local/redis/conf/redis.conf:ro
+      - ../deploy-data/redis:/data
+    command: ["redis-server", "/usr/local/redis/conf/redis.conf", "--appendonly", "yes"]
+    ports:
+      - "16379:6379"
+    networks:
+      - smart-product-net
+
+  spring-server:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: smart-product-spring:v1.0
+    container_name: smart-product-spring
+    restart: always
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/knowledge?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_DATABASE: 6
+      SPRING_PROFILES_ACTIVE: prod
+      APP_UPLOAD_DIR: /app/uploads
+      SERVER_PORT: 8001
+    volumes:
+      - ../deploy-data/files:/app/uploads
+    ports:
+      - "8001:8001"
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - smart-product-net
+
+  web:
+    image: m.daocloud.io/docker.io/library/nginx:1.26-alpine3.19
+    container_name: smart-product-web
+    restart: always
+    volumes:
+      - ./frontend-app/dist:/usr/share/nginx/html:ro
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "8000:80"
+    depends_on:
+      - spring-server
+    networks:
+      - smart-product-net
+
+networks:
+  smart-product-net:
+    name: smart-product-net

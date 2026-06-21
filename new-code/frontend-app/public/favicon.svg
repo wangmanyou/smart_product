@@ -1,0 +1,9 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="5" y="5" width="54" height="54" rx="15" fill="#2463EB"/>
+  <path d="M11 20C11 11.7157 17.7157 5 26 5H44C52.2843 5 59 11.7157 59 20V32C41.918 32 27.3937 27.4376 11 20Z" fill="#3B82F6"/>
+  <text x="14" y="43" fill="#F7FAFF" font-family="Microsoft YaHei, PingFang SC, Noto Sans SC, sans-serif" font-size="34" font-weight="800">知</text>
+  <rect x="41" y="39" width="4" height="9" rx="2" fill="#BFEFD9"/>
+  <rect x="47" y="34" width="4" height="14" rx="2" fill="#8BE3BD"/>
+  <rect x="53" y="28" width="4" height="20" rx="2" fill="#36D399"/>
+  <path d="M41 51H57" stroke="#D9FBEA" stroke-width="3" stroke-linecap="round"/>
+</svg>

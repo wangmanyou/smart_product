@@ -1,0 +1,13 @@
+release/
+
+backend/target/
+backend/upload/
+backend/.idea/
+
+frontend-app/node_modules/
+frontend-app/dist/
+frontend-app/src/.umi/
+frontend-app/src/.umi-production/
+frontend-app/public/assets/*.tmp.png
+
+SERVER_ENVIRONMENT_BACKUP.md
