@@ -3,7 +3,6 @@ import {
   BellOutlined,
   BookOutlined,
   DatabaseOutlined,
-  HomeOutlined,
   SettingOutlined,
   TeamOutlined,
 } from '@ant-design/icons';
@@ -15,10 +14,34 @@ import HeaderUserMenu from './components/HeaderUserMenu';
 import { authApi } from './services/api';
 import './global.less';
 
+let refreshingCurrentUser = false;
+
 export function onRouteChange({ location }: any) {
   if (location.pathname !== '/login' && !authApi.getToken()) {
     history.push('/login');
+    return;
   }
+  if (location.pathname === '/login' || refreshingCurrentUser || !authApi.getToken()) {
+    return;
+  }
+  refreshingCurrentUser = true;
+  authApi
+    .current()
+    .then((latestUser) => {
+      const cachedUser = authApi.getCurrentUser();
+      const cached = JSON.stringify(cachedUser || {});
+      const latest = JSON.stringify(latestUser || {});
+      if (cached !== latest) {
+        authApi.setCurrentUser(latestUser);
+        if (cachedUser?.userId) {
+          window.location.reload();
+        }
+      }
+    })
+    .catch(() => undefined)
+    .finally(() => {
+      refreshingCurrentUser = false;
+    });
 }
 
 export const layout: RunTimeLayoutConfig = () => ({
@@ -62,7 +85,6 @@ export const layout: RunTimeLayoutConfig = () => ({
       actions.has('system:manage') ||
       Boolean(modulePageMap[code]?.some((permissionCode) => actions.has(permissionCode)));
     return [
-      canPage('page:knowledge') ? { path: '/home', name: '首页', icon: <HomeOutlined /> } : null,
       canPage('page:knowledge') ? { path: '/knowledge', name: '知识中心', icon: <BookOutlined /> } : null,
       {
         path: '/system',

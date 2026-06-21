@@ -41,3 +41,9 @@ knowledge-hub-backend-spring/target/
 # IDE files
 .idea/
 **/.idea/
+.vscode/
+
+# Local runtime output and uploaded sample data
+*.log
+*.err.log
+testdata/

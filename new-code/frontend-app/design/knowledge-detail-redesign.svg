@@ -1,0 +1,111 @@
+<svg width="1920" height="1080" viewBox="0 0 1920 1080" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1920" height="1080" fill="#F4F7FC"/>
+  <rect width="1920" height="56" fill="#082653"/>
+  <text x="24" y="35" font-family="Microsoft YaHei, Arial" font-size="20" font-weight="700" fill="#FFFFFF">知识管理系统</text>
+  <g font-family="Microsoft YaHei, Arial" font-size="15" font-weight="600">
+    <text x="150" y="35" fill="#C9D8F2">⌂ 首页</text>
+    <rect x="226" y="7" width="118" height="42" rx="6" fill="#2B4D7B"/>
+    <text x="252" y="35" fill="#FFFFFF">▣ 知识中心</text>
+    <text x="376" y="35" fill="#C9D8F2">⚙ 系统管理</text>
+    <text x="500" y="35" fill="#C9D8F2">▥ 数据展板</text>
+  </g>
+  <circle cx="1814" cy="28" r="14" fill="#061B3C"/>
+  <text x="1807" y="34" fill="#fff" font-family="Microsoft YaHei, Arial" font-size="16" font-weight="700">超</text>
+  <text x="1840" y="34" fill="#C9D8F2" font-family="Microsoft YaHei, Arial" font-size="14">超级管理员</text>
+
+  <g transform="translate(58 90)" font-family="Microsoft YaHei, Arial" font-size="15">
+    <rect x="0" y="0" width="112" height="40" rx="6" fill="#FFFFFF" stroke="#DDE5F0"/>
+    <text x="18" y="26" fill="#1F2937">场景列表</text><text x="84" y="26" fill="#98A2B3">×</text>
+    <rect x="116" y="0" width="126" height="40" rx="6" fill="#FFFFFF" stroke="#DDE5F0"/>
+    <text x="134" y="26" fill="#1F2937">test知识列表</text><text x="212" y="26" fill="#98A2B3">×</text>
+    <rect x="246" y="0" width="260" height="40" rx="6" fill="#FFFFFF" stroke="#1769E8" stroke-width="1.5"/>
+    <text x="264" y="26" fill="#1769E8" font-weight="700">评估合同有什么要求？知识详情</text><text x="476" y="26" fill="#98A2B3">×</text>
+  </g>
+  <line x1="58" y1="130" x2="1862" y2="130" stroke="#E3E8F2"/>
+
+  <g transform="translate(58 152)" font-family="Microsoft YaHei, Arial">
+    <text x="0" y="18" fill="#667085" font-size="14">知识中心 / test / 知识详情</text>
+    <text x="0" y="60" fill="#101828" font-size="27" font-weight="700">评估合同有什么要求？</text>
+    <rect x="0" y="76" width="42" height="24" rx="4" fill="#E8F2FF"/>
+    <text x="10" y="93" fill="#1769E8" font-size="13">test</text>
+    <text x="54" y="93" fill="#64748B" font-size="14">root1 / root1-1 / root1-1-1 · 知识ID 33</text>
+  </g>
+  <g transform="translate(1506 158)" font-family="Microsoft YaHei, Arial" font-size="15" font-weight="600">
+    <rect x="0" y="0" width="96" height="36" rx="6" fill="#FFFFFF" stroke="#D5DCE8"/>
+    <text x="22" y="24" fill="#1F2937">返回列表</text>
+    <rect x="108" y="0" width="82" height="36" rx="6" fill="#1769E8"/>
+    <text x="137" y="24" fill="#FFFFFF">编辑</text>
+    <rect x="202" y="0" width="82" height="36" rx="6" fill="#FFFFFF" stroke="#FF4D4F"/>
+    <text x="231" y="24" fill="#FF4D4F">删除</text>
+  </g>
+
+  <g transform="translate(58 232)">
+    <rect x="0" y="0" width="1302" height="728" rx="8" fill="#FFFFFF" stroke="#DDE5F0"/>
+    <text x="24" y="38" fill="#101828" font-family="Microsoft YaHei, Arial" font-size="19" font-weight="700">知识内容</text>
+    <line x1="0" y1="58" x2="1302" y2="58" stroke="#E8EDF5"/>
+
+    <g font-family="Microsoft YaHei, Arial">
+      <rect x="24" y="82" width="1254" height="60" rx="7" fill="#F3F8FF" stroke="#BBD6FF"/>
+      <text x="44" y="108" fill="#486581" font-size="14" font-weight="700">目录路径</text>
+      <text x="44" y="132" fill="#101828" font-size="15">单个-tree：root1 / root1-1 / root1-1-1</text>
+
+      <rect x="24" y="166" width="602" height="106" rx="7" fill="#FAFBFD" stroke="#E3E8F2"/>
+      <text x="44" y="196" fill="#64748B" font-size="14" font-weight="700">单个文本</text>
+      <text x="44" y="232" fill="#101828" font-size="17">评估合同有什么要求？</text>
+
+      <rect x="652" y="166" width="626" height="106" rx="7" fill="#FAFBFD" stroke="#E3E8F2"/>
+      <text x="672" y="196" fill="#64748B" font-size="14" font-weight="700">标签</text>
+      <rect x="672" y="216" width="76" height="26" rx="4" fill="#E8F2FF"/><text x="684" y="234" fill="#1769E8" font-size="13">合同评估</text>
+      <rect x="758" y="216" width="48" height="26" rx="4" fill="#FFF2E6"/><text x="770" y="234" fill="#FA8C16" font-size="13">风险</text>
+      <rect x="816" y="216" width="48" height="26" rx="4" fill="#F0F9E8"/><text x="828" y="234" fill="#52C41A" font-size="13">要求</text>
+
+      <rect x="24" y="296" width="1254" height="124" rx="7" fill="#FFFFFF" stroke="#E3E8F2"/>
+      <text x="44" y="326" fill="#64748B" font-size="14" font-weight="700">多个文本</text>
+      <text x="44" y="362" fill="#101828" font-size="16">不能违反公正性，应在评估组进场前支付评估费用。包含咨询、评估等合同条款时，应明确费用、责任和交付范围。</text>
+
+      <g font-size="14">
+        <rect x="24" y="444" width="292" height="86" rx="7" fill="#FAFBFD" stroke="#E3E8F2"/>
+        <text x="44" y="474" fill="#64748B" font-weight="700">多个-tree</text><text x="44" y="506" fill="#98A2B3">--</text>
+        <rect x="336" y="444" width="292" height="86" rx="7" fill="#FAFBFD" stroke="#E3E8F2"/>
+        <text x="356" y="474" fill="#64748B" font-weight="700">单个-plane</text><text x="356" y="506" fill="#98A2B3">--</text>
+        <rect x="648" y="444" width="292" height="86" rx="7" fill="#FAFBFD" stroke="#E3E8F2"/>
+        <text x="668" y="474" fill="#64748B" font-weight="700">多个-plane</text><text x="668" y="506" fill="#98A2B3">--</text>
+        <rect x="960" y="444" width="318" height="86" rx="7" fill="#FAFBFD" stroke="#E3E8F2"/>
+        <text x="980" y="474" fill="#64748B" font-weight="700">附件</text><text x="980" y="506" fill="#98A2B3">暂无附件</text>
+
+        <rect x="24" y="552" width="292" height="86" rx="7" fill="#FAFBFD" stroke="#E3E8F2"/>
+        <text x="44" y="582" fill="#64748B" font-weight="700">单个整数</text><text x="44" y="614" fill="#101828">1</text>
+        <rect x="336" y="552" width="292" height="86" rx="7" fill="#FAFBFD" stroke="#E3E8F2"/>
+        <text x="356" y="582" fill="#64748B" font-weight="700">多个整数</text><text x="356" y="614" fill="#101828">1, 10</text>
+        <rect x="648" y="552" width="292" height="86" rx="7" fill="#FAFBFD" stroke="#E3E8F2"/>
+        <text x="668" y="582" fill="#64748B" font-weight="700">更新时间</text><text x="668" y="614" fill="#101828">2025-02-18 10:57</text>
+        <rect x="960" y="552" width="318" height="86" rx="7" fill="#FAFBFD" stroke="#E3E8F2"/>
+        <text x="980" y="582" fill="#64748B" font-weight="700">贡献人</text><text x="980" y="614" fill="#101828">admin</text>
+      </g>
+    </g>
+  </g>
+
+  <g transform="translate(1384 232)" font-family="Microsoft YaHei, Arial">
+    <rect width="478" height="286" rx="8" fill="#FFFFFF" stroke="#DDE5F0"/>
+    <text x="24" y="38" fill="#101828" font-size="19" font-weight="700">基础信息</text>
+    <line x1="0" y1="58" x2="478" y2="58" stroke="#E8EDF5"/>
+    <g font-size="14">
+      <text x="24" y="96" fill="#64748B">知识ID：</text><text x="102" y="96" fill="#101828" font-weight="700">33</text>
+      <text x="24" y="132" fill="#64748B">创建人：</text><text x="102" y="132" fill="#101828">admin</text>
+      <text x="24" y="168" fill="#64748B">点击次数：</text><text x="116" y="168" fill="#101828">35</text>
+      <text x="24" y="204" fill="#64748B">创建时间：</text><text x="116" y="204" fill="#101828">2025-02-18 10:31</text>
+      <text x="24" y="240" fill="#64748B">更新时间：</text><text x="116" y="240" fill="#101828">2025-02-18 10:57</text>
+      <rect x="280" y="222" width="158" height="24" rx="4" fill="#E8F2FF"/>
+      <text x="292" y="239" fill="#1769E8" font-size="13">更新时间由系统自动维护</text>
+    </g>
+
+    <rect y="310" width="478" height="172" rx="8" fill="#FFFFFF" stroke="#DDE5F0"/>
+    <text x="24" y="348" fill="#101828" font-size="19" font-weight="700">快捷操作</text>
+    <rect x="24" y="374" width="430" height="38" rx="6" fill="#1769E8"/>
+    <text x="206" y="399" fill="#FFFFFF" font-size="15" font-weight="700">编辑知识</text>
+    <rect x="24" y="424" width="208" height="38" rx="6" fill="#FFFFFF" stroke="#D5DCE8"/>
+    <text x="94" y="449" fill="#1F2937" font-size="15">复制知识</text>
+    <rect x="246" y="424" width="208" height="38" rx="6" fill="#FFFFFF" stroke="#FF4D4F"/>
+    <text x="316" y="449" fill="#FF4D4F" font-size="15">删除知识</text>
+  </g>
+</svg>

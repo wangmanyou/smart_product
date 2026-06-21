@@ -1,4 +1,4 @@
-import {
+﻿import {
   AudioOutlined,
   DeleteOutlined,
   DownloadOutlined,
@@ -9,11 +9,12 @@ import {
   VideoCameraOutlined,
 } from '@ant-design/icons';
 import { history, useLocation, useParams } from '@umijs/max';
-import { Button, Card, Col, Descriptions, Image, Popconfirm, Row, Space, Tag, Typography, message } from 'antd';
+import { Button, Card, Descriptions, Image, Popconfirm, Space, Typography, message } from 'antd';
 import { useEffect, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import { authApi, businessApi } from '@/services/api';
 import {
+  closeWorkTab,
   displayKnowledgeValue,
   findKnowledgeItem,
   formatBusinessDetail,
@@ -171,11 +172,22 @@ export default function KnowledgeDetail() {
   const dictItems = detailItems.filter((item: DetailItem) => item.type === 'dict');
   const mediaItems = detailItems.filter((item: DetailItem) => ['picture', 'video', 'audio', 'file'].includes(item.type || ''));
   const normalItems = detailItems.filter((item: DetailItem) => item.type !== 'dict' && !['picture', 'video', 'audio', 'file'].includes(item.type || ''));
+  const directoryItem = dictItems[0];
+  const titleItem = normalItems.find((item) => /主题|标题|名称|title|name/i.test(item.name || ''));
+  const articleTitle = titleItem?.value && titleItem.value !== '--' ? titleItem.value : knowledgeTitle || '知识详情';
+  const articleItems = normalItems.filter((item) => item.key !== titleItem?.key && item.value && item.value !== '--');
   const currentUser = authApi.getCurrentUser();
   const isAdmin = Boolean(currentUser?.isBuiltin || currentUser?.roleId === 1 || currentUser?.roleIds?.includes?.(1));
   const operationPermissions = new Set(currentUser?.setting?.operationPermissions || currentUser?.operationPermissions || []);
   const canUpdate = isAdmin || operationPermissions.has('knowledge:update');
   const canDelete = isAdmin || operationPermissions.has('knowledge:delete');
+  const backToList = () => {
+    closeWorkTab(location.pathname);
+    history.push({
+      pathname: `/knowledge/scene/${sceneId}`,
+      state: { tabLabel: `${sceneName}知识列表` },
+    });
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -203,7 +215,7 @@ export default function KnowledgeDetail() {
   const remove = async () => {
     await businessApi.deleteKnowledge(id);
     message.success('已删除');
-    history.push({ pathname: `/knowledge/scene/${sceneId}`, state: { tabLabel: `${sceneName}知识列表` } });
+    backToList();
   };
 
   return (
@@ -211,7 +223,12 @@ export default function KnowledgeDetail() {
       title={knowledgeTitle || '知识详情'}
       breadcrumb={`知识中心 / ${sceneName} / 知识详情`}
       extra={[
-        <Button key="back" onClick={() => history.push({ pathname: `/knowledge/scene/${sceneId}`, state: { tabLabel: `${sceneName}知识列表` } })}>返回列表</Button>,
+        <Button
+          key="back"
+          onClick={backToList}
+        >
+          返回列表
+        </Button>,
         canUpdate ? <Button
           key="edit"
           type="primary"
@@ -231,30 +248,34 @@ export default function KnowledgeDetail() {
         </Popconfirm> : null,
       ].filter(Boolean)}
     >
-      <Row gutter={20} className="knowledge-detail-layout">
-        <Col flex="auto">
-          <Card className="knowledge-detail-card" title="知识内容" loading={loading}>
-            {dictItems.map((item: DetailItem) => (
-              <div className="knowledge-path-panel" key={item.key}>
-                <div className="knowledge-field-label">{item.name}</div>
-                {renderDetailValue(item)}
-              </div>
-            ))}
-
-            <div className="knowledge-field-grid">
-              {normalItems.map((item: DetailItem) => (
-                <div
-                  className={`knowledge-field-card ${String(item.value || '').length > 80 ? 'is-wide' : ''}`}
-                  key={item.key}
-                >
-                  <div className="knowledge-field-label">{item.name}</div>
-                  {renderDetailValue(item)}
+      <div className="knowledge-detail-layout">
+        <div className="knowledge-detail-main">
+          <Card className="knowledge-article-card" loading={loading}>
+            <article>
+              <header className="knowledge-article-header">
+                {directoryItem ? <div className="knowledge-directory-pill">{directoryItem.value}</div> : null}
+                <Typography.Title level={2}>{articleTitle}</Typography.Title>
+                <div className="knowledge-article-meta">
+                  <span>知识ID：{knowledge.knowledgeId || id}</span>
+                  <span>创建人：{knowledge.creatorName || '--'}</span>
+                  <span>更新时间：{formatTime(knowledge.updateTime)}</span>
                 </div>
-              ))}
-            </div>
+              </header>
+
+              <div className="knowledge-article-body">
+                {articleItems.map((item: DetailItem) => (
+                  <section className="knowledge-article-section" key={item.key}>
+                    <Typography.Title level={4}>{item.name}</Typography.Title>
+                    {renderDetailValue(item)}
+                  </section>
+                ))}
+              </div>
+            </article>
 
             {mediaItems.length ? (
-              <div className="knowledge-media-section">
+              <section className="knowledge-article-section knowledge-article-assets">
+                <Typography.Title level={4}>附件资源</Typography.Title>
+                <div className="knowledge-media-section">
                 {mediaItems.map((item: DetailItem) => (
                   <div className="knowledge-media-card" key={item.key}>
                     <div className="knowledge-field-label">
@@ -267,12 +288,13 @@ export default function KnowledgeDetail() {
                     {renderDetailValue(item)}
                   </div>
                 ))}
-              </div>
+                </div>
+              </section>
             ) : null}
             {!detailItems.length ? <Typography.Text type="secondary">暂无知识内容</Typography.Text> : null}
           </Card>
-        </Col>
-        <Col flex="360px">
+        </div>
+        <aside className="knowledge-detail-side">
           <Card title="基础信息" className="knowledge-side-card" loading={loading}>
             <Descriptions column={1} size="small">
               <Descriptions.Item label="知识ID">{knowledge.knowledgeId || id}</Descriptions.Item>
@@ -281,10 +303,9 @@ export default function KnowledgeDetail() {
               <Descriptions.Item label="创建时间">{formatTime(knowledge.createTime)}</Descriptions.Item>
               <Descriptions.Item label="更新时间">{formatTime(knowledge.updateTime)}</Descriptions.Item>
             </Descriptions>
-            <Tag color="blue">更新时间由系统自动维护</Tag>
           </Card>
-        </Col>
-      </Row>
+        </aside>
+      </div>
     </PageHeader>
   );
 }

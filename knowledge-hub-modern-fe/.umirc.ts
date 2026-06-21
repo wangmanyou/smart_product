@@ -33,7 +33,7 @@ export default defineConfig({
   routes: [
     { path: '/login', component: './Login', layout: false },
     { path: '/', redirect: '/knowledge' },
-    { path: '/home', component: './KnowledgeCenter' },
+    { path: '/home', redirect: '/knowledge' },
     { path: '/knowledge', component: './KnowledgeCenter' },
     { path: '/knowledge/scene/:id', component: './SceneKnowledge' },
     { path: '/knowledge/scene/:sceneId/detail/:id', component: './KnowledgeDetail' },

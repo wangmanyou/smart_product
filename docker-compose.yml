@@ -59,7 +59,7 @@ services:
     container_name: smart-product-web
     restart: always
     volumes:
-      - ./knowledge-hub-fe/dist:/usr/share/nginx/html:ro
+      - ./knowledge-hub-modern-fe/dist:/usr/share/nginx/html:ro
       - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     ports:
       - "8000:80"
