@@ -1,4 +1,4 @@
-import { PlusOutlined, ReloadOutlined, SaveOutlined } from '@ant-design/icons';
+import { ArrowDownOutlined, ArrowUpOutlined, PlusOutlined, ReloadOutlined, SaveOutlined } from '@ant-design/icons';
 import { history, useLocation, useParams } from '@umijs/max';
 import { Button, Form, Input, message, Popconfirm, Radio, Space, Table, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
@@ -16,6 +16,7 @@ type DirectoryRow = {
   isDisabled?: boolean;
   isUsed?: boolean;
   isNew?: boolean;
+  sortNumber?: number;
 };
 
 function normalizeTree(nodes: any[] = [], level = 0): DirectoryRow[] {
@@ -58,14 +59,69 @@ function addChildTree(nodes: DirectoryRow[], parentId: DirectoryRow['id'], child
   });
 }
 
+function isTemporaryId(id: DirectoryRow['id']) {
+  return typeof id === 'string' && id.startsWith('new-');
+}
+
+function isPersistedRow(row: DirectoryRow) {
+  return !row.isNew && !isTemporaryId(row.id);
+}
+
+function moveInList(nodes: DirectoryRow[], rowId: DirectoryRow['id'], direction: -1 | 1) {
+  const index = nodes.findIndex((node) => node.id === rowId);
+  const targetIndex = index + direction;
+  if (index < 0 || targetIndex < 0 || targetIndex >= nodes.length) {
+    return { nodes, moved: false };
+  }
+  const next = [...nodes];
+  [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+  return { nodes: next, moved: true };
+}
+
+function moveTree(nodes: DirectoryRow[], rowId: DirectoryRow['id'], direction: -1 | 1): { nodes: DirectoryRow[]; moved: boolean } {
+  const current = moveInList(nodes, rowId, direction);
+  if (current.moved) return current;
+
+  let moved = false;
+  const next = nodes.map((node) => {
+    if (moved || !node.children?.length) return node;
+    const result = moveTree(node.children, rowId, direction);
+    if (!result.moved) return node;
+    moved = true;
+    return { ...node, children: result.nodes };
+  });
+  return { nodes: next, moved };
+}
+
+function findRowPosition(
+  nodes: DirectoryRow[],
+  rowId: DirectoryRow['id'],
+): { index: number; total: number; siblings: DirectoryRow[] } | null {
+  const index = nodes.findIndex((node) => node.id === rowId);
+  if (index >= 0) return { index, total: nodes.length, siblings: nodes };
+  for (const node of nodes) {
+    if (!node.children?.length) continue;
+    const childPosition = findRowPosition(node.children, rowId);
+    if (childPosition) return childPosition;
+  }
+  return null;
+}
+
+function collectSortGroups(nodes: DirectoryRow[] = [], groups: Array<Array<number | string>> = []) {
+  if (nodes.length > 1 && nodes.every(isPersistedRow)) {
+    groups.push(nodes.map((node) => node.id));
+  }
+  nodes.forEach((node) => collectSortGroups(node.children || [], groups));
+  return groups;
+}
+
 function toSubmitTree(nodes: DirectoryRow[] = []): any[] {
   return nodes
     .filter((node) => node.name?.trim())
-    .map((node) => ({
+    .map((node, index) => ({
       name: node.name,
       isDisabled: node.isDisabled,
-      parentId: node.parentId || 0,
-      level: node.level || 0,
+      sortNumber: index + 1,
       children: toSubmitTree(node.children || []),
     }));
 }
@@ -156,6 +212,36 @@ export default function DirectoryForm() {
     setRows((prev) => (dictType === 'tree' ? removeTree(prev, row.id) : prev.filter((item) => item.id !== row.id)));
   };
 
+  const canMoveRow = (row: DirectoryRow, direction: -1 | 1) => {
+    const position = findRowPosition(rows, row.id);
+    if (!position) return false;
+    if (direction === -1 && position.index === 0) return false;
+    if (direction === 1 && position.index === position.total - 1) return false;
+    if (!isCreate && position.siblings.some((item) => !isPersistedRow(item))) return false;
+    return true;
+  };
+
+  const moveRow = (row: DirectoryRow, direction: -1 | 1) => {
+    setDirty(true);
+    setRows((prev) => {
+      if (dictType === 'tree') {
+        return moveTree(prev, row.id, direction).nodes;
+      }
+      return moveInList(prev, row.id, direction).nodes;
+    });
+  };
+
+  const persistSorts = async () => {
+    const groups = collectSortGroups(rows);
+    await Promise.all(
+      groups.map((group) =>
+        dictApi.sortDirectories({
+          dictDirectoryIds: group.map((item) => Number(item)),
+        }),
+      ),
+    );
+  };
+
   const submit = async () => {
     const values = await form.validateFields();
     const normalizedRows = dictType === 'tree' ? walkRows(rows).filter((item) => item.name?.trim()) : rows.filter((item) => item.name?.trim());
@@ -170,12 +256,18 @@ export default function DirectoryForm() {
           : {
               dictName: values.dictName,
               dictType: values.dictType,
-              planeDict: { planeDict: normalizedRows.map((item) => ({ name: item.name, isDisabled: item.isDisabled })) },
+              planeDict: { planeDict: normalizedRows.map((item, index) => ({ name: item.name, isDisabled: item.isDisabled, sortNumber: index + 1 })) },
             };
-      await dictApi.create(payload);
+      const result = await dictApi.create(payload);
       message.success('目录已创建');
       clearUnsaved();
-      history.push('/system/dicts');
+      history.replace({
+        pathname: `/system/dicts/${result?.dictTemplateId}`,
+        state: {
+          tabLabel: `${values.dictName}目录详情`,
+          replacePath: location.pathname,
+        },
+      });
       return;
     }
 
@@ -207,9 +299,16 @@ export default function DirectoryForm() {
         dictApi.editDirectoryName({ dictDirectoryId: item.id, dictDirectoryName: item.name }),
       ),
     );
+    await persistSorts();
     message.success('目录已保存');
     clearUnsaved();
-    history.push(`/system/dicts/${id}`);
+    history.replace({
+      pathname: `/system/dicts/${id}`,
+      state: {
+        tabLabel: `${values.dictName}目录详情`,
+        replacePath: location.pathname,
+      },
+    });
   };
 
   const columns: ColumnsType<DirectoryRow> = useMemo(
@@ -249,54 +348,74 @@ export default function DirectoryForm() {
       },
       {
         title: '操作',
-        width: 290,
-        render: (_, record) => (
-          <Space>
-            <Button
-              type="link"
-              onClick={() => {
-                if (record.isNew && editingIds.includes(record.id)) {
-                  if (!record.name?.trim()) {
-                    message.error('内容名称不能为空');
+        width: 360,
+        render: (_, record) => {
+          const upDisabled = !canMoveRow(record, -1);
+          const downDisabled = !canMoveRow(record, 1);
+          return (
+            <Space size={4}>
+              <Button
+                type="text"
+                icon={<ArrowUpOutlined />}
+                title="上移"
+                aria-label="上移"
+                disabled={upDisabled}
+                onClick={() => moveRow(record, -1)}
+              />
+              <Button
+                type="text"
+                icon={<ArrowDownOutlined />}
+                title="下移"
+                aria-label="下移"
+                disabled={downDisabled}
+                onClick={() => moveRow(record, 1)}
+              />
+              <Button
+                type="link"
+                onClick={() => {
+                  if (record.isNew && editingIds.includes(record.id)) {
+                    if (!record.name?.trim()) {
+                      message.error('内容名称不能为空');
+                      return;
+                    }
+                    setEditingIds((prev) => prev.filter((item) => item !== record.id));
                     return;
                   }
-                  setEditingIds((prev) => prev.filter((item) => item !== record.id));
-                  return;
-                }
-                setEditingIds((prev) =>
-                  prev.includes(record.id)
-                    ? prev.filter((item) => item !== record.id)
-                    : [...prev, record.id],
-                );
-              }}
-            >
-              {editingIds.includes(record.id) || record.isNew ? '完成' : '编辑'}
-            </Button>
-            <Button
-              type="link"
-              onClick={async () => {
-                if (!record.isNew) {
-                  await dictApi.editDirectoryStatus({ dictDirectoryId: record.id, isDisabled: !record.isDisabled });
-                  message.success(record.isDisabled ? '已启用' : '已禁用');
-                  load();
-                  return;
-                }
-                updateRow(record.id, { isDisabled: !record.isDisabled });
-              }}
-            >
-              {record.isDisabled ? '启用' : '禁用'}
-            </Button>
-            <Popconfirm title="确认删除该目录项？" onConfirm={() => removeRow(record)}>
-              <Button type="link" danger>删除</Button>
-            </Popconfirm>
-            {dictType === 'tree' ? (
-              <Button type="link" onClick={() => addRow(record)}>新增子集</Button>
-            ) : null}
-          </Space>
-        ),
+                  setEditingIds((prev) =>
+                    prev.includes(record.id)
+                      ? prev.filter((item) => item !== record.id)
+                      : [...prev, record.id],
+                  );
+                }}
+              >
+                {editingIds.includes(record.id) || record.isNew ? '完成' : '编辑'}
+              </Button>
+              <Button
+                type="link"
+                onClick={async () => {
+                  if (!record.isNew) {
+                    await dictApi.editDirectoryStatus({ dictDirectoryId: record.id, isDisabled: !record.isDisabled });
+                    message.success(record.isDisabled ? '已启用' : '已禁用');
+                    load();
+                    return;
+                  }
+                  updateRow(record.id, { isDisabled: !record.isDisabled });
+                }}
+              >
+                {record.isDisabled ? '启用' : '禁用'}
+              </Button>
+              <Popconfirm title="确认删除该目录项？" onConfirm={() => removeRow(record)}>
+                <Button type="link" danger>删除</Button>
+              </Popconfirm>
+              {dictType === 'tree' ? (
+                <Button type="link" disabled={!isCreate && record.isNew} onClick={() => addRow(record)}>新增子集</Button>
+              ) : null}
+            </Space>
+          );
+        },
       },
     ],
-    [dictType, rows, editingIds],
+    [dictType, rows, editingIds, isCreate],
   );
   const pageTitle = isCreate ? '创建目录' : '目录编辑';
   const breadcrumb = `系统管理 / 目录管理 / ${pageTitle}`;

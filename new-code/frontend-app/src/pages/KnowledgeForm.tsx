@@ -2,8 +2,11 @@ import { CheckOutlined, LoadingOutlined, PlusOutlined, SaveOutlined, UploadOutli
 import { history, useLocation, useParams } from '@umijs/max';
 import { Button, Card, DatePicker, Form, Input, Select, Upload, message } from 'antd';
 import type { UploadFile, UploadProps } from 'antd';
+import type { IDomEditor, IEditorConfig, IToolbarConfig } from '@wangeditor/editor';
+import { Editor, Toolbar } from '@wangeditor/editor-for-react';
+import '@wangeditor/editor/dist/css/style.css';
 import dayjs from 'dayjs';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import { authApi, businessApi, fileApi } from '@/services/api';
 import {
@@ -13,6 +16,7 @@ import {
   findKnowledgeItem,
   formatBusinessDetail,
   knowledgeDisplayTitle,
+  normalizeTagValues,
   safeJson,
   setWorkTabLabel,
 } from '@/utils/data';
@@ -113,6 +117,83 @@ function validateUploadValues(values: Record<string, any>, sceneItems: any[]) {
   return true;
 }
 
+type RichTextEditorProps = {
+  value?: string;
+  onChange?: (value: string) => void;
+  placeholder?: string;
+};
+
+function RichTextEditor({ value, onChange, placeholder }: RichTextEditorProps) {
+  const [editor, setEditor] = useState<IDomEditor | null>(null);
+
+  const editorConfig = useMemo<Partial<IEditorConfig>>(() => ({
+    placeholder,
+    autoFocus: false,
+    scroll: false,
+    customAlert: (info, type) => {
+      const text = info || '富文本编辑器提示';
+      if (type === 'error') message.error(text);
+      else if (type === 'warning') message.warning(text);
+      else message.info(text);
+    },
+    MENU_CONF: {
+      uploadImage: {
+        maxFileSize: 20 * 1024 * 1024,
+        allowedFileTypes: ['image/*'],
+        customUpload: async (file: File, insertFn: (src: string, alt: string, href: string) => void) => {
+          const uploaded = await fileApi.upload(file);
+          const path = uploaded?.filePath || uploaded?.file_path;
+          if (!path) {
+            message.error('图片上传失败');
+            return;
+          }
+          insertFn(fileUrl(path), file.name, '');
+        },
+      },
+      uploadVideo: {
+        maxFileSize: 200 * 1024 * 1024,
+        allowedFileTypes: ['video/*'],
+        customUpload: async (file: File, insertFn: (src: string, poster: string) => void) => {
+          const uploaded = await fileApi.upload(file);
+          const path = uploaded?.filePath || uploaded?.file_path;
+          if (!path) {
+            message.error('视频上传失败');
+            return;
+          }
+          insertFn(fileUrl(path), '');
+        },
+      },
+    },
+  }), [placeholder]);
+
+  const toolbarConfig = useMemo<Partial<IToolbarConfig>>(() => ({
+    modalAppendToBody: true,
+  }), []);
+
+  useEffect(() => () => {
+    editor?.destroy();
+  }, [editor]);
+
+  return (
+    <div className="rich-text-editor is-advanced">
+      <Toolbar
+        editor={editor}
+        defaultConfig={toolbarConfig}
+        mode="default"
+        className="rich-text-toolbar"
+      />
+      <Editor
+        value={value || ''}
+        defaultConfig={editorConfig}
+        mode="default"
+        className="rich-text-editable"
+        onCreated={setEditor}
+        onChange={(currentEditor) => onChange?.(currentEditor.getHtml())}
+      />
+    </div>
+  );
+}
+
 export default function KnowledgeForm() {
   const { sceneId = '', id } = useParams();
   const location = useLocation();
@@ -165,6 +246,14 @@ export default function KnowledgeForm() {
           initial[item.id] = item.multiValue
             ? values.slice(0, 2).map((date: string) => dayjs(date)).filter((date: any) => date.isValid())
             : values[0] ? dayjs(values[0]) : undefined;
+          return;
+        }
+        if (item.type === 'tag') {
+          initial[item.id] = normalizeTagValues(value?.sceneItemValue || []);
+          return;
+        }
+        if (item.type === 'richtext') {
+          initial[item.id] = (value?.sceneItemValue || []).join('');
           return;
         }
         initial[item.id] = value?.sceneItemValue?.join('，');
@@ -304,6 +393,27 @@ export default function KnowledgeForm() {
           ) : (
             <DatePicker showTime style={{ width: '100%' }} />
           )}
+        </Form.Item>
+      );
+    }
+
+    if (item.type === 'tag') {
+      return (
+        <Form.Item key={item.id} name={item.id} label={item.sceneItemName} className="knowledge-form-field" rules={[{ required: item.isRequired }]}>
+          <Select
+            mode="tags"
+            allowClear
+            tokenSeparators={[',', '，', '、']}
+            placeholder={`请输入${item.sceneItemName}`}
+          />
+        </Form.Item>
+      );
+    }
+
+    if (item.type === 'richtext') {
+      return (
+        <Form.Item key={item.id} name={item.id} label={item.sceneItemName} className="knowledge-form-field is-wide" rules={[{ required: item.isRequired }]}>
+          <RichTextEditor placeholder={`请输入${item.sceneItemName}`} />
         </Form.Item>
       );
     }

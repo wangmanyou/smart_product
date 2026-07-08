@@ -167,6 +167,7 @@ export const authApi = {
       userAccount: params.userAccount,
       ...(await buildLoginPasswordPayload(params.userPassword)),
     }),
+  logout: () => post('/v1/data/user/logout'),
   current: () => apiRequest('/v1/data/user/current/detail', { method: 'GET' }),
   updateProfile: (data: any) => post('/v1/data/user/current/edit', data),
   setToken: (token: string) => localStorage.setItem(TOKEN_KEY, token),
@@ -195,6 +196,11 @@ export const sceneApi = {
     apiRequest('/v1/data/scene/detail', {
       method: 'GET',
       params: { sceneTemplateId },
+    }),
+  logs: (params?: any) =>
+    apiRequest('/v1/data/scene/log/list', {
+      method: 'GET',
+      params: { pageNumber: 1, pageSize: 10, ...params },
     }),
   editStatus: (data: any) => post('/v1/data/scene/edit/status', data),
   create: (data: any) => post('/v1/data/scene/create', data),
@@ -225,6 +231,7 @@ export const dictApi = {
   edit: (data: any) => post('/v1/data/dict/edit', data),
   editDirectoryName: (data: any) => post('/v1/data/dict/directory/edit/name', data),
   editDirectoryStatus: (data: any) => post('/v1/data/dict/directory/edit/status', data),
+  sortDirectories: (data: any) => post('/v1/data/dict/directory/sort', data),
   deleteDirectory: (dictDirectoryId: number | string) =>
     apiRequest('/v1/data/dict/directory/delete', {
       method: 'DELETE',
@@ -244,14 +251,34 @@ export const businessApi = {
       method: 'GET',
       params: { knowledgeId },
     }),
+  knowledgeLogs: (knowledgeId: number | string, params?: any) =>
+    apiRequest('/v1/data/business/knowledge/log/list', {
+      method: 'GET',
+      params: { knowledgeId, pageNumber: 1, pageSize: 10, ...params },
+    }),
+  knowledgeVersions: (knowledgeId: number | string, params?: any) =>
+    apiRequest('/v1/data/business/knowledge/version/list', {
+      method: 'GET',
+      params: { knowledgeId, pageNumber: 1, pageSize: 10, ...params },
+    }),
+  knowledgeVersionDetail: (versionId: number | string) =>
+    apiRequest('/v1/data/business/knowledge/version/detail', {
+      method: 'GET',
+      params: { versionId },
+    }),
+  sceneKnowledgeLogs: (sceneTemplateId: number | string, params?: any) =>
+    apiRequest('/v1/data/business/scene/knowledge-log/list', {
+      method: 'GET',
+      params: { sceneTemplateId, pageNumber: 1, pageSize: 10, ...params },
+    }),
   addKnowledge: (data: any) => post('/v1/data/business/knowledge/add', data),
   editKnowledge: (data: any) => post('/v1/data/business/knowledge/edit', data),
   deleteKnowledge: (knowledgeId: number | string) =>
     post('/v1/data/business/knowledge/delete', { knowledgeId: Number(knowledgeId) }),
-  exportTemplate: (sceneTemplateId: number | string) =>
+  exportTemplate: (sceneTemplateId: number | string, includeDirectory = false) =>
     apiRequest('/v1/data/business/knowledge/template/export', {
       method: 'GET',
-      params: { sceneTemplateId },
+      params: { sceneTemplateId, includeDirectory },
     }),
   importData: (data: any) => post('/v1/data/business/knowledge/data/import', data),
   statisticsKnowledge: (params?: any) =>
@@ -345,4 +372,22 @@ export const notificationApi = {
   unreadCount: () => apiRequest('/v1/notifications/unread-count', { method: 'GET' }),
   read: (notificationId: number | string) => post('/v1/notifications/read', { notificationId: Number(notificationId) }),
   readAll: () => post('/v1/notifications/read-all'),
+};
+
+export const accessLogApi = {
+  list: (params?: any) =>
+    apiRequest('/v1/data/system/access-log/list', {
+      method: 'GET',
+      params: { pageNumber: 1, pageSize: 10, ...params },
+    }),
+  myLoginLogs: (params?: any) =>
+    apiRequest('/v1/data/user/login-log/my', {
+      method: 'GET',
+      params: { pageNumber: 1, pageSize: 10, ...params },
+    }),
+  userLoginLogs: (userId: number | string, params?: any) =>
+    apiRequest('/v1/data/user/login-log/list', {
+      method: 'GET',
+      params: { userId, pageNumber: 1, pageSize: 10, ...params },
+    }),
 };

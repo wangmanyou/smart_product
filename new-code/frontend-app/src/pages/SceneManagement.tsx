@@ -1,12 +1,20 @@
-import { CopyOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
+import { CopyOutlined, HistoryOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { history } from '@umijs/max';
-import { Button, Card, Form, Input, Modal, Popconfirm, Select, Space, Table, message } from 'antd';
+import { Button, Card, Form, Input, Modal, Popconfirm, Radio, Select, Space, Table, Typography, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useState } from 'react';
+import AccessLogTable from '@/components/AccessLogTable';
 import PageHeader from '@/components/PageHeader';
 import StatusTag from '@/components/StatusTag';
 import { sceneApi } from '@/services/api';
 import { formatTime } from '@/utils/data';
+
+const logActionOptions = [
+  { label: '新增', value: 'CREATE' },
+  { label: '修改', value: 'UPDATE' },
+  { label: '禁用/启用', value: 'STATUS' },
+  { label: '删除', value: 'DELETE' },
+];
 
 export default function SceneManagement() {
   const [form] = Form.useForm();
@@ -17,6 +25,8 @@ export default function SceneManagement() {
   const [rows, setRows] = useState<any[]>([]);
   const [copyOptions, setCopyOptions] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
+  const [logOpen, setLogOpen] = useState(false);
+  const [logAction, setLogAction] = useState<string | undefined>();
 
   const load = async (values: any = {}) => {
     setLoading(true);
@@ -157,6 +167,9 @@ export default function SceneManagement() {
                   新增场景
                 </Button>
                 <Button icon={<CopyOutlined />} onClick={openCopy}>复制已有场景</Button>
+                <Button type="link" icon={<HistoryOutlined />} onClick={() => setLogOpen(true)}>
+                  操作记录
+                </Button>
               </Space>
             </Form.Item>
           </Form>
@@ -205,6 +218,34 @@ export default function SceneManagement() {
             <Input placeholder="请输入新场景名称" />
           </Form.Item>
         </Form>
+      </Modal>
+      <Modal
+        title="场景操作记录"
+        open={logOpen}
+        width={1040}
+        footer={null}
+        destroyOnClose
+        onCancel={() => setLogOpen(false)}
+      >
+        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          <Space>
+            <Typography.Text type="secondary">操作类型</Typography.Text>
+            <Radio.Group
+              optionType="button"
+              buttonStyle="solid"
+              value={logAction || ''}
+              onChange={(event) => setLogAction(event.target.value || undefined)}
+              options={[{ label: '全部', value: '' }, ...logActionOptions]}
+            />
+          </Space>
+          <AccessLogTable
+            active={logOpen}
+            showBiz
+            showUser
+            refreshKey={logAction || 'all'}
+            fetcher={(params) => sceneApi.logs({ ...params, action: logAction })}
+          />
+        </Space>
       </Modal>
     </PageHeader>
   );

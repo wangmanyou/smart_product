@@ -37,6 +37,7 @@ public class DatabaseInitializer implements CommandLineRunner {
         }
         try {
             createTables();
+            ensureEnhancementSchema();
             cleanupStaleApprovalNotifications();
             seedPermissions();
             seedAdminRole();
@@ -108,6 +109,7 @@ public class DatabaseInitializer implements CommandLineRunner {
                     name varchar(255) null,
                     parent_id bigint unsigned null default 0,
                     level bigint unsigned null default 0,
+                    sort_number bigint unsigned not null default 1,
                     create_at datetime null,
                     update_at datetime null,
                     del tinyint unsigned not null default 0,
@@ -165,7 +167,7 @@ public class DatabaseInitializer implements CommandLineRunner {
                     id bigint unsigned not null auto_increment primary key,
                     knowledge_id bigint unsigned null,
                     scene_item_id bigint unsigned null,
-                    scene_item_value text null,
+                    scene_item_value mediumtext null,
                     select_dict_tree_ids text null,
                     index idx_knowledge_id (knowledge_id),
                     index idx_scene_item_id (scene_item_id)
@@ -279,6 +281,102 @@ public class DatabaseInitializer implements CommandLineRunner {
                     index idx_notification_biz (biz_type, biz_id)
                 )
                 """);
+        jdbc.execute("""
+                create table if not exists access_log (
+                    id bigint unsigned not null auto_increment primary key,
+                    user_id bigint unsigned null,
+                    user_account varchar(100) null,
+                    module varchar(100) null,
+                    action varchar(100) not null,
+                    biz_type varchar(100) null,
+                    biz_id bigint unsigned null,
+                    scene_template_id bigint unsigned null,
+                    description varchar(1000) null,
+                    request_method varchar(20) null,
+                    request_path varchar(500) null,
+                    ip_address varchar(100) null,
+                    user_agent varchar(500) null,
+                    result varchar(30) not null default 'SUCCESS',
+                    error_message varchar(1000) null,
+                    create_at datetime not null,
+                    index idx_access_log_user_time (user_id, create_at),
+                    index idx_access_log_action_time (action, create_at),
+                    index idx_access_log_biz (biz_type, biz_id),
+                    index idx_access_log_scene_time (scene_template_id, create_at)
+                )
+                """);
+        jdbc.execute("""
+                create table if not exists knowledge_version (
+                    id bigint unsigned not null auto_increment primary key,
+                    knowledge_id bigint unsigned not null,
+                    scene_template_id bigint unsigned null,
+                    version_no int not null,
+                    operation_type varchar(50) not null,
+                    operator_id bigint unsigned null,
+                    operator_name varchar(100) null,
+                    change_summary varchar(1000) null,
+                    before_snapshot_json longtext null,
+                    after_snapshot_json longtext null,
+                    create_at datetime not null,
+                    unique key uk_knowledge_version (knowledge_id, version_no),
+                    index idx_knowledge_version_knowledge_time (knowledge_id, create_at),
+                    index idx_knowledge_version_scene_time (scene_template_id, create_at)
+                )
+                """);
+    }
+
+    private void ensureEnhancementSchema() {
+        if (!columnExists("dict_directory", "sort_number")) {
+            jdbc.execute("alter table dict_directory add column sort_number bigint unsigned not null default 1 after level");
+            initializeDirectorySortNumbers();
+        }
+        String knowledgeItemValueType = columnDataType("knowledge_item", "scene_item_value");
+        if ("text".equalsIgnoreCase(knowledgeItemValueType)) {
+            jdbc.execute("alter table knowledge_item modify column scene_item_value mediumtext null");
+        }
+    }
+
+    private void initializeDirectorySortNumbers() {
+        List<Map<String, Object>> rows = jdbc.queryForList("""
+                select id, dict_template_id, coalesce(parent_id, 0) as parent_id
+                from dict_directory
+                where del = 0
+                order by dict_template_id, coalesce(parent_id, 0), id
+                """);
+        String lastGroup = "";
+        long nextSortNumber = 0;
+        for (Map<String, Object> row : rows) {
+            String group = String.valueOf(row.get("dict_template_id")) + ":" + String.valueOf(row.get("parent_id"));
+            if (!group.equals(lastGroup)) {
+                lastGroup = group;
+                nextSortNumber = 1;
+            } else {
+                nextSortNumber++;
+            }
+            jdbc.update("update dict_directory set sort_number = ? where id = ?", nextSortNumber, row.get("id"));
+        }
+    }
+
+    private boolean columnExists(String tableName, String columnName) {
+        Integer count = jdbc.queryForObject("""
+                select count(*)
+                from information_schema.COLUMNS
+                where TABLE_SCHEMA = database()
+                    and TABLE_NAME = ?
+                    and COLUMN_NAME = ?
+                """, Integer.class, tableName, columnName);
+        return count != null && count > 0;
+    }
+
+    private String columnDataType(String tableName, String columnName) {
+        List<String> types = jdbc.queryForList("""
+                select DATA_TYPE
+                from information_schema.COLUMNS
+                where TABLE_SCHEMA = database()
+                    and TABLE_NAME = ?
+                    and COLUMN_NAME = ?
+                """, String.class, tableName, columnName);
+        return types.isEmpty() ? "" : types.get(0);
     }
 
     private void cleanupStaleApprovalNotifications() {
@@ -302,6 +400,8 @@ public class DatabaseInitializer implements CommandLineRunner {
         upsertPermission("knowledge:update", "编辑知识", "ACTION", "知识库", "编辑授权场景下的知识", 30);
         upsertPermission("knowledge:delete", "删除知识", "ACTION", "知识库", "删除授权场景下的知识", 40);
         upsertPermission("knowledge:import", "导入知识", "ACTION", "知识库", "批量导入知识", 50);
+        upsertPermission("knowledge:log:view-all", "查看全部操作记录", "ACTION", "知识库", "查看授权场景下全部用户的知识操作记录", 54);
+        upsertPermission("knowledge:version:view", "查看知识历史版本", "ACTION", "知识库", "查看知识更新记录和历史版本", 55);
         upsertPermission("knowledge:change-request:view-own", "查看我的审批", "ACTION", "审批", "查看自己提交的知识变更申请", 60);
         upsertPermission("knowledge:change-request:view-all", "查看全部审批", "ACTION", "审批", "查看所有知识变更申请", 70);
         upsertPermission("knowledge:change-request:approve", "审批通过", "ACTION", "审批", "通过知识变更申请", 80);
@@ -313,12 +413,14 @@ public class DatabaseInitializer implements CommandLineRunner {
         upsertPermission("page:system:users", "用户管理", "PAGE", "页面权限", "访问用户管理页面", 140);
         upsertPermission("page:system:roles", "角色管理", "PAGE", "页面权限", "访问角色管理页面", 150);
         upsertPermission("page:system:approvals", "变更审批", "PAGE", "页面权限", "访问变更审批页面", 160);
+        upsertPermission("page:system:logs", "访问日志", "PAGE", "页面权限", "访问系统访问日志页面", 165);
         upsertPermission("system:dict:manage", "目录管理", "ACTION", "系统管理", "管理目录及目录字典配置", 170);
         upsertPermission("system:scene:manage", "场景管理", "ACTION", "系统管理", "管理业务场景和字段配置", 180);
         upsertPermission("system:user:manage", "用户管理", "ACTION", "系统管理", "管理用户、停用用户和重置密码", 190);
         upsertPermission("system:role:manage", "角色管理", "ACTION", "系统管理", "管理角色、页面权限、操作权限和授权场景", 200);
         upsertPermission("system:permission:manage", "权限管理", "ACTION", "系统管理", "维护权限字典", 210);
         upsertPermission("system:approval:manage", "审批管理", "ACTION", "系统管理", "查看和处理知识变更审批", 220);
+        upsertPermission("system:log:view", "查看访问日志", "ACTION", "系统管理", "查看登录、退出、查看和增删改等访问日志", 225);
         jdbc.update("delete from sys_permission where code = 'system:manage'");
     }
 

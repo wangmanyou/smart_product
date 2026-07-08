@@ -106,6 +106,8 @@ function inferredReplacePaths(path: string) {
   const paths: string[] = [];
   const dictEdit = path.match(/^\/system\/dicts\/([^/]+)\/edit/);
   if (dictEdit) paths.push(`/system/dicts/${dictEdit[1]}`);
+  const dictDetail = path.match(/^\/system\/dicts\/([^/]+)$/);
+  if (dictDetail) paths.push(`/system/dicts/${dictDetail[1]}/edit`);
 
   const sceneEdit = path.match(/^\/system\/scenes\/([^/]+)\/config/);
   if (sceneEdit) {

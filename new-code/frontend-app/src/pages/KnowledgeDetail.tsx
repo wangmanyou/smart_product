@@ -3,14 +3,18 @@
   DeleteOutlined,
   DownloadOutlined,
   EditOutlined,
+  FileSearchOutlined,
   FileOutlined,
   FileWordOutlined,
+  HistoryOutlined,
   PictureOutlined,
+  ProfileOutlined,
   VideoCameraOutlined,
 } from '@ant-design/icons';
 import { history, useLocation, useParams } from '@umijs/max';
-import { Button, Card, Descriptions, Image, Popconfirm, Space, Typography, message } from 'antd';
+import { Button, Card, Descriptions, Image, Modal, Popconfirm, Select, Space, Table, Tag, Tooltip, Typography, message } from 'antd';
 import { useEffect, useState } from 'react';
+import AccessLogTable from '@/components/AccessLogTable';
 import PageHeader from '@/components/PageHeader';
 import { authApi, businessApi } from '@/services/api';
 import {
@@ -21,7 +25,9 @@ import {
   formatTime,
   knowledgeDisplayTitle,
   safeJson,
+  sanitizeRichTextHtml,
   setWorkTabLabel,
+  stripHtml,
 } from '@/utils/data';
 
 type DetailItem = {
@@ -33,6 +39,15 @@ type DetailItem = {
 };
 
 const mediaTypes = ['picture', 'video', 'audio', 'file'];
+const logActionOptions = [
+  { label: '查看', value: 'VIEW' },
+  { label: '修改', value: 'UPDATE' },
+];
+const versionOperationText: Record<string, string> = {
+  CREATE: '新增',
+  UPDATE: '修改',
+  DELETE: '删除',
+};
 
 function fileUrl(url?: string) {
   if (!url) return '';
@@ -143,11 +158,31 @@ function renderMediaFiles(type: string | undefined, raw: any) {
   );
 }
 
+function renderTags(raw: any) {
+  const values = (raw?.sceneItemValue || []).filter(Boolean);
+  if (!values.length) return <Typography.Text type="secondary">--</Typography.Text>;
+  return (
+    <Space size={[0, 6]} wrap className="knowledge-tag-list">
+      {values.map((value: string) => (
+        <Tag key={value}>{value}</Tag>
+      ))}
+    </Space>
+  );
+}
+
+function renderRichText(raw: any) {
+  const html = sanitizeRichTextHtml((raw?.sceneItemValue || []).join(''));
+  if (!stripHtml(html)) return <Typography.Text type="secondary">--</Typography.Text>;
+  return <div className="knowledge-richtext-display" dangerouslySetInnerHTML={{ __html: html }} />;
+}
+
 function renderDetailValue(item: DetailItem) {
   if (['picture', 'video', 'audio', 'file'].includes(item.type || '')) {
     return renderMediaFiles(item.type, item.raw);
   }
   if (item.type === 'dict') return <div className="knowledge-path-value">{item.value || '--'}</div>;
+  if (item.type === 'tag') return renderTags(item.raw);
+  if (item.type === 'richtext') return renderRichText(item.raw);
   return <Typography.Paragraph className="knowledge-text-value">{item.value || '--'}</Typography.Paragraph>;
 }
 
@@ -158,12 +193,72 @@ function renderResourceIcon(type?: string) {
   return <FileOutlined />;
 }
 
+function versionSnapshotFields(snapshot: any): DetailItem[] {
+  const fields = Array.isArray(snapshot?.fieldValues)
+    ? snapshot.fieldValues
+    : Array.isArray(snapshot?.knowledgeShow)
+      ? snapshot.knowledgeShow
+      : [];
+  return fields
+    .filter((field: any) => !field?.isHidden)
+    .map((field: any) => ({
+      key: field.sceneItemId,
+      name: field.sceneItemName,
+      type: field.sceneItemType,
+      value: field.displayValue || (Array.isArray(field.sceneItemValue) ? field.sceneItemValue.join('，') : '--'),
+      raw: field,
+    }));
+}
+
+function snapshotOfVersion(versionDetail: any) {
+  const afterFields = versionSnapshotFields(versionDetail?.afterSnapshot);
+  if (afterFields.length) return versionDetail.afterSnapshot;
+  return versionDetail?.beforeSnapshot || {};
+}
+
+function renderVersionSnapshot(snapshot: any) {
+  const items = versionSnapshotFields(snapshot);
+  if (!items.length) {
+    return <Typography.Text type="secondary">该版本暂无可展示内容</Typography.Text>;
+  }
+  return (
+    <div className="knowledge-version-preview">
+      <Descriptions column={2} size="small" className="knowledge-version-meta">
+        <Descriptions.Item label="知识ID">{snapshot.knowledgeId || '--'}</Descriptions.Item>
+        <Descriptions.Item label="创建人">{snapshot.creatorName || '--'}</Descriptions.Item>
+        <Descriptions.Item label="创建时间">{formatTime(snapshot.createTime)}</Descriptions.Item>
+        <Descriptions.Item label="更新时间">{formatTime(snapshot.updateTime)}</Descriptions.Item>
+      </Descriptions>
+      <div className="knowledge-version-field-list">
+        {items.map((item) => (
+          <section className="knowledge-article-section" key={item.key}>
+            <Typography.Title level={4}>{item.name}</Typography.Title>
+            {renderDetailValue(item)}
+          </section>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function KnowledgeDetail() {
   const { sceneId = '', id = '' } = useParams();
   const location = useLocation();
   const [loading, setLoading] = useState(false);
   const [sceneDetail, setSceneDetail] = useState<any>();
   const [knowledge, setKnowledge] = useState<any>({});
+  const [logOpen, setLogOpen] = useState(false);
+  const [logAction, setLogAction] = useState<string | undefined>();
+  const [updateRecordOpen, setUpdateRecordOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [versions, setVersions] = useState<any[]>([]);
+  const [versionTotal, setVersionTotal] = useState(0);
+  const [versionPage, setVersionPage] = useState(1);
+  const [versionPageSize, setVersionPageSize] = useState(10);
+  const [versionLoading, setVersionLoading] = useState(false);
+  const [versionDetailOpen, setVersionDetailOpen] = useState(false);
+  const [versionDetail, setVersionDetail] = useState<any>();
+  const [versionDetailLoading, setVersionDetailLoading] = useState(false);
 
   const formatted = formatBusinessDetail(sceneDetail);
   const sceneName = formatted.scene.sceneName || '知识列表';
@@ -180,7 +275,7 @@ export default function KnowledgeDetail() {
     : fallbackItems.map((item: any) => ({
         key: item.sceneItemId,
         name: item.sceneItemName,
-        type: item.type,
+        type: item.type || item.sceneItemType,
         value: item.sceneItemValue?.length ? item.sceneItemValue.join('，') : (item.sceneItemSelectDictTreeIds || '--'),
         raw: item,
       }));
@@ -196,6 +291,7 @@ export default function KnowledgeDetail() {
   const operationPermissions = new Set(currentUser?.setting?.operationPermissions || currentUser?.operationPermissions || []);
   const canUpdate = isAdmin || operationPermissions.has('knowledge:update');
   const canDelete = isAdmin || operationPermissions.has('knowledge:delete');
+  const canViewVersions = isAdmin || operationPermissions.has('knowledge:version:view');
   const hasPendingChange = Boolean(knowledge?.hasPendingChange);
   const backToList = () => {
     closeWorkTab(location.pathname);
@@ -232,6 +328,72 @@ export default function KnowledgeDetail() {
     await businessApi.deleteKnowledge(id);
     message.success('已删除');
     backToList();
+  };
+
+  const loadVersions = async (nextPage = versionPage, nextPageSize = versionPageSize) => {
+    setVersionLoading(true);
+    try {
+      const res = await businessApi.knowledgeVersions(id, { pageNumber: nextPage, pageSize: nextPageSize });
+      setVersions(Array.isArray(res?.content) ? res.content : []);
+      setVersionTotal(Number(res?.totalElements || 0));
+      setVersionPage(nextPage);
+      setVersionPageSize(nextPageSize);
+    } finally {
+      setVersionLoading(false);
+    }
+  };
+
+  const openUpdateRecords = () => {
+    setUpdateRecordOpen(true);
+    loadVersions(1, versionPageSize);
+  };
+
+  const openHistoryVersions = () => {
+    setHistoryOpen(true);
+    loadVersions(1, versionPageSize);
+  };
+
+  const openVersionDetail = async (record: any) => {
+    setVersionDetailOpen(true);
+    setVersionDetail(undefined);
+    setVersionDetailLoading(true);
+    try {
+      const res = await businessApi.knowledgeVersionDetail(record.versionId);
+      setVersionDetail(res || {});
+    } finally {
+      setVersionDetailLoading(false);
+    }
+  };
+
+  const versionColumns = [
+    { title: '版本', dataIndex: 'versionNo', width: 90, render: (value: any) => `V${value || '-'}` },
+    {
+      title: '操作',
+      dataIndex: 'operationType',
+      width: 100,
+      render: (value: string) => <Tag color={value === 'DELETE' ? 'red' : value === 'CREATE' ? 'green' : 'blue'}>{versionOperationText[value] || value || '-'}</Tag>,
+    },
+    { title: '操作人', dataIndex: 'operatorName', width: 140, render: (value: string) => value || '--' },
+    { title: '操作时间', dataIndex: 'createTime', width: 170, render: formatTime },
+    {
+      title: '变更摘要',
+      dataIndex: 'changeSummary',
+      ellipsis: true,
+      render: (value: string) => (
+        <Tooltip title={value}>
+          <Typography.Text>{value || '--'}</Typography.Text>
+        </Tooltip>
+      ),
+    },
+  ];
+
+  const versionPagination = {
+    current: versionPage,
+    pageSize: versionPageSize,
+    total: versionTotal,
+    showSizeChanger: true,
+    showTotal: (count: number) => `共 ${count} 条`,
+    onChange: (nextPage: number, nextPageSize: number) => loadVersions(nextPage, nextPageSize),
   };
 
   return (
@@ -323,8 +485,110 @@ export default function KnowledgeDetail() {
               <Descriptions.Item label="更新时间">{formatTime(knowledge.updateTime)}</Descriptions.Item>
             </Descriptions>
           </Card>
+          <div className="knowledge-side-link-row">
+            <Button type="link" icon={<HistoryOutlined />} onClick={() => setLogOpen(true)}>
+              操作记录
+            </Button>
+            {canViewVersions ? (
+              <Button type="link" icon={<FileSearchOutlined />} onClick={openUpdateRecords}>
+                更新记录
+              </Button>
+            ) : null}
+            {canViewVersions ? (
+              <Button type="link" icon={<ProfileOutlined />} onClick={openHistoryVersions}>
+                历史版本
+              </Button>
+            ) : null}
+          </div>
         </aside>
       </div>
+      <Modal
+        title="操作记录"
+        open={logOpen}
+        width={980}
+        footer={null}
+        destroyOnClose
+        onCancel={() => setLogOpen(false)}
+      >
+        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          <Space>
+            <Typography.Text type="secondary">操作类型</Typography.Text>
+            <Select
+              allowClear
+              style={{ width: 180 }}
+              placeholder="全部类型"
+              value={logAction}
+              options={logActionOptions}
+              onChange={(value) => setLogAction(value)}
+            />
+          </Space>
+          <AccessLogTable
+            active={logOpen}
+            showUser
+            refreshKey={logAction || 'all'}
+            fetcher={(params) => businessApi.knowledgeLogs(id, { ...params, action: logAction })}
+          />
+        </Space>
+      </Modal>
+      <Modal
+        title="更新记录"
+        open={updateRecordOpen}
+        width={920}
+        footer={null}
+        destroyOnClose
+        onCancel={() => setUpdateRecordOpen(false)}
+      >
+        <Table
+          rowKey="versionId"
+          columns={versionColumns}
+          dataSource={versions}
+          loading={versionLoading}
+          scroll={{ x: 820 }}
+          pagination={versionPagination}
+        />
+      </Modal>
+      <Modal
+        title="历史版本"
+        open={historyOpen}
+        width={980}
+        footer={null}
+        destroyOnClose
+        onCancel={() => setHistoryOpen(false)}
+      >
+        <Table
+          rowKey="versionId"
+          columns={[
+            ...versionColumns,
+            {
+              title: '内容',
+              width: 110,
+              render: (_: any, record: any) => (
+                <Button type="link" onClick={() => openVersionDetail(record)}>
+                  查看版本
+                </Button>
+              ),
+            },
+          ]}
+          dataSource={versions}
+          loading={versionLoading}
+          scroll={{ x: 930 }}
+          pagination={versionPagination}
+        />
+      </Modal>
+      <Modal
+        title={versionDetail ? `历史版本 V${versionDetail.versionNo || '-'}` : '历史版本'}
+        open={versionDetailOpen}
+        width={980}
+        footer={null}
+        destroyOnClose
+        onCancel={() => setVersionDetailOpen(false)}
+      >
+        {versionDetailLoading ? (
+          <Card loading />
+        ) : (
+          renderVersionSnapshot(snapshotOfVersion(versionDetail))
+        )}
+      </Modal>
     </PageHeader>
   );
 }

@@ -118,9 +118,9 @@ public class KnowledgeChangeRequestService {
         if (KnowledgeChangeRequestStatus.CREATE.equals(row.requestType)) {
             businessService.addKnowledgeDirect(payload, row.applicantId, row.applicantName);
         } else if (KnowledgeChangeRequestStatus.UPDATE.equals(row.requestType)) {
-            businessService.editKnowledgeDirect(payload);
+            businessService.editKnowledgeDirect(payload, row.applicantId, row.applicantName);
         } else if (KnowledgeChangeRequestStatus.DELETE.equals(row.requestType)) {
-            businessService.deleteKnowledgeDirect(row.knowledgeId);
+            businessService.deleteKnowledgeDirect(row.knowledgeId, row.applicantId, row.applicantName);
         }
         notificationService.archiveApprovalPending(row.id);
         notificationService.createApprovalResult(approvalNotice(row, reviewer, reviewComment, true));

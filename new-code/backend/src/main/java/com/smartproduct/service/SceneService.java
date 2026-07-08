@@ -37,10 +37,11 @@ public class SceneService {
     private final KnowledgeItemMapper knowledgeItems;
     private final TokenService tokens;
     private final CurrentUserService currentUsers;
+    private final AccessLogService accessLogs;
 
     public SceneService(SceneTemplateMapper templates, SceneItemMapper items, DictTemplateMapper dicts,
                         KnowledgeMapper knowledge, KnowledgeItemMapper knowledgeItems, TokenService tokens,
-                        CurrentUserService currentUsers) {
+                        CurrentUserService currentUsers, AccessLogService accessLogs) {
         this.templates = templates;
         this.items = items;
         this.dicts = dicts;
@@ -48,6 +49,7 @@ public class SceneService {
         this.knowledgeItems = knowledgeItems;
         this.tokens = tokens;
         this.currentUsers = currentUsers;
+        this.accessLogs = accessLogs;
     }
 
     public Map<String, Object> list(int pageNumber, int pageSize, String name, String disabled) {
@@ -81,6 +83,8 @@ public class SceneService {
         SceneTemplateEntity template = newTemplate(DictService.str(request.get("sceneName")), 0L, user);
         templates.insert(template);
         saveItems(template.id, request.get("sceneItem"));
+        accessLogs.success("场景管理", "SCENE_CREATE", "SCENE_TEMPLATE", template.id, template.id,
+                "新增场景：" + template.name);
         return Map.of("sceneTemplateId", template.id);
     }
 
@@ -107,6 +111,8 @@ public class SceneService {
             item.isSupportSearch = old.isSupportSearch;
             items.insert(item);
         }
+        accessLogs.success("场景管理", "SCENE_COPY", "SCENE_TEMPLATE", copied.id, copied.id,
+                "复制场景：" + copied.name);
         return Map.of("sceneTemplateId", copied.id);
     }
 
@@ -121,13 +127,20 @@ public class SceneService {
                 .set("name", DictService.str(request.get("sceneName")))
                 .set("update_at", LocalDateTime.now()));
         saveItems(id, request.get("sceneItem"));
+        accessLogs.success("场景管理", "SCENE_UPDATE", "SCENE_TEMPLATE", id, id,
+                "编辑场景：" + DictService.str(request.get("sceneName")));
     }
 
     public void editStatus(Map<String, Object> request) {
+        Long id = DictService.num(request.get("sceneTemplateId"));
+        boolean disabled = DictService.bool(request.get("isDisabled"));
+        SceneTemplateEntity template = templates.selectById(id);
         templates.update(new UpdateWrapper<SceneTemplateEntity>()
-                .eq("id", DictService.num(request.get("sceneTemplateId")))
-                .set("is_disabled", DictService.bool(request.get("isDisabled")))
+                .eq("id", id)
+                .set("is_disabled", disabled)
                 .set("update_at", LocalDateTime.now()));
+        accessLogs.success("场景管理", "SCENE_STATUS", "SCENE_TEMPLATE", id, id,
+                (disabled ? "禁用场景：" : "启用场景：") + (template == null ? id : template.name));
     }
 
     public void deleteItem(Long sceneItemId) {
@@ -136,6 +149,16 @@ public class SceneService {
             throw new ApiException(HttpStatus.BAD_REQUEST.value(), "场景已有知识，不能删除字段，请先处理历史知识数据");
         }
         items.deleteById(sceneItemId);
+        accessLogs.success("场景管理", "SCENE_ITEM_DELETE", "SCENE_ITEM", sceneItemId,
+                item == null ? null : item.sceneTemplateId, "删除场景字段：" + (item == null ? sceneItemId : item.name));
+    }
+
+    public Map<String, Object> logs(String action, int pageNumber, int pageSize) {
+        CurrentUser user = currentUsers.current();
+        if (!user.hasPermission(com.smartproduct.security.PermissionCodes.SYSTEM_SCENE_MANAGE)) {
+            throw new ApiException(HttpStatus.FORBIDDEN.value(), "没有查看场景操作记录的权限");
+        }
+        return accessLogs.sceneLogs(action, pageNumber, pageSize);
     }
 
     public Map<String, Object> detail(Long sceneTemplateId) {

@@ -35,6 +35,14 @@ public class SceneController {
         return service.detail(sceneTemplateId);
     }
 
+    @GetMapping("/v1/data/scene/log/list")
+    @PreAuthorize("hasAuthority('system:scene:manage')")
+    public Map<String, Object> logs(@RequestParam(required = false) String action,
+                                    @RequestParam(defaultValue = "1") int pageNumber,
+                                    @RequestParam(defaultValue = "10") int pageSize) {
+        return service.logs(action, pageNumber, pageSize);
+    }
+
     @PostMapping("/v1/data/scene/create")
     @PreAuthorize("hasAuthority('system:scene:manage')")
     public Map<String, Object> create(@RequestBody Map<String, Object> request,

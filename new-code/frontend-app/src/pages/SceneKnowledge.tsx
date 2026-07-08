@@ -1,15 +1,17 @@
 ﻿import {
   DownloadOutlined,
+  HistoryOutlined,
   ImportOutlined,
   PlusOutlined,
   SearchOutlined,
   UploadOutlined,
 } from '@ant-design/icons';
 import { history, useLocation, useParams } from '@umijs/max';
-import { Alert, Button, Card, DatePicker, Form, Image, Input, Modal, Popconfirm, Space, Table, Tree, Typography, Upload, message } from 'antd';
+import { Alert, Button, Card, DatePicker, Form, Image, Input, Modal, Popconfirm, Radio, Space, Table, Tag, Tree, Typography, Upload, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
+import AccessLogTable from '@/components/AccessLogTable';
 import PageHeader from '@/components/PageHeader';
 import { authApi, businessApi, fileApi } from '@/services/api';
 import {
@@ -65,6 +67,18 @@ function normalizeFiles(raw: any) {
 }
 
 function renderListValue(raw: any, item: any, dictDetails: any[]) {
+  if (item.type === 'tag') {
+    const values = (raw?.sceneItemValue || []).filter(Boolean);
+    if (!values.length) return '--';
+    return (
+      <Space size={[0, 4]} wrap className="knowledge-list-tags">
+        {values.slice(0, 4).map((value: string) => (
+          <Tag key={value}>{value}</Tag>
+        ))}
+        {values.length > 4 ? <Typography.Text type="secondary">+{values.length - 4}</Typography.Text> : null}
+      </Space>
+    );
+  }
   const files = ['picture', 'video', 'audio', 'file'].includes(item.type || '') ? normalizeFiles(raw) : [];
   if (!files.length) {
     return displayKnowledgeValue(raw, item, dictDetails);
@@ -123,6 +137,13 @@ function isBuiltinUpdateDateItem(item: any) {
   return /^(更新日期|更新时间)$/i.test(String(item?.sceneItemName || '').trim());
 }
 
+const logActionOptions = [
+  { label: '新增', value: 'CREATE' },
+  { label: '查看', value: 'VIEW' },
+  { label: '修改', value: 'UPDATE' },
+  { label: '删除', value: 'DELETE' },
+];
+
 export default function SceneKnowledge() {
   const { id = '' } = useParams();
   const location = useLocation();
@@ -139,6 +160,11 @@ export default function SceneKnowledge() {
   const [importing, setImporting] = useState(false);
   const [importFile, setImportFile] = useState<File | undefined>();
   const [importResult, setImportResult] = useState<any>();
+  const [templateOpen, setTemplateOpen] = useState(false);
+  const [templateType, setTemplateType] = useState<'normal' | 'directory'>('normal');
+  const [templateDownloading, setTemplateDownloading] = useState(false);
+  const [logOpen, setLogOpen] = useState(false);
+  const [logAction, setLogAction] = useState<string | undefined>();
 
   const formatted = formatBusinessDetail(detail);
   const dictField =
@@ -153,6 +179,8 @@ export default function SceneKnowledge() {
   );
   const treeData = useMemo(() => toAntTree(dictDetail?.treeDict?.treeDict || []), [dictDetail]);
   const visibleItems = formatted.sceneItems.filter((item: any) => !item.isHide);
+  const directoryItems = visibleItems.filter((item: any) => item.type === 'dict');
+  const hasRequiredDirectoryItem = directoryItems.some((item: any) => item.isRequired);
   const textItems = visibleItems.filter((item: any) => item.type !== 'dict');
   const tableScrollX = Math.max(1100, 450 + (dictField ? 220 : 0) + textItems.length * 200);
   const searchableItems = visibleItems.filter((item: any) => item.type !== 'dict' && item.isSupportSearch !== false);
@@ -170,6 +198,7 @@ export default function SceneKnowledge() {
   const canImport = hasPermission('knowledge:import');
   const sceneName = formatted.scene.sceneName || '场景知识列表';
   const importSucceeded = Boolean(importResult && !importResult.failed);
+  const importFailedRows = Array.isArray(importResult?.failedRows) ? importResult.failedRows : [];
 
   const getKnowledgeTitle = (record: any) =>
     knowledgeDisplayTitle(record, formatted.sceneItems, formatted.dictDetails);
@@ -360,13 +389,36 @@ export default function SceneKnowledge() {
     },
   ];
 
-  const exportTemplate = async () => {
-    const result = await businessApi.exportTemplate(id);
+  const exportTemplate = async (includeDirectory = false) => {
+    const result = await businessApi.exportTemplate(id, includeDirectory);
     if (result?.filePath) {
       window.location.href = `/api${result.filePath}`;
     } else {
       message.warning('暂无可下载模板');
     }
+  };
+
+  const confirmTemplateDownload = async () => {
+    setTemplateDownloading(true);
+    try {
+      await exportTemplate(templateType === 'directory');
+      setTemplateOpen(false);
+    } finally {
+      setTemplateDownloading(false);
+    }
+  };
+
+  const requestTemplateDownload = async () => {
+    if (!directoryItems.length) {
+      await exportTemplate(false);
+      return;
+    }
+    if (hasRequiredDirectoryItem) {
+      await exportTemplate(true);
+      return;
+    }
+    setTemplateType('normal');
+    setTemplateOpen(true);
   };
 
   const runImport = async () => {
@@ -466,6 +518,11 @@ export default function SceneKnowledge() {
               </Space>
             )}
           </Card>
+          <div className="knowledge-side-link-row">
+            <Button type="link" icon={<HistoryOutlined />} onClick={() => setLogOpen(true)}>
+              操作记录
+            </Button>
+          </div>
         </div>
         <div>
           <Card className="toolbar-card">
@@ -476,7 +533,7 @@ export default function SceneKnowledge() {
             >
               {keywordSearchItemIds.length ? (
                 <Form.Item name="keyword" label="关键词">
-                  <Input allowClear placeholder="搜索文本、图片、视频、文件名称" style={{ width: 320 }} />
+                  <Input allowClear placeholder="搜索文本、标签、附件名称" style={{ width: 320 }} />
                 </Form.Item>
               ) : null}
               <Form.Item name="searchUpdateTime" label="更新日期">
@@ -547,7 +604,7 @@ export default function SceneKnowledge() {
           </Upload.Dragger>
 
           <div className="knowledge-import-actions">
-            <Button icon={<DownloadOutlined />} onClick={exportTemplate}>下载模板</Button>
+            <Button icon={<DownloadOutlined />} onClick={requestTemplateDownload}>下载模板</Button>
           </div>
 
           {importResult ? (
@@ -569,9 +626,16 @@ export default function SceneKnowledge() {
                     <div className="knowledge-import-warning-list">
                       <Typography.Text strong>未成功行明细</Typography.Text>
                       <ul>
-                        {importResult.warnings.map((warning: string, index: number) => (
-                          <li key={`${warning}-${index}`}>{warning}</li>
-                        ))}
+                        {importFailedRows.length
+                          ? importFailedRows.slice(0, 20).map((item: any, index: number) => (
+                              <li key={`${item.rowNumber}-${item.fieldName}-${index}`}>
+                                第 {item.rowNumber} 行，{item.fieldName}：{item.reason}
+                                {item.originalValue ? `（原值：${item.originalValue}）` : ''}
+                              </li>
+                            ))
+                          : importResult.warnings.map((warning: string, index: number) => (
+                              <li key={`${warning}-${index}`}>{warning}</li>
+                            ))}
                       </ul>
                     </div>
                   ) : null}
@@ -583,6 +647,53 @@ export default function SceneKnowledge() {
             </div>
           ) : null}
         </div>
+      </Modal>
+      <Modal
+        open={templateOpen}
+        title="选择导入模板"
+        okText="下载"
+        cancelText="取消"
+        confirmLoading={templateDownloading}
+        onOk={confirmTemplateDownload}
+        onCancel={() => setTemplateOpen(false)}
+      >
+        <Radio.Group
+          value={templateType}
+          onChange={(event) => setTemplateType(event.target.value)}
+        >
+          <Space direction="vertical">
+            <Radio value="normal">普通模板</Radio>
+            <Radio value="directory">带目录模板</Radio>
+          </Space>
+        </Radio.Group>
+      </Modal>
+      <Modal
+        open={logOpen}
+        title={`${sceneName} 操作记录`}
+        width={1040}
+        footer={null}
+        destroyOnClose
+        onCancel={() => setLogOpen(false)}
+      >
+        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          <Space>
+            <Typography.Text type="secondary">操作类型</Typography.Text>
+            <Radio.Group
+              optionType="button"
+              buttonStyle="solid"
+              value={logAction || ''}
+              onChange={(event) => setLogAction(event.target.value || undefined)}
+              options={[{ label: '全部', value: '' }, ...logActionOptions]}
+            />
+          </Space>
+          <AccessLogTable
+            active={logOpen}
+            showBiz
+            showUser
+            refreshKey={logAction || 'all'}
+            fetcher={(params) => businessApi.sceneKnowledgeLogs(id, { ...params, action: logAction })}
+          />
+        </Space>
       </Modal>
     </PageHeader>
   );

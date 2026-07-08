@@ -2,6 +2,7 @@ package com.smartproduct.controller;
 
 import com.smartproduct.dto.UserDto;
 import com.smartproduct.dto.UserRequests;
+import com.smartproduct.service.AccessLogService;
 import com.smartproduct.service.LoginCryptoService;
 import com.smartproduct.service.UserService;
 import com.smartproduct.shared.exception.ApiException;
@@ -20,10 +21,12 @@ import java.util.Map;
 public class UserController {
     private final UserService service;
     private final LoginCryptoService loginCryptoService;
+    private final AccessLogService accessLogs;
 
-    public UserController(UserService service, LoginCryptoService loginCryptoService) {
+    public UserController(UserService service, LoginCryptoService loginCryptoService, AccessLogService accessLogs) {
         this.service = service;
         this.loginCryptoService = loginCryptoService;
+        this.accessLogs = accessLogs;
     }
 
     @GetMapping("/v1/data/user/login/key")
@@ -32,17 +35,45 @@ public class UserController {
     }
 
     @PostMapping("/v1/data/user/login")
-    public Map<String, Object> login(@RequestBody UserRequests.LoginRequest request) {
-        if (request == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST.value(), "登录信息校验失败，请刷新页面后重试");
+    public Map<String, Object> login(@RequestBody(required = false) UserRequests.LoginRequest request) {
+        String account = request == null ? "" : request.userAccount;
+        try {
+            if (request == null) {
+                throw new ApiException(HttpStatus.BAD_REQUEST.value(), "登录信息校验失败，请刷新页面后重试");
+            }
+            String password = request.encryptedPassword == null || request.encryptedPassword.isBlank()
+                    ? request.userPassword
+                    : loginCryptoService.decryptPassword(request.encryptedPassword);
+            if (password == null || password.isBlank()) {
+                throw new ApiException(HttpStatus.BAD_REQUEST.value(), "Invalid login payload");
+            }
+            Map<String, Object> result = service.login(request.userAccount, password);
+            accessLogs.login(account, true, null);
+            return result;
+        } catch (RuntimeException ex) {
+            accessLogs.login(account, false, ex.getMessage());
+            throw ex;
         }
-        String password = request.encryptedPassword == null || request.encryptedPassword.isBlank()
-                ? request.userPassword
-                : loginCryptoService.decryptPassword(request.encryptedPassword);
-        if (password == null || password.isBlank()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST.value(), "Invalid login payload");
-        }
-        return service.login(request.userAccount, password);
+    }
+
+    @PostMapping("/v1/data/user/logout")
+    public Map<String, Object> logout() {
+        accessLogs.success("用户认证", "LOGOUT", "USER", null, null, "用户退出登录");
+        return Map.of();
+    }
+
+    @GetMapping("/v1/data/user/login-log/my")
+    public Map<String, Object> myLoginLogs(@RequestParam(defaultValue = "1") int pageNumber,
+                                           @RequestParam(defaultValue = "10") int pageSize) {
+        return accessLogs.myLoginLogs(pageNumber, pageSize);
+    }
+
+    @GetMapping("/v1/data/user/login-log/list")
+    @PreAuthorize("hasAuthority('system:user:manage')")
+    public Map<String, Object> userLoginLogs(@RequestParam Long userId,
+                                             @RequestParam(defaultValue = "1") int pageNumber,
+                                             @RequestParam(defaultValue = "10") int pageSize) {
+        return accessLogs.userLoginLogs(userId, pageNumber, pageSize);
     }
 
     @GetMapping("/v1/data/user/current/detail")

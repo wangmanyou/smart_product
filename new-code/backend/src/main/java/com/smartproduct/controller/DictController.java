@@ -72,6 +72,13 @@ public class DictController {
         return Map.of();
     }
 
+    @PostMapping("/v1/data/dict/directory/sort")
+    @PreAuthorize("hasAuthority('system:dict:manage')")
+    public Map<String, Object> sortDirectories(@RequestBody Map<String, Object> request) {
+        service.sortDirectories(request);
+        return Map.of();
+    }
+
     @DeleteMapping("/v1/data/dict/directory/delete")
     @PreAuthorize("hasAuthority('system:dict:manage')")
     public Map<String, Object> deleteDirectory(@RequestParam Long dictDirectoryId) {

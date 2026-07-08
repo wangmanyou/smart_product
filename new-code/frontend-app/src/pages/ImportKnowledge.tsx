@@ -5,7 +5,7 @@ import {
   InboxOutlined,
 } from '@ant-design/icons';
 import { history, useParams, useRequest } from '@umijs/max';
-import { Button, Space, Tag, Typography, Upload, message } from 'antd';
+import { Button, Modal, Radio, Space, Tag, Typography, Upload, message } from 'antd';
 import { useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import { businessApi, fileApi } from '@/services/api';
@@ -22,12 +22,41 @@ export default function ImportKnowledge() {
   const { sceneId = '' } = useParams();
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<any>();
+  const [templateOpen, setTemplateOpen] = useState(false);
+  const [templateType, setTemplateType] = useState<'normal' | 'directory'>('normal');
+  const [templateDownloading, setTemplateDownloading] = useState(false);
   const sceneReq = useRequest(() => businessApi.detail(sceneId));
   const formatted = formatBusinessDetail(sceneReq.data);
+  const visibleItems = formatted.sceneItems.filter((item: any) => !item.isHide);
+  const directoryItems = visibleItems.filter((item: any) => item.type === 'dict');
+  const hasRequiredDirectoryItem = directoryItems.some((item: any) => item.isRequired);
 
-  const downloadTemplate = async () => {
-    const result = await businessApi.exportTemplate(sceneId);
+  const downloadTemplate = async (includeDirectory = false) => {
+    const result = await businessApi.exportTemplate(sceneId, includeDirectory);
     if (result?.filePath) window.location.href = `/api${result.filePath}`;
+  };
+
+  const confirmTemplateDownload = async () => {
+    setTemplateDownloading(true);
+    try {
+      await downloadTemplate(templateType === 'directory');
+      setTemplateOpen(false);
+    } finally {
+      setTemplateDownloading(false);
+    }
+  };
+
+  const requestTemplateDownload = async () => {
+    if (!directoryItems.length) {
+      await downloadTemplate(false);
+      return;
+    }
+    if (hasRequiredDirectoryItem) {
+      await downloadTemplate(true);
+      return;
+    }
+    setTemplateType('normal');
+    setTemplateOpen(true);
   };
 
   const goList = () => {
@@ -37,7 +66,8 @@ export default function ImportKnowledge() {
     });
   };
 
-  const hasWarnings = Array.isArray(result?.warnings) && result.warnings.length > 0;
+  const failedRows = Array.isArray(result?.failedRows) ? result.failedRows : [];
+  const hasWarnings = failedRows.length > 0 || Array.isArray(result?.warnings) && result.warnings.length > 0;
   const isPendingOnly = !result?.failed && Number(result?.pendingRows || 0) > 0 && Number(result?.importedRows || 0) === 0;
   const resultTone = result?.failed ? 'error' : hasWarnings || Number(result?.skippedRows || 0) > 0 ? 'warning' : 'success';
 
@@ -48,7 +78,7 @@ export default function ImportKnowledge() {
       description="下载当前场景模板，填写后上传。导入完成后会在页面和通知中心同步结果。"
       extra={[
         <Button key="back" onClick={goList}>返回列表</Button>,
-        <Button key="template" icon={<DownloadOutlined />} onClick={downloadTemplate}>下载模板</Button>,
+        <Button key="template" icon={<DownloadOutlined />} onClick={requestTemplateDownload}>下载模板</Button>,
       ]}
     >
       <section className="import-workbench">
@@ -128,20 +158,27 @@ export default function ImportKnowledge() {
                       <div className="import-warning-list">
                         <Typography.Text strong>导入提醒</Typography.Text>
                         <ul>
-                          {result.warnings.slice(0, 6).map((warning: string, index: number) => (
-                            <li key={`${warning}-${index}`}>{warning}</li>
-                          ))}
+                          {failedRows.length
+                            ? failedRows.slice(0, 6).map((item: any, index: number) => (
+                                <li key={`${item.rowNumber}-${item.fieldName}-${index}`}>
+                                  第 {item.rowNumber} 行，{item.fieldName}：{item.reason}
+                                  {item.originalValue ? `（原值：${item.originalValue}）` : ''}
+                                </li>
+                              ))
+                            : result.warnings.slice(0, 6).map((warning: string, index: number) => (
+                                <li key={`${warning}-${index}`}>{warning}</li>
+                              ))}
                         </ul>
                       </div>
                     ) : null}
 
                     <Space wrap>
                       <Button type="primary" onClick={goList}>查看知识列表</Button>
-                      <Button icon={<DownloadOutlined />} onClick={downloadTemplate}>重新下载模板</Button>
+                      <Button icon={<DownloadOutlined />} onClick={requestTemplateDownload}>重新下载模板</Button>
                     </Space>
                   </>
                 ) : (
-                  <Button icon={<DownloadOutlined />} onClick={downloadTemplate}>重新下载模板</Button>
+                  <Button icon={<DownloadOutlined />} onClick={requestTemplateDownload}>重新下载模板</Button>
                 )}
               </>
             ) : (
@@ -155,6 +192,25 @@ export default function ImportKnowledge() {
           </div>
         </div>
       </section>
+      <Modal
+        open={templateOpen}
+        title="选择导入模板"
+        okText="下载"
+        cancelText="取消"
+        confirmLoading={templateDownloading}
+        onOk={confirmTemplateDownload}
+        onCancel={() => setTemplateOpen(false)}
+      >
+        <Radio.Group
+          value={templateType}
+          onChange={(event) => setTemplateType(event.target.value)}
+        >
+          <Space direction="vertical">
+            <Radio value="normal">普通模板</Radio>
+            <Radio value="directory">带目录模板</Radio>
+          </Space>
+        </Radio.Group>
+      </Modal>
     </PageHeader>
   );
 }

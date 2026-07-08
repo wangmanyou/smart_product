@@ -72,6 +72,7 @@ export default defineConfig({
     { path: '/system/roles/new/config', component: './RoleConfig' },
     { path: '/system/roles/:id/config', component: './RoleConfig' },
     { path: '/system/approvals', component: './ChangeApprovals' },
+    { path: '/system/logs', component: './AccessLogs' },
     { path: '/statistics', component: './Statistics' },
   ],
   proxy: {

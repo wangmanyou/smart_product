@@ -1,11 +1,12 @@
-import { BellOutlined, LogoutOutlined, UserOutlined } from '@ant-design/icons';
+import { BellOutlined, HistoryOutlined, LogoutOutlined, UserOutlined } from '@ant-design/icons';
 import { history } from '@umijs/max';
-import { Badge, Dropdown, Space, Typography } from 'antd';
+import { Badge, Dropdown, Modal, Space, Typography } from 'antd';
 import type { MenuProps } from 'antd';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useState } from 'react';
+import AccessLogTable from '@/components/AccessLogTable';
 import ProfileEditorModal from '@/components/ProfileEditorModal';
-import { authApi, notificationApi } from '@/services/api';
+import { accessLogApi, authApi, notificationApi } from '@/services/api';
 import { DEFAULT_AVATAR, avatarUrl } from '@/utils/avatar';
 
 export default function HeaderUserMenu({ dom }: { dom: ReactNode }) {
@@ -13,6 +14,7 @@ export default function HeaderUserMenu({ dom }: { dom: ReactNode }) {
   const [unread, setUnread] = useState(0);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [loginLogOpen, setLoginLogOpen] = useState(false);
   const userName = user?.userNickname || user?.userAccount || '管理员';
   const avatarSrc = avatarUrl(user?.userPicture);
 
@@ -142,12 +144,22 @@ export default function HeaderUserMenu({ dom }: { dom: ReactNode }) {
       onClick: () => setProfileOpen(true),
     },
     {
+      key: 'login-log',
+      icon: <HistoryOutlined />,
+      label: '我的登录记录',
+      onClick: () => setLoginLogOpen(true),
+    },
+    {
       key: 'logout',
       icon: <LogoutOutlined />,
       label: '退出登录',
-      onClick: () => {
-        authApi.clear();
-        history.push('/login');
+      onClick: async () => {
+        try {
+          await authApi.logout();
+        } finally {
+          authApi.clear();
+          history.push('/login');
+        }
       },
     },
   ].filter(Boolean) as MenuProps['items'];
@@ -181,6 +193,20 @@ export default function HeaderUserMenu({ dom }: { dom: ReactNode }) {
         onClose={() => setProfileOpen(false)}
         onSaved={(nextUser) => setUser(nextUser)}
       />
+      <Modal
+        title="我的登录记录"
+        open={loginLogOpen}
+        width={920}
+        footer={null}
+        destroyOnClose
+        onCancel={() => setLoginLogOpen(false)}
+      >
+        <AccessLogTable
+          active={loginLogOpen}
+          showUser={false}
+          fetcher={(params) => accessLogApi.myLoginLogs(params)}
+        />
+      </Modal>
     </>
   );
 }

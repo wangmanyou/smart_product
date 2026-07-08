@@ -21,6 +21,8 @@ public class DictDirectoryEntity {
     @TableField("parent_id")
     public Long parentId;
     public Long level;
+    @TableField("sort_number")
+    public Long sortNumber;
     @TableField("create_at")
     public LocalDateTime createAt;
     @TableField("update_at")

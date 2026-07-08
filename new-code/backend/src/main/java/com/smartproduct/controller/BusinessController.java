@@ -1,6 +1,7 @@
 package com.smartproduct.controller;
 
 import com.smartproduct.service.BusinessService;
+import com.smartproduct.service.AccessLogService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -15,9 +16,11 @@ import java.util.Map;
 @RestController
 public class BusinessController {
     private final BusinessService service;
+    private final AccessLogService accessLogs;
 
-    public BusinessController(BusinessService service) {
+    public BusinessController(BusinessService service, AccessLogService accessLogs) {
         this.service = service;
+        this.accessLogs = accessLogs;
     }
 
     @GetMapping("/v1/data/business/detail")
@@ -36,7 +39,42 @@ public class BusinessController {
     @GetMapping("/v1/data/business/knowledge/detail")
     @PreAuthorize("hasAuthority('knowledge:view')")
     public Map<String, Object> knowledgeDetail(@RequestParam("knowledgeId") Long knowledgeId) {
-        return service.detail(knowledgeId);
+        Map<String, Object> result = service.detail(knowledgeId);
+        Long sceneTemplateId = result.get("sceneTemplateId") instanceof Number number ? number.longValue() : null;
+        accessLogs.success("知识库", "VIEW", "KNOWLEDGE", knowledgeId, sceneTemplateId, "查看知识详情");
+        return result;
+    }
+
+    @GetMapping("/v1/data/business/knowledge/log/list")
+    @PreAuthorize("hasAuthority('knowledge:view')")
+    public Map<String, Object> knowledgeLogs(@RequestParam("knowledgeId") Long knowledgeId,
+                                             @RequestParam(required = false) String action,
+                                             @RequestParam(defaultValue = "1") int pageNumber,
+                                             @RequestParam(defaultValue = "10") int pageSize) {
+        return service.knowledgeLogs(knowledgeId, action, pageNumber, pageSize);
+    }
+
+    @GetMapping("/v1/data/business/knowledge/version/list")
+    @PreAuthorize("hasAuthority('knowledge:view')")
+    public Map<String, Object> knowledgeVersions(@RequestParam("knowledgeId") Long knowledgeId,
+                                                 @RequestParam(defaultValue = "1") int pageNumber,
+                                                 @RequestParam(defaultValue = "10") int pageSize) {
+        return service.knowledgeVersions(knowledgeId, pageNumber, pageSize);
+    }
+
+    @GetMapping("/v1/data/business/knowledge/version/detail")
+    @PreAuthorize("hasAuthority('knowledge:view')")
+    public Map<String, Object> knowledgeVersionDetail(@RequestParam("versionId") Long versionId) {
+        return service.knowledgeVersionDetail(versionId);
+    }
+
+    @GetMapping("/v1/data/business/scene/knowledge-log/list")
+    @PreAuthorize("hasAuthority('knowledge:view')")
+    public Map<String, Object> sceneKnowledgeLogs(@RequestParam("sceneTemplateId") Long sceneTemplateId,
+                                                  @RequestParam(required = false) String action,
+                                                  @RequestParam(defaultValue = "1") int pageNumber,
+                                                  @RequestParam(defaultValue = "10") int pageSize) {
+        return service.sceneKnowledgeLogs(sceneTemplateId, action, pageNumber, pageSize);
     }
 
     @PostMapping("/v1/data/business/knowledge/edit")
@@ -68,8 +106,9 @@ public class BusinessController {
 
     @GetMapping("/v1/data/business/knowledge/template/export")
     @PreAuthorize("hasAuthority('knowledge:import')")
-    public Map<String, Object> templateExport(@RequestParam("sceneTemplateId") Long sceneTemplateId) {
-        return service.templateExport(sceneTemplateId);
+    public Map<String, Object> templateExport(@RequestParam("sceneTemplateId") Long sceneTemplateId,
+                                              @RequestParam(value = "includeDirectory", defaultValue = "false") boolean includeDirectory) {
+        return service.templateExport(sceneTemplateId, includeDirectory);
     }
 
     @GetMapping("/v1/data/business/knowledge/data/export")

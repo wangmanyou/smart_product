@@ -24,10 +24,19 @@ import com.smartproduct.security.PermissionCodes;
 import com.smartproduct.shared.exception.ApiException;
 import org.springframework.http.HttpStatus;
 import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.DataValidation;
+import org.apache.poi.ss.usermodel.DataValidationConstraint;
+import org.apache.poi.ss.usermodel.DataValidationHelper;
+import org.apache.poi.ss.usermodel.Name;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.util.CellRangeAddressList;
+import org.apache.poi.ss.util.CellReference;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.safety.Safelist;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,6 +49,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -59,6 +69,13 @@ public class BusinessService {
     private static final Set<String> IMAGE_EXTENSIONS = Set.of(".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg");
     private static final Set<String> VIDEO_EXTENSIONS = Set.of(".mp4", ".webm", ".ogg", ".mov", ".m4v", ".avi", ".mkv");
     private static final Set<String> AUDIO_EXTENSIONS = Set.of(".mp3", ".wav", ".ogg", ".m4a", ".aac", ".flac");
+    private static final Pattern RICH_TEXT_STYLE_ATTRIBUTE_PATTERN = Pattern.compile("(?is)\\sstyle\\s*=\\s*(\"([^\"]*)\"|'([^']*)')");
+    private static final Set<String> RICH_TEXT_ALLOWED_STYLE_NAMES = Set.of(
+            "color", "background-color", "font-size", "font-family", "font-weight", "font-style",
+            "text-decoration", "text-align", "line-height", "padding", "padding-left", "padding-right",
+            "margin", "margin-left", "margin-right", "border", "border-collapse", "width", "height"
+    );
+    private static final Safelist RICH_TEXT_SAFELIST = richTextSafelist();
 
     private final KnowledgeMapper knowledge;
     private final KnowledgeItemMapper knowledgeItems;
@@ -71,6 +88,8 @@ public class BusinessService {
     private final CurrentUserService currentUsers;
     private final KnowledgeChangeRequestMapper changeRequests;
     private final NotificationService notificationService;
+    private final AccessLogService accessLogs;
+    private final KnowledgeVersionService knowledgeVersions;
     private final Path fileRoot;
     private final UploadStorageProperties uploadStorage;
 
@@ -78,7 +97,9 @@ public class BusinessService {
                            DictDirectoryMapper dictDirectories,
                            SceneTemplateMapper scenes, SceneService sceneService, DictService dictService, TokenService tokens,
                            CurrentUserService currentUsers, KnowledgeChangeRequestMapper changeRequests,
-                           NotificationService notificationService, UploadStorageProperties uploadStorage) {
+                           NotificationService notificationService, AccessLogService accessLogs,
+                           KnowledgeVersionService knowledgeVersions,
+                           UploadStorageProperties uploadStorage) {
         this.knowledge = knowledge;
         this.knowledgeItems = knowledgeItems;
         this.sceneItems = sceneItems;
@@ -90,6 +111,8 @@ public class BusinessService {
         this.currentUsers = currentUsers;
         this.changeRequests = changeRequests;
         this.notificationService = notificationService;
+        this.accessLogs = accessLogs;
+        this.knowledgeVersions = knowledgeVersions;
         this.uploadStorage = uploadStorage;
         this.fileRoot = uploadStorage.root();
     }
@@ -118,9 +141,15 @@ public class BusinessService {
         requireKnowledgeActionAccess(user, sceneTemplateId, PermissionCodes.KNOWLEDGE_CREATE);
         validateKnowledgePayload(request.get("knowledge"));
         if (user.requiresApproval(PermissionCodes.KNOWLEDGE_CREATE, sceneTemplateId)) {
-            return submitChange(KnowledgeChangeRequestStatus.CREATE, null, sceneTemplateId, request, null, user);
+            Map<String, Object> result = submitChange(KnowledgeChangeRequestStatus.CREATE, null, sceneTemplateId, request, null, user);
+            accessLogs.success("知识库", "CREATE_REQUEST", "CHANGE_REQUEST", DictService.num(result.get("changeRequestId")),
+                    sceneTemplateId, "提交新增知识审批");
+            return result;
         }
-        return addKnowledgeDirect(request, user.userId(), user.account());
+        Map<String, Object> result = addKnowledgeDirect(request, user.userId(), user.account());
+        accessLogs.success("知识库", "CREATE", "KNOWLEDGE", DictService.num(result.get("knowledgeId")),
+                sceneTemplateId, "新增知识");
+        return result;
     }
 
     @Transactional
@@ -137,6 +166,7 @@ public class BusinessService {
         knowledge.insert(row);
         saveKnowledgeItems(row.id, row.sceneTemplateId, request.get("knowledge"), true);
         scenes.update(new UpdateWrapper<SceneTemplateEntity>().eq("id", row.sceneTemplateId).set("is_used", true));
+        knowledgeVersions.recordCreate(row.id, userId, userAccount);
         return Map.of("knowledgeId", row.id);
     }
 
@@ -151,18 +181,28 @@ public class BusinessService {
         assertNoPendingChange(id);
         validateKnowledgePayload(request.get("knowledgeItem"));
         if (user.requiresApproval(PermissionCodes.KNOWLEDGE_UPDATE, row.sceneTemplateId)) {
-            submitChange(KnowledgeChangeRequestStatus.UPDATE, id, row.sceneTemplateId, request, detail(id), user);
+            Map<String, Object> result = submitChange(KnowledgeChangeRequestStatus.UPDATE, id, row.sceneTemplateId, request, detail(id), user);
+            accessLogs.success("知识库", "UPDATE_REQUEST", "KNOWLEDGE", id, row.sceneTemplateId, "提交修改知识审批");
             return;
         }
-        editKnowledgeDirect(request);
+        editKnowledgeDirect(request, user.userId(), user.account());
+        accessLogs.success("知识库", "UPDATE", "KNOWLEDGE", id, row.sceneTemplateId, "修改知识");
     }
 
     @Transactional
     public void editKnowledgeDirect(Map<String, Object> request) {
+        CurrentUser user = currentUsers.current();
+        editKnowledgeDirect(request, user.userId(), user.account());
+    }
+
+    @Transactional
+    public void editKnowledgeDirect(Map<String, Object> request, Long operatorId, String operatorName) {
         Long id = DictService.num(request.get("knowledgeId"));
         KnowledgeEntity row = knowledge.selectById(id);
+        Map<String, Object> before = knowledgeVersions.snapshot(id);
         knowledge.update(new UpdateWrapper<KnowledgeEntity>().eq("id", id).set("update_at", LocalDateTime.now()));
         saveKnowledgeItems(id, row == null ? null : row.sceneTemplateId, request.get("knowledgeItem"), false);
+        knowledgeVersions.recordUpdate(id, operatorId, operatorName, before);
     }
 
     @Transactional
@@ -174,15 +214,26 @@ public class BusinessService {
         requireKnowledgeActionAccess(user, row.sceneTemplateId, PermissionCodes.KNOWLEDGE_DELETE);
         assertNoPendingChange(knowledgeId);
         if (user.requiresApproval(PermissionCodes.KNOWLEDGE_DELETE, row.sceneTemplateId)) {
-            submitChange(KnowledgeChangeRequestStatus.DELETE, knowledgeId, row.sceneTemplateId, Map.of("knowledgeId", knowledgeId), detail(knowledgeId), user);
+            Map<String, Object> result = submitChange(KnowledgeChangeRequestStatus.DELETE, knowledgeId, row.sceneTemplateId,
+                    Map.of("knowledgeId", knowledgeId), detail(knowledgeId), user);
+            accessLogs.success("知识库", "DELETE_REQUEST", "KNOWLEDGE", knowledgeId, row.sceneTemplateId, "提交删除知识审批");
             return;
         }
-        deleteKnowledgeDirect(knowledgeId);
+        deleteKnowledgeDirect(knowledgeId, user.userId(), user.account());
+        accessLogs.success("知识库", "DELETE", "KNOWLEDGE", knowledgeId, row.sceneTemplateId, "删除知识");
     }
 
     @Transactional
     public void deleteKnowledgeDirect(Long knowledgeId) {
+        CurrentUser user = currentUsers.current();
+        deleteKnowledgeDirect(knowledgeId, user.userId(), user.account());
+    }
+
+    @Transactional
+    public void deleteKnowledgeDirect(Long knowledgeId, Long operatorId, String operatorName) {
         KnowledgeEntity row = knowledge.selectById(knowledgeId);
+        Map<String, Object> before = knowledgeVersions.snapshot(knowledgeId);
+        knowledgeVersions.recordDelete(knowledgeId, operatorId, operatorName, before);
         knowledge.deleteById(knowledgeId);
         knowledgeItems.delete(new QueryWrapper<KnowledgeItemEntity>().eq("knowledge_id", knowledgeId));
         if (row != null) {
@@ -218,6 +269,34 @@ public class BusinessService {
         }
         List<KnowledgeItemEntity> values = knowledgeItems.selectList(new QueryWrapper<KnowledgeItemEntity>().eq("knowledge_id", knowledgeId));
         return detailDto(row, values);
+    }
+
+    public Map<String, Object> knowledgeLogs(Long knowledgeId, String action, int pageNumber, int pageSize) {
+        KnowledgeEntity row = knowledge.selectById(knowledgeId);
+        CurrentUser user = currentUsers.current();
+        requireKnowledge(row);
+        requireSceneAccess(user, row.sceneTemplateId);
+        Long visibleUserId = user.hasScenePermission(PermissionCodes.KNOWLEDGE_LOG_VIEW_ALL, row.sceneTemplateId)
+                ? null
+                : user.userId();
+        return accessLogs.knowledgeLogs(knowledgeId, visibleUserId, action, pageNumber, pageSize);
+    }
+
+    public Map<String, Object> knowledgeVersions(Long knowledgeId, int pageNumber, int pageSize) {
+        return knowledgeVersions.list(knowledgeId, pageNumber, pageSize);
+    }
+
+    public Map<String, Object> knowledgeVersionDetail(Long versionId) {
+        return knowledgeVersions.detail(versionId);
+    }
+
+    public Map<String, Object> sceneKnowledgeLogs(Long sceneTemplateId, String action, int pageNumber, int pageSize) {
+        CurrentUser user = currentUsers.current();
+        requireSceneAccess(user, sceneTemplateId);
+        Long visibleUserId = user.hasScenePermission(PermissionCodes.KNOWLEDGE_LOG_VIEW_ALL, sceneTemplateId)
+                ? null
+                : user.userId();
+        return accessLogs.sceneKnowledgeLogs(sceneTemplateId, visibleUserId, action, pageNumber, pageSize);
     }
 
     public Map<String, Object> list(Map<String, Object> request) {
@@ -326,20 +405,27 @@ public class BusinessService {
         }
     }
 
-    public Map<String, Object> templateExport(Long sceneTemplateId) {
+    public Map<String, Object> templateExport(Long sceneTemplateId, boolean includeDirectory) {
         requireSceneAccess(currentUsers.current(), sceneTemplateId);
         SceneTemplateEntity scene = scenes.selectById(sceneTemplateId);
-        List<SceneItemEntity> headers = exportableTemplateHeaders(sceneTemplateId);
+        boolean effectiveIncludeDirectory = includeDirectory || hasRequiredDirectoryItem(sceneTemplateId);
+        List<SceneItemEntity> headers = exportableTemplateHeaders(sceneTemplateId, effectiveIncludeDirectory);
         try (Workbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("Sheet1");
+            Map<Long, String> dictOptionRanges = effectiveIncludeDirectory ? createDirectoryOptionSheet(workbook, headers) : Map.of();
             Row headerRow = sheet.createRow(0);
             Row exampleRow = sheet.createRow(1);
             for (int i = 0; i < headers.size(); i++) {
                 SceneItemEntity header = headers.get(i);
                 headerRow.createCell(i).setCellValue(header.name + "(" + header.id + ")");
-                setCellValue(exampleRow.createCell(i), exampleValue(header.type));
+                setCellValue(exampleRow.createCell(i), templateExampleValue(header, dictOptionRanges.containsKey(header.id)));
+                sheet.setColumnWidth(i, columnWidth(header.name));
+                if ("dict".equals(header.type)) {
+                    applyDirectoryValidation(sheet, i, dictOptionRanges.get(header.id));
+                }
             }
-            return Map.of("filePath", writeWorkbook(workbook, (scene == null ? "business" : scene.name) + "_知识导入模版示例.xlsx"));
+            String suffix = effectiveIncludeDirectory ? "_带目录知识导入模版示例.xlsx" : "_知识导入模版示例.xlsx";
+            return Map.of("filePath", writeWorkbook(workbook, (scene == null ? "business" : scene.name) + suffix));
         } catch (IOException ex) {
             throw new IllegalStateException("导出知识模板失败", ex);
         }
@@ -393,6 +479,7 @@ public class BusinessService {
         int pendingRows = 0;
         int skippedRows = 0;
         List<String> warnings = new ArrayList<>();
+        List<Map<String, Object>> failedRows = new ArrayList<>();
         try (InputStream input = Files.newInputStream(source); Workbook workbook = new XSSFWorkbook(input)) {
             Sheet sheet = workbook.getSheet("Sheet1");
             if (sheet == null) {
@@ -426,6 +513,7 @@ public class BusinessService {
             if (unknownHeaderCount > 0) {
                 warnings.add("有 " + unknownHeaderCount + " 个表头字段不属于当前场景，已忽略对应列");
             }
+            Map<Long, Map<String, List<DictDirectoryEntity>>> directoryIndexes = directoryPathIndexes(itemMap.values());
             Map<Integer, SceneItemEntity> requiredColumns = new LinkedHashMap<>();
             for (int col = 0; col < sceneItemIds.size(); col++) {
                 SceneItemEntity sceneItem = itemMap.get(sceneItemIds.get(col));
@@ -440,16 +528,18 @@ public class BusinessService {
                     continue;
                 }
                 totalRows++;
-                List<String> missingRequiredNames = requiredColumns.entrySet().stream()
+                List<Map.Entry<Integer, SceneItemEntity>> missingRequired = requiredColumns.entrySet().stream()
                         .filter(entry -> cellString(excelRow.getCell(entry.getKey())).isBlank())
-                        .map(entry -> entry.getValue().name)
                         .toList();
-                if (!missingRequiredNames.isEmpty()) {
+                if (!missingRequired.isEmpty()) {
                     skippedRows++;
-                    appendImportWarning(warnings, "\u7b2c " + (rowIndex + 1) + " \u884c\u7f3a\u5c11\u5fc5\u586b\u5b57\u6bb5\uff1a" + String.join("\u3001", missingRequiredNames) + "\uff0c\u5df2\u8df3\u8fc7");
+                    for (Map.Entry<Integer, SceneItemEntity> entry : missingRequired) {
+                        appendImportFailure(warnings, failedRows, rowIndex + 1, entry.getValue().name, "", "缺少必填字段");
+                    }
                     continue;
                 }
                 List<Map<String, Object>> items = new ArrayList<>();
+                boolean rowFailed = false;
                 for (int col = 0; col < sceneItemIds.size(); col++) {
                     Long sceneItemId = sceneItemIds.get(col);
                     if (sceneItemId == null) {
@@ -463,24 +553,41 @@ public class BusinessService {
                     Map<String, Object> item = new LinkedHashMap<>();
                     item.put("sceneItemId", sceneItemId);
                     if ("dict".equals(sceneItem.type)) {
+                        DirectoryImportValue directoryValue = resolveDirectoryImportValue(sceneItem, value, directoryIndexes.get(sceneItem.id));
+                        if (!directoryValue.success()) {
+                            appendImportFailure(warnings, failedRows, rowIndex + 1, sceneItem.name, value, directoryValue.reason());
+                            rowFailed = true;
+                            continue;
+                        }
                         item.put("sceneItemValue", List.of());
-                        item.put("sceneItemSelectDictTreeIds", value);
-                    } else if ("text".equals(sceneItem.type)) {
+                        item.put("sceneItemSelectDictTreeIds", directoryValue.jsonValue());
+                    } else if ("text".equals(sceneItem.type) || "richtext".equals(sceneItem.type)) {
                         item.put("sceneItemValue", value.isEmpty() ? List.of() : List.of(value));
+                    } else if ("tag".equals(sceneItem.type)) {
+                        item.put("sceneItemValue", splitTagValue(value));
                     } else {
                         item.put("sceneItemValue", splitValue(value));
                     }
                     items.add(item);
                 }
+                if (rowFailed) {
+                    skippedRows++;
+                    continue;
+                }
                 if (!items.isEmpty()) {
                     Map<String, Object> add = new LinkedHashMap<>();
                     add.put("sceneTemplateId", sceneTemplateId);
                     add.put("knowledge", items);
-                    Map<String, Object> added = addKnowledge(add, authorization);
-                    if (added.containsKey("changeRequestId")) {
-                        pendingRows++;
-                    } else {
-                        importedRows++;
+                    try {
+                        Map<String, Object> added = addKnowledge(add, authorization);
+                        if (added.containsKey("changeRequestId")) {
+                            pendingRows++;
+                        } else {
+                            importedRows++;
+                        }
+                    } catch (ApiException ex) {
+                        skippedRows++;
+                        appendImportFailure(warnings, failedRows, rowIndex + 1, "整行", "", ex.getMessage());
                     }
                 } else {
                     skippedRows++;
@@ -495,6 +602,7 @@ public class BusinessService {
         result.put("pendingRows", pendingRows);
         result.put("skippedRows", skippedRows);
         result.put("warnings", warnings);
+        result.put("failedRows", failedRows);
         result.put("message", importMessageReadable(importedRows, pendingRows, skippedRows));
         notificationService.createImportResult(importResultNotice(sceneTemplateId, totalRows, importedRows, pendingRows, skippedRows, warnings));
         return result;
@@ -586,7 +694,8 @@ public class BusinessService {
                 continue;
             }
             SceneItemEntity sceneItem = sceneItems.selectById(sceneItemId);
-            validateMediaFiles(sceneItem, map.get("sceneItemValue"));
+            Object sceneItemValue = normalizeSceneItemValue(sceneItem, map.get("sceneItemValue"));
+            validateMediaFiles(sceneItem, sceneItemValue);
             Object dictIds = map.get("sceneItemSelectDictTreeIds");
             if (dictIds == null) {
                 dictIds = map.get("sceneItemSelectDictIds");
@@ -601,7 +710,7 @@ public class BusinessService {
             }
             item.knowledgeId = knowledgeId;
             item.sceneItemId = sceneItemId;
-            item.sceneItemValue = joinValue(map.get("sceneItemValue"));
+            item.sceneItemValue = joinValue(sceneItemValue);
             item.selectDictTreeIds = normalizeDictIds(DictService.str(dictIds));
             if (item.id == null) {
                 knowledgeItems.insert(item);
@@ -663,7 +772,7 @@ public class BusinessService {
                 continue;
             }
             SceneItemEntity sceneItem = sceneItems.selectById(DictService.num(map.get("sceneItemId")));
-            validateMediaFiles(sceneItem, map.get("sceneItemValue"));
+            validateMediaFiles(sceneItem, normalizeSceneItemValue(sceneItem, map.get("sceneItemValue")));
             Object dictIds = map.get("sceneItemSelectDictTreeIds");
             if (dictIds == null) {
                 dictIds = map.get("sceneItemSelectDictIds");
@@ -720,6 +829,125 @@ public class BusinessService {
         }
     }
 
+    private static Object normalizeSceneItemValue(SceneItemEntity sceneItem, Object value) {
+        if (sceneItem == null || sceneItem.type == null) {
+            return value;
+        }
+        if ("tag".equals(sceneItem.type)) {
+            return normalizeTagValue(value);
+        }
+        if ("richtext".equals(sceneItem.type)) {
+            return normalizeRichTextValue(value);
+        }
+        return value;
+    }
+
+    private static List<String> normalizeTagValue(Object value) {
+        if (value == null) {
+            return List.of();
+        }
+        List<?> values = value instanceof List<?> list ? list : List.of(value);
+        return values.stream()
+                .flatMap(item -> splitTagValue(DictService.str(item)).stream())
+                .distinct()
+                .toList();
+    }
+
+    private static List<String> normalizeRichTextValue(Object value) {
+        if (value == null) {
+            return List.of();
+        }
+        List<?> values = value instanceof List<?> list ? list : List.of(value);
+        String raw = values.stream()
+                .map(DictService::str)
+                .collect(Collectors.joining());
+        String sanitized = sanitizeRichText(raw).trim();
+        return sanitized.isBlank() ? List.of() : List.of(sanitized);
+    }
+
+    private static String sanitizeRichText(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        Document.OutputSettings outputSettings = new Document.OutputSettings().prettyPrint(false);
+        String cleaned = Jsoup.clean(value, "https://smart-product.local", RICH_TEXT_SAFELIST, outputSettings);
+        return sanitizeRichTextStyles(cleaned);
+    }
+
+    private static Safelist richTextSafelist() {
+        return new Safelist()
+                .addTags(
+                        "p", "br", "strong", "b", "u", "em", "i", "s", "span", "blockquote",
+                        "pre", "code", "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "li",
+                        "table", "thead", "tbody", "tfoot", "tr", "th", "td", "img", "a", "hr",
+                        "video", "source"
+                )
+                .addAttributes(":all", "class", "style")
+                .addAttributes("a", "href", "title", "target", "rel")
+                .addAttributes("img", "src", "alt", "title", "width", "height")
+                .addAttributes("video", "src", "poster", "controls", "width", "height")
+                .addAttributes("source", "src", "type")
+                .addProtocols("a", "href", "http", "https", "mailto", "tel")
+                .addProtocols("img", "src", "http", "https", "data")
+                .addProtocols("video", "src", "http", "https")
+                .addProtocols("video", "poster", "http", "https", "data")
+                .addProtocols("source", "src", "http", "https")
+                .preserveRelativeLinks(true);
+    }
+
+    private static String sanitizeRichTextStyles(String html) {
+        Matcher matcher = RICH_TEXT_STYLE_ATTRIBUTE_PATTERN.matcher(html);
+        StringBuffer result = new StringBuffer();
+        while (matcher.find()) {
+            String style = firstNonNull(matcher.group(2), matcher.group(3));
+            String safeStyle = sanitizeRichTextStyleValue(style);
+            String replacement = safeStyle.isBlank() ? "" : " style=\"" + safeStyle + "\"";
+            matcher.appendReplacement(result, Matcher.quoteReplacement(replacement));
+        }
+        matcher.appendTail(result);
+        return result.toString();
+    }
+
+    private static String sanitizeRichTextStyleValue(String style) {
+        if (style == null || style.isBlank()) {
+            return "";
+        }
+        return List.of(style.split(";")).stream()
+                .map(String::trim)
+                .filter(item -> item.contains(":"))
+                .map(item -> {
+                    String[] parts = item.split(":", 2);
+                    String name = parts[0].trim().toLowerCase();
+                    String value = parts[1].trim();
+                    return isSafeRichTextStyle(name, value) ? name + ":" + value : "";
+                })
+                .filter(item -> !item.isBlank())
+                .collect(Collectors.joining(";"));
+    }
+
+    private static boolean isSafeRichTextStyle(String name, String value) {
+        if (!RICH_TEXT_ALLOWED_STYLE_NAMES.contains(name) || value.isBlank()) {
+            return false;
+        }
+        String lower = value.toLowerCase();
+        return !lower.contains("javascript:")
+                && !lower.contains("expression(")
+                && !lower.contains("url(")
+                && !lower.contains("@import")
+                && !lower.contains("behavior:")
+                && !lower.contains("<")
+                && !lower.contains(">");
+    }
+
+    private static String firstNonNull(String... values) {
+        for (String value : values) {
+            if (value != null) {
+                return value;
+            }
+        }
+        return "";
+    }
+
     private Map<String, Object> detailDto(KnowledgeEntity row, List<KnowledgeItemEntity> values) {
         if (row == null) {
             return Map.of();
@@ -730,12 +958,15 @@ public class BusinessService {
                 .filter(value -> itemMap.containsKey(value.sceneItemId))
                 .map(value -> {
             SceneItemEntity sceneItem = itemMap.get(value.sceneItemId);
+            String type = sceneItem == null ? "" : sceneItem.type;
             Map<String, Object> dto = new LinkedHashMap<>();
             dto.put("sceneItemId", value.sceneItemId);
-            dto.put("sceneItemType", sceneItem == null ? "" : sceneItem.type);
-            dto.put("sceneItemValue", "text".equals(sceneItem == null ? "" : sceneItem.type)
-                    ? textValue(value.sceneItemValue)
-                    : splitValue(value.sceneItemValue));
+            dto.put("sceneItemType", type);
+            dto.put("sceneItemValue", switch (type) {
+                case "text", "richtext" -> textValue(value.sceneItemValue);
+                case "tag" -> splitTagValue(value.sceneItemValue);
+                default -> splitValue(value.sceneItemValue);
+            });
             dto.put("sceneItemSelectDictTreeIds", normalizeDictIds(value.selectDictTreeIds));
             dto.put("sceneItemName", sceneItem == null ? "" : sceneItem.name);
             return dto;
@@ -746,6 +977,7 @@ public class BusinessService {
             dto.put(String.valueOf(item.get("sceneItemId")), item);
         }
         dto.put("knowledgeId", row.id);
+        dto.put("sceneTemplateId", row.sceneTemplateId);
         dto.put("creatorName", row.creatorName);
         dto.put("viewTime", row.viewTime);
         dto.put("updateTime", epoch(row.updateAt));
@@ -774,6 +1006,16 @@ public class BusinessService {
         return result;
     }
 
+    private record DirectoryImportValue(boolean success, String jsonValue, String reason) {
+        static DirectoryImportValue ok(Long id) {
+            return new DirectoryImportValue(true, id == null ? "" : "[" + id + "]", "");
+        }
+
+        static DirectoryImportValue fail(String reason) {
+            return new DirectoryImportValue(false, "", reason);
+        }
+    }
+
     private List<SceneItemEntity> visibleSceneItems(Long sceneTemplateId) {
         return sceneItems.selectList(new QueryWrapper<SceneItemEntity>()
                 .eq("scene_template_id", sceneTemplateId)
@@ -785,20 +1027,243 @@ public class BusinessService {
                 .toList();
     }
 
-    private List<SceneItemEntity> exportableTemplateHeaders(Long sceneTemplateId) {
+    private boolean hasRequiredDirectoryItem(Long sceneTemplateId) {
         return visibleSceneItems(sceneTemplateId).stream()
-                .filter(item -> !"dict".equals(item.type))
-                .filter(item -> List.of("text", "integer", "decimal", "datetime").contains(item.type))
+                .anyMatch(item -> "dict".equals(item.type) && Boolean.TRUE.equals(item.isRequired));
+    }
+
+    private List<SceneItemEntity> exportableTemplateHeaders(Long sceneTemplateId, boolean includeDirectory) {
+        return visibleSceneItems(sceneTemplateId).stream()
+                .filter(item -> includeDirectory || !"dict".equals(item.type))
+                .filter(item -> List.of("text", "integer", "decimal", "datetime", "tag", "richtext").contains(item.type)
+                        || includeDirectory && "dict".equals(item.type))
+                .filter(item -> !"dict".equals(item.type) || item.dictTemplateId != null)
                 .toList();
     }
 
-    private static Object exampleValue(String type) {
-        return switch (type) {
+    private Map<Long, String> createDirectoryOptionSheet(Workbook workbook, List<SceneItemEntity> headers) {
+        List<SceneItemEntity> dictHeaders = headers.stream()
+                .filter(item -> "dict".equals(item.type))
+                .toList();
+        if (dictHeaders.isEmpty()) {
+            return Map.of();
+        }
+
+        Sheet optionSheet = workbook.createSheet("目录选项");
+        Map<Long, String> namedRanges = new LinkedHashMap<>();
+        int optionColumn = 0;
+        for (SceneItemEntity header : dictHeaders) {
+            List<String> paths = directoryPaths(header.dictTemplateId);
+            Row titleRow = getOrCreateRow(optionSheet, 0);
+            titleRow.createCell(optionColumn).setCellValue(header.name);
+            for (int index = 0; index < paths.size(); index++) {
+                getOrCreateRow(optionSheet, index + 1).createCell(optionColumn).setCellValue(paths.get(index));
+            }
+            optionSheet.setColumnWidth(optionColumn, 12000);
+            if (!paths.isEmpty()) {
+                String rangeName = "dict_options_" + header.id;
+                String colName = CellReference.convertNumToColString(optionColumn);
+                Name name = workbook.createName();
+                name.setNameName(rangeName);
+                name.setRefersToFormula("'目录选项'!$" + colName + "$2:$" + colName + "$" + (paths.size() + 1));
+                namedRanges.put(header.id, rangeName);
+            }
+            optionColumn++;
+        }
+        workbook.setSheetHidden(workbook.getSheetIndex(optionSheet), true);
+        return namedRanges;
+    }
+
+    private List<String> directoryPaths(Long dictTemplateId) {
+        return directoryPathIndex(dictTemplateId).entrySet().stream()
+                .filter(entry -> entry.getValue().stream().anyMatch(item -> !Boolean.TRUE.equals(item.isDisabled)))
+                .map(Map.Entry::getKey)
+                .toList();
+    }
+
+    private Map<Long, Map<String, List<DictDirectoryEntity>>> directoryPathIndexes(Collection<SceneItemEntity> items) {
+        Map<Long, Map<String, List<DictDirectoryEntity>>> indexes = new LinkedHashMap<>();
+        for (SceneItemEntity item : items) {
+            if (!"dict".equals(item.type) || item.dictTemplateId == null) {
+                continue;
+            }
+            indexes.put(item.id, directoryPathIndex(item.dictTemplateId));
+        }
+        return indexes;
+    }
+
+    private Map<String, List<DictDirectoryEntity>> directoryPathIndex(Long dictTemplateId) {
+        if (dictTemplateId == null) {
+            return Map.of();
+        }
+        List<DictDirectoryEntity> directories = dictDirectories.selectList(new QueryWrapper<DictDirectoryEntity>()
+                .eq("dict_template_id", dictTemplateId)
+                .eq("del", 0)
+                .orderByAsc("level")
+                .orderByAsc("parent_id")
+                .orderByAsc("sort_number")
+                .orderByAsc("id"));
+        Map<Long, List<DictDirectoryEntity>> byParent = directories.stream()
+                .collect(Collectors.groupingBy(item -> normalizeParentId(item.parentId), LinkedHashMap::new, Collectors.toList()));
+        Map<String, List<DictDirectoryEntity>> index = new LinkedHashMap<>();
+        collectDirectoryPaths(0L, "", byParent, index);
+        return index;
+    }
+
+    private void collectDirectoryPaths(Long parentId, String prefix, Map<Long, List<DictDirectoryEntity>> byParent,
+                                       Map<String, List<DictDirectoryEntity>> index) {
+        for (DictDirectoryEntity item : byParent.getOrDefault(parentId, List.of())) {
+            String path = prefix.isBlank() ? nullToEmpty(item.name) : prefix + " / " + nullToEmpty(item.name);
+            String normalizedPath = normalizeDirectoryPath(path);
+            if (!normalizedPath.isBlank()) {
+                index.computeIfAbsent(normalizedPath, ignored -> new ArrayList<>()).add(item);
+            }
+            collectDirectoryPaths(item.id, path, byParent, index);
+        }
+    }
+
+    private DirectoryImportValue resolveDirectoryImportValue(SceneItemEntity sceneItem, String rawValue,
+                                                             Map<String, List<DictDirectoryEntity>> pathIndex) {
+        String value = nullToEmpty(rawValue).trim();
+        if (value.isBlank()) {
+            return DirectoryImportValue.ok(null);
+        }
+
+        String normalizedPath = normalizeDirectoryPath(value);
+        List<DictDirectoryEntity> matches = pathIndex == null ? List.of() : pathIndex.getOrDefault(normalizedPath, List.of());
+        if (!matches.isEmpty()) {
+            return resolveDirectoryMatches(matches);
+        }
+
+        if (looksLikeMultipleDirectorySelection(value)) {
+            return DirectoryImportValue.fail("目录只允许选择一个");
+        }
+
+        List<Long> ids = parseDirectoryIds(value);
+        if (!ids.isEmpty()) {
+            if (ids.size() > 1) {
+                return DirectoryImportValue.fail("目录只允许选择一个");
+            }
+            return resolveDirectoryId(sceneItem, ids.get(0));
+        }
+
+        return DirectoryImportValue.fail("目录不存在");
+    }
+
+    private DirectoryImportValue resolveDirectoryMatches(List<DictDirectoryEntity> matches) {
+        if (matches.size() > 1) {
+            return DirectoryImportValue.fail("目录路径不唯一");
+        }
+        DictDirectoryEntity directory = matches.get(0);
+        if (Boolean.TRUE.equals(directory.isDisabled)) {
+            return DirectoryImportValue.fail("目录已禁用");
+        }
+        return DirectoryImportValue.ok(directory.id);
+    }
+
+    private DirectoryImportValue resolveDirectoryId(SceneItemEntity sceneItem, Long id) {
+        DictDirectoryEntity directory = dictDirectories.selectById(id);
+        if (directory == null || directory.del == null || directory.del != 0
+                || !Objects.equals(directory.dictTemplateId, sceneItem.dictTemplateId)) {
+            return DirectoryImportValue.fail("目录不存在");
+        }
+        if (Boolean.TRUE.equals(directory.isDisabled)) {
+            return DirectoryImportValue.fail("目录已禁用");
+        }
+        return DirectoryImportValue.ok(directory.id);
+    }
+
+    private static List<Long> parseDirectoryIds(String value) {
+        String text = nullToEmpty(value).trim();
+        if (text.matches("\\d+")) {
+            return List.of(Long.parseLong(text));
+        }
+        if (!text.startsWith("[")) {
+            return List.of();
+        }
+        try {
+            Object parsed = JSON.readValue(text, new TypeReference<>() {
+            });
+            return safeDirectoryIds(parsed);
+        } catch (Exception ignored) {
+            return List.of();
+        }
+    }
+
+    private static List<Long> safeDirectoryIds(Object value) {
+        if (value instanceof Number number) {
+            return List.of(number.longValue());
+        }
+        if (value instanceof String text && text.matches("\\d+")) {
+            return List.of(Long.parseLong(text));
+        }
+        if (value instanceof List<?> list) {
+            return list.stream().flatMap(item -> safeDirectoryIds(item).stream()).toList();
+        }
+        return List.of();
+    }
+
+    private static String normalizeDirectoryPath(String value) {
+        String text = nullToEmpty(value).trim().replace('／', '/');
+        if (text.isBlank()) {
+            return "";
+        }
+        return List.of(text.split("/")).stream()
+                .map(String::trim)
+                .filter(part -> !part.isBlank())
+                .collect(Collectors.joining(" / "));
+    }
+
+    private static boolean looksLikeMultipleDirectorySelection(String value) {
+        String text = nullToEmpty(value);
+        return text.contains("\n")
+                || text.contains("\r")
+                || text.contains(";")
+                || text.contains("；")
+                || text.contains(",")
+                || text.contains("，")
+                || text.contains("、");
+    }
+
+    private static Row getOrCreateRow(Sheet sheet, int rowIndex) {
+        Row row = sheet.getRow(rowIndex);
+        return row == null ? sheet.createRow(rowIndex) : row;
+    }
+
+    private static void applyDirectoryValidation(Sheet sheet, int columnIndex, String rangeName) {
+        if (rangeName == null || rangeName.isBlank()) {
+            return;
+        }
+        DataValidationHelper helper = sheet.getDataValidationHelper();
+        DataValidationConstraint constraint = helper.createFormulaListConstraint(rangeName);
+        CellRangeAddressList range = new CellRangeAddressList(1, 1000, columnIndex, columnIndex);
+        DataValidation validation = helper.createValidation(constraint, range);
+        validation.setShowErrorBox(true);
+        validation.createErrorBox("目录选择不正确", "请从下拉列表中选择一个目录");
+        sheet.addValidationData(validation);
+    }
+
+    private static Object templateExampleValue(SceneItemEntity item, boolean hasDirectoryOptions) {
+        if ("dict".equals(item.type)) {
+            return hasDirectoryOptions ? "请从下拉列表选择目录" : "";
+        }
+        return switch (item.type) {
             case "integer" -> 1;
             case "decimal" -> 1.1;
             case "datetime" -> "2025-01-02";
+            case "richtext" -> "<p>example-text</p>";
+            case "tag" -> "安全,操作规范、设备维护";
             default -> "example-text";
         };
+    }
+
+    private static int columnWidth(String name) {
+        int width = Math.max(3600, (nullToEmpty(name).length() + 8) * 512);
+        return Math.min(width, 12000);
+    }
+
+    private static Long normalizeParentId(Long parentId) {
+        return parentId == null ? 0L : parentId;
     }
 
     private static void setCellValue(Cell cell, Object value) {
@@ -869,6 +1334,20 @@ public class BusinessService {
         }
     }
 
+    private static void appendImportFailure(List<String> warnings, List<Map<String, Object>> failedRows,
+                                            int rowNumber, String fieldName, String originalValue, String reason) {
+        Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("rowNumber", rowNumber);
+        detail.put("fieldName", nullToEmpty(fieldName));
+        detail.put("originalValue", nullToEmpty(originalValue));
+        detail.put("reason", nullToEmpty(reason));
+        if (failedRows.size() < 200) {
+            failedRows.add(detail);
+        }
+        String original = nullToEmpty(originalValue).isBlank() ? "" : "，原值：" + originalValue;
+        appendImportWarning(warnings, "第 " + rowNumber + " 行「" + nullToEmpty(fieldName) + "」导入失败：" + nullToEmpty(reason) + original);
+    }
+
     private static String importMessageReadable(int importedRows, int pendingRows, int skippedRows) {
         List<String> parts = new ArrayList<>();
         if (importedRows > 0) {
@@ -909,6 +1388,17 @@ public class BusinessService {
             return List.of();
         }
         return List.of(value.split(","));
+    }
+
+    private static List<String> splitTagValue(String value) {
+        if (value == null || value.isBlank()) {
+            return List.of();
+        }
+        return List.of(value.split("[,，、]+")).stream()
+                .map(String::trim)
+                .filter(item -> !item.isBlank())
+                .distinct()
+                .toList();
     }
 
     private static List<String> textValue(String value) {

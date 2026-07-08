@@ -13,8 +13,12 @@ const approvalViewOwnCode = 'knowledge:change-request:view-own';
 const approvalReviewCodes = ['knowledge:change-request:view-all', 'knowledge:change-request:approve', 'knowledge:change-request:reject'];
 const approvalManageCode = 'system:approval:manage';
 const permissionManageCode = 'system:permission:manage';
+const logViewCode = 'system:log:view';
+const knowledgeLogViewAllCode = 'knowledge:log:view-all';
+const knowledgeViewCode = 'knowledge:view';
 const knowledgePageCode = 'page:knowledge';
 const approvalPageCode = 'page:system:approvals';
+const logPageCode = 'page:system:logs';
 const hiddenPermissionCodes = [approvalManageCode, permissionManageCode, approvalViewOwnCode];
 const permissionDisplayMap: Record<string, { name: string; description: string }> = {
   [approvalViewOwnCode]: {
@@ -33,6 +37,10 @@ const permissionDisplayMap: Record<string, { name: string; description: string }
     name: '审批驳回',
     description: '驳回知识变更申请',
   },
+  [knowledgeLogViewAllCode]: {
+    name: '查看全部操作记录',
+    description: '查看授权场景下所有用户的知识操作记录',
+  },
 };
 const systemPageCodes = [
   'page:system:dicts',
@@ -40,6 +48,7 @@ const systemPageCodes = [
   'page:system:users',
   'page:system:roles',
   'page:system:approvals',
+  logPageCode,
 ];
 const systemModulePageMap: Record<string, string[]> = {
   'system:dict:manage': ['page:system:dicts'],
@@ -48,6 +57,7 @@ const systemModulePageMap: Record<string, string[]> = {
   'system:role:manage': ['page:system:roles'],
   [approvalManageCode]: ['page:system:approvals'],
   [approvalViewOwnCode]: [approvalPageCode],
+  [logViewCode]: [logPageCode],
 };
 
 export default function RoleConfig() {
@@ -286,6 +296,10 @@ export default function RoleConfig() {
     }
     if (sceneKeys.length) {
       selected.add(knowledgePageCode);
+    }
+    if (selected.has(knowledgeLogViewAllCode)) {
+      selected.add(knowledgePageCode);
+      selected.add(knowledgeViewCode);
     }
     const canReviewApproval = [approvalManageCode, ...approvalReviewCodes].some((code) => selected.has(code));
     if (canReviewApproval) {

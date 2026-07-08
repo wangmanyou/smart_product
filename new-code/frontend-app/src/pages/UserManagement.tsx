@@ -1,11 +1,12 @@
-import { EditOutlined, KeyOutlined, PlusOutlined } from '@ant-design/icons';
+import { EditOutlined, HistoryOutlined, KeyOutlined, PlusOutlined } from '@ant-design/icons';
 import { history } from '@umijs/max';
 import { Avatar, Button, Card, Input, Modal, Popconfirm, Space, Table, Tag, Typography, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useMemo, useState } from 'react';
+import AccessLogTable from '@/components/AccessLogTable';
 import PageHeader from '@/components/PageHeader';
 import StatusTag from '@/components/StatusTag';
-import { roleApi, userApi } from '@/services/api';
+import { accessLogApi, roleApi, userApi } from '@/services/api';
 import { DEFAULT_AVATAR, avatarUrl } from '@/utils/avatar';
 
 export default function UserManagement() {
@@ -14,6 +15,7 @@ export default function UserManagement() {
   const [roles, setRoles] = useState<any[]>([]);
   const [keyword, setKeyword] = useState('');
   const [searchKeyword, setSearchKeyword] = useState('');
+  const [loginLogUser, setLoginLogUser] = useState<any>(null);
 
   const load = async (nextKeyword = searchKeyword) => {
     setLoading(true);
@@ -137,7 +139,7 @@ export default function UserManagement() {
     { title: '状态', width: 100, render: (_, record) => <StatusTag disabled={record.isDisabled} /> },
     {
       title: '操作',
-      width: 270,
+      width: 360,
       render: (_, record) => (
         <Space>
           <Button type="link" icon={<EditOutlined />} onClick={() => openEditor(record)}>
@@ -160,6 +162,9 @@ export default function UserManagement() {
           </Popconfirm>
           <Button type="link" icon={<KeyOutlined />} onClick={() => resetPassword(record)}>
             重置密码
+          </Button>
+          <Button type="link" icon={<HistoryOutlined />} onClick={() => setLoginLogUser(record)}>
+            登录记录
           </Button>
         </Space>
       ),
@@ -208,6 +213,22 @@ export default function UserManagement() {
           pagination={{ pageSize: 10, showTotal: (count) => `共 ${count} 条` }}
         />
       </Card>
+      <Modal
+        title={`${loginLogUser?.userAccount || ''} 登录记录`}
+        open={Boolean(loginLogUser)}
+        width={920}
+        footer={null}
+        destroyOnClose
+        onCancel={() => setLoginLogUser(null)}
+      >
+        {loginLogUser ? (
+          <AccessLogTable
+            active={Boolean(loginLogUser)}
+            showUser={false}
+            fetcher={(params) => accessLogApi.userLoginLogs(loginLogUser.userId, params)}
+          />
+        ) : null}
+      </Modal>
     </PageHeader>
   );
 }

@@ -22,8 +22,10 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -36,14 +38,16 @@ public class DictService {
     private final SceneItemMapper sceneItems;
     private final KnowledgeItemMapper knowledgeItems;
     private final TokenService tokens;
+    private final AccessLogService accessLogs;
 
     public DictService(DictTemplateMapper templates, DictDirectoryMapper directories, SceneItemMapper sceneItems,
-                       KnowledgeItemMapper knowledgeItems, TokenService tokens) {
+                       KnowledgeItemMapper knowledgeItems, TokenService tokens, AccessLogService accessLogs) {
         this.templates = templates;
         this.directories = directories;
         this.sceneItems = sceneItems;
         this.knowledgeItems = knowledgeItems;
         this.tokens = tokens;
+        this.accessLogs = accessLogs;
     }
 
     public Map<String, Object> list(int pageNumber, int pageSize, String name, String type, String disabled) {
@@ -84,6 +88,8 @@ public class DictService {
         template.del = 0;
         templates.insert(template);
         insertDirectories(template.id, template.type, request);
+        accessLogs.success("目录管理", "DICT_CREATE", "DICT_TEMPLATE", template.id, null,
+                "新增目录：" + template.name);
         return Map.of("dictTemplateId", template.id);
     }
 
@@ -96,13 +102,19 @@ public class DictService {
                 .set("is_disabled", bool(request.get("isDisabled")))
                 .set("update_at", LocalDateTime.now()));
         insertDirectories(id, null, request);
+        accessLogs.success("目录管理", "DICT_UPDATE", "DICT_TEMPLATE", id, null,
+                "编辑目录：" + str(request.get("dictName")));
     }
 
     public void editStatus(Map<String, Object> request) {
+        Long id = num(request.get("dictTemplateId"));
+        boolean disabled = bool(request.get("isDisabled"));
         templates.update(new UpdateWrapper<DictTemplateEntity>()
-                .eq("id", num(request.get("dictTemplateId")))
+                .eq("id", id)
                 .set("is_disabled", bool(request.get("isDisabled")))
                 .set("update_at", LocalDateTime.now()));
+        accessLogs.success("目录管理", "DICT_STATUS", "DICT_TEMPLATE", id, null,
+                (disabled ? "禁用目录" : "启用目录"));
     }
 
     @Transactional
@@ -124,21 +136,30 @@ public class DictService {
                 .eq("del", 0)
                 .set("del", 1)
                 .set("update_at", now));
+        accessLogs.success("目录管理", "DICT_DELETE", "DICT_TEMPLATE", id, null,
+                "删除目录：" + template.name);
     }
 
     public void editDirectoryName(Map<String, Object> request) {
+        Long id = num(request.get("dictDirectoryId"));
         directories.update(new UpdateWrapper<DictDirectoryEntity>()
-                .eq("id", num(request.get("dictDirectoryId")))
+                .eq("id", id)
                 .set("name", str(request.get("dictDirectoryName")))
                 .set("update_at", LocalDateTime.now()));
+        accessLogs.success("目录管理", "DIRECTORY_RENAME", "DICT_DIRECTORY", id, null,
+                "重命名目录项：" + str(request.get("dictDirectoryName")));
     }
 
     public void editDirectoryStatus(Map<String, Object> request) {
-        List<Long> ids = childIds(num(request.get("dictDirectoryId")));
+        Long id = num(request.get("dictDirectoryId"));
+        boolean disabled = bool(request.get("isDisabled"));
+        List<Long> ids = childIds(id);
         directories.update(new UpdateWrapper<DictDirectoryEntity>()
                 .in("id", ids)
                 .set("is_disabled", bool(request.get("isDisabled")))
                 .set("update_at", LocalDateTime.now()));
+        accessLogs.success("目录管理", "DIRECTORY_STATUS", "DICT_DIRECTORY", id, null,
+                (disabled ? "禁用目录项" : "启用目录项") + "，影响 " + ids.size() + " 项");
     }
 
     @Transactional
@@ -154,6 +175,8 @@ public class DictService {
             throw new ApiException(HttpStatus.BAD_REQUEST.value(), "该目录项已被知识数据选中，不能删除，请先处理引用该选项的知识");
         }
         directories.deleteBatchIds(ids);
+        accessLogs.success("目录管理", "DIRECTORY_DELETE", "DICT_DIRECTORY", id, null,
+                "删除目录项：" + directory.name + "，影响 " + ids.size() + " 项");
     }
 
     public Map<String, Object> detail(Long id) {
@@ -161,12 +184,79 @@ public class DictService {
         List<DictDirectoryEntity> items = directories.selectList(new QueryWrapper<DictDirectoryEntity>()
                 .eq("dict_template_id", id)
                 .eq("del", 0)
-                .orderByAsc("level").orderByAsc("id"));
+                .orderByAsc("level")
+                .orderByAsc("parent_id")
+                .orderByAsc("sort_number")
+                .orderByAsc("id"));
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("dictTemplate", templateDto(template));
         result.put("treeDict", Map.of("treeDict", buildTree(items, 0L)));
         result.put("planeDict", Map.of("planeDict", items.stream().map(this::planeDto).toList()));
         return result;
+    }
+
+    @Transactional
+    public void sortDirectories(Map<String, Object> request) {
+        Object idsValue = request.get("dictDirectoryIds");
+        if (!(idsValue instanceof List<?> list) || list.isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST.value(), "请提供需要排序的目录项");
+        }
+        List<Long> ids = new ArrayList<>();
+        for (Object item : list) {
+            try {
+                ids.add(num(item));
+            } catch (Exception ignored) {
+                throw new ApiException(HttpStatus.BAD_REQUEST.value(), "目录排序参数不正确");
+            }
+        }
+        if (ids.isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST.value(), "目录排序参数不正确");
+        }
+        if (new LinkedHashSet<>(ids).size() != ids.size()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST.value(), "目录排序不能包含重复目录项");
+        }
+        List<DictDirectoryEntity> selected = directories.selectList(new QueryWrapper<DictDirectoryEntity>()
+                .in("id", ids)
+                .eq("del", 0));
+        if (selected.size() != ids.size()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST.value(), "目录排序包含不存在或已删除的目录项");
+        }
+        DictDirectoryEntity first = selected.get(0);
+        Long templateId = first.dictTemplateId;
+        Long parentId = normalizeParentId(first.parentId);
+        boolean sameGroup = selected.stream().allMatch(item ->
+                Objects.equals(item.dictTemplateId, templateId)
+                        && Objects.equals(normalizeParentId(item.parentId), parentId));
+        if (!sameGroup) {
+            throw new ApiException(HttpStatus.BAD_REQUEST.value(), "只能调整同一层级下的目录顺序");
+        }
+
+        QueryWrapper<DictDirectoryEntity> siblingQuery = new QueryWrapper<DictDirectoryEntity>()
+                .eq("dict_template_id", templateId)
+                .eq("del", 0);
+        applyParentQuery(siblingQuery, parentId);
+        List<Long> siblingIds = directories.selectList(siblingQuery
+                        .orderByAsc("sort_number")
+                        .orderByAsc("id"))
+                .stream()
+                .map(item -> item.id)
+                .toList();
+        if (!new LinkedHashSet<>(siblingIds).equals(new LinkedHashSet<>(ids))) {
+            throw new ApiException(HttpStatus.BAD_REQUEST.value(), "排序列表必须包含同级全部目录项");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        for (int index = 0; index < ids.size(); index++) {
+            directories.update(new UpdateWrapper<DictDirectoryEntity>()
+                    .eq("id", ids.get(index))
+                    .set("sort_number", index + 1)
+                    .set("update_at", now));
+        }
+        templates.update(new UpdateWrapper<DictTemplateEntity>()
+                .eq("id", templateId)
+                .set("update_at", now));
+        accessLogs.success("目录管理", "DIRECTORY_SORT", "DICT_TEMPLATE", templateId, null,
+                "调整目录排序，父级目录ID：" + parentId);
     }
 
     private void insertDirectories(Long templateId, String type, Map<String, Object> request) {
@@ -203,6 +293,7 @@ public class DictService {
         item.name = str(map.get("name"));
         item.parentId = map.get("parentId") == null ? parentId : num(map.get("parentId"));
         item.level = map.get("level") == null ? level : num(map.get("level"));
+        item.sortNumber = map.get("sortNumber") == null ? nextSortNumber(templateId, item.parentId) : num(map.get("sortNumber"));
         item.isDisabled = bool(map.get("isDisabled"));
         item.isUsed = false;
         item.createAt = now;
@@ -210,6 +301,22 @@ public class DictService {
         item.del = 0;
         directories.insert(item);
         return item;
+    }
+
+    private Long nextSortNumber(Long templateId, Long parentId) {
+        QueryWrapper<DictDirectoryEntity> query = new QueryWrapper<DictDirectoryEntity>()
+                .select("sort_number")
+                .eq("dict_template_id", templateId)
+                .eq("del", 0);
+        applyParentQuery(query, normalizeParentId(parentId));
+        List<DictDirectoryEntity> siblings = directories.selectList(query);
+        long max = siblings.stream()
+                .map(item -> item.sortNumber)
+                .filter(Objects::nonNull)
+                .mapToLong(Long::longValue)
+                .max()
+                .orElse(0L);
+        return max + 1;
     }
 
     private List<Long> childIds(Long id) {
@@ -234,6 +341,7 @@ public class DictService {
                     Map<String, Object> dto = planeDto(item);
                     dto.put("parentId", item.parentId);
                     dto.put("level", item.level);
+                    dto.put("sortNumber", item.sortNumber);
                     dto.put("children", buildTree(items, item.id));
                     return dto;
                 })
@@ -337,6 +445,7 @@ public class DictService {
         dto.put("isDisabled", Boolean.TRUE.equals(item.isDisabled));
         dto.put("name", item.name);
         dto.put("isUsed", Boolean.TRUE.equals(item.isUsed));
+        dto.put("sortNumber", item.sortNumber == null ? 1 : item.sortNumber);
         return dto;
     }
 
@@ -358,5 +467,18 @@ public class DictService {
 
     static boolean bool(Object value) {
         return value instanceof Boolean b ? b : Boolean.parseBoolean(String.valueOf(value));
+    }
+
+    private static Long normalizeParentId(Long parentId) {
+        return parentId == null ? 0L : parentId;
+    }
+
+    private static void applyParentQuery(QueryWrapper<DictDirectoryEntity> query, Long parentId) {
+        Long normalizedParentId = normalizeParentId(parentId);
+        if (Objects.equals(normalizedParentId, 0L)) {
+            query.and(wrapper -> wrapper.eq("parent_id", 0).or().isNull("parent_id"));
+            return;
+        }
+        query.eq("parent_id", normalizedParentId);
     }
 }
