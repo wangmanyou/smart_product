@@ -602,7 +602,7 @@ public class BusinessService {
             item.knowledgeId = knowledgeId;
             item.sceneItemId = sceneItemId;
             item.sceneItemValue = joinValue(map.get("sceneItemValue"));
-            item.selectDictTreeIds = normalizeDictIds(DictService.str(dictIds));
+            item.selectDictTreeIds = normalizeDictIds(sceneItem, dictIds);
             if (item.id == null) {
                 knowledgeItems.insert(item);
             } else {
@@ -736,7 +736,7 @@ public class BusinessService {
             dto.put("sceneItemValue", "text".equals(sceneItem == null ? "" : sceneItem.type)
                     ? textValue(value.sceneItemValue)
                     : splitValue(value.sceneItemValue));
-            dto.put("sceneItemSelectDictTreeIds", normalizeDictIds(value.selectDictTreeIds));
+            dto.put("sceneItemSelectDictTreeIds", normalizeDictIds(sceneItem, value.selectDictTreeIds));
             dto.put("sceneItemName", sceneItem == null ? "" : sceneItem.name);
             return dto;
         }).toList();
@@ -932,6 +932,113 @@ public class BusinessService {
         }
     }
 
+    private String normalizeDictIds(SceneItemEntity sceneItem, Object value) {
+        String raw = DictService.str(value);
+        if (raw.isBlank()) {
+            return "";
+        }
+        if (sceneItem == null || !"dict".equals(sceneItem.type)) {
+            return normalizeDictIds(raw);
+        }
+        List<Long> ids = dictIdValues(value);
+        if (ids.isEmpty()) {
+            return normalizeDictIds(raw);
+        }
+        try {
+            if (Boolean.TRUE.equals(sceneItem.multiValue)) {
+                Object parsed = parseDictValue(value);
+                List<Long> leafIds = selectedDictLeafIds(parsed);
+                if (leafIds.isEmpty()) {
+                    leafIds = ids;
+                }
+                List<List<Long>> paths = leafIds.stream()
+                        .map(id -> directoryPath(sceneItem, id))
+                        .filter(path -> !path.isEmpty())
+                        .toList();
+                return JSON.writeValueAsString(paths);
+            }
+            return JSON.writeValueAsString(directoryPath(sceneItem, ids.get(ids.size() - 1)));
+        } catch (Exception ignored) {
+            return normalizeDictIds(raw);
+        }
+    }
+
+    private Object parseDictValue(Object value) {
+        if (!(value instanceof String text)) {
+            return value;
+        }
+        if (text.isBlank()) {
+            return List.of();
+        }
+        try {
+            return JSON.readValue(text, new TypeReference<>() {
+            });
+        } catch (Exception ignored) {
+            return text;
+        }
+    }
+
+    private static List<Long> selectedDictLeafIds(Object value) {
+        if (value instanceof List<?> list) {
+            boolean hasNestedSelection = list.stream().anyMatch(item -> item instanceof List<?> || item instanceof Map<?, ?>);
+            if (hasNestedSelection) {
+                return list.stream()
+                        .map(BusinessService::lastDictId)
+                        .filter(Objects::nonNull)
+                        .toList();
+            }
+            return list.stream()
+                    .map(DictService::num)
+                    .filter(Objects::nonNull)
+                    .toList();
+        }
+        Long id = lastDictId(value);
+        return id == null ? List.of() : List.of(id);
+    }
+
+    private static Long lastDictId(Object value) {
+        if (value instanceof List<?> list) {
+            for (int index = list.size() - 1; index >= 0; index--) {
+                Long id = lastDictId(list.get(index));
+                if (id != null) {
+                    return id;
+                }
+            }
+            return null;
+        }
+        if (value instanceof Map<?, ?> map) {
+            Long id = lastDictId(map.get("id"));
+            if (id == null) {
+                id = lastDictId(map.get("value"));
+            }
+            return id == null ? lastDictId(map.get("key")) : id;
+        }
+        return DictService.num(value);
+    }
+
+    private List<Long> directoryPath(SceneItemEntity sceneItem, Long leafId) {
+        if (sceneItem == null || leafId == null) {
+            return List.of();
+        }
+        List<Long> reversed = new ArrayList<>();
+        Set<Long> seen = new HashSet<>();
+        Long currentId = leafId;
+        while (currentId != null && currentId > 0 && seen.add(currentId)) {
+            DictDirectoryEntity directory = dictDirectories.selectById(currentId);
+            if (directory == null || directory.del == null || directory.del != 0
+                    || !Objects.equals(directory.dictTemplateId, sceneItem.dictTemplateId)) {
+                break;
+            }
+            reversed.add(directory.id);
+            currentId = directory.parentId == null || directory.parentId == 0 ? null : directory.parentId;
+        }
+        List<Long> path = new ArrayList<>();
+        for (int index = reversed.size() - 1; index >= 0; index--) {
+            path.add(reversed.get(index));
+        }
+        return path.isEmpty() ? List.of(leafId) : path;
+    }
+
     private static Object normalizeDictIdValue(Object value) {
         if (value instanceof List<?> list) {
             return list.stream().map(BusinessService::normalizeDictIdValue).toList();
@@ -970,10 +1077,14 @@ public class BusinessService {
             applySceneItemValueRange(query, rangeValue);
             Set<Long> currentIds = new HashSet<>();
             if (!dictId.isBlank()) {
+                Long targetDictId = DictService.num(dictId);
                 query.ne("select_dict_tree_ids", "");
-                query.apply("JSON_CONTAINS(CAST(select_dict_tree_ids AS JSON), {0})", "\"" + dictId + "\"");
+                knowledgeItems.selectList(query).stream()
+                        .filter(item -> targetDictId == null || containsDictId(item.selectDictTreeIds, targetDictId))
+                        .forEach(item -> currentIds.add(item.knowledgeId));
+            } else {
+                knowledgeItems.selectList(query).forEach(item -> currentIds.add(item.knowledgeId));
             }
-            knowledgeItems.selectList(query).forEach(item -> currentIds.add(item.knowledgeId));
             if (ids == null) {
                 ids = currentIds;
             } else {
@@ -981,6 +1092,33 @@ public class BusinessService {
             }
         }
         return hasFilter ? new ArrayList<>(ids == null ? Set.of() : ids) : null;
+    }
+
+    private static boolean containsDictId(String value, Long targetId) {
+        if (value == null || value.isBlank() || targetId == null) {
+            return false;
+        }
+        try {
+            return containsDictId(JSON.readValue(value, Object.class), targetId);
+        } catch (Exception ignored) {
+            return dictIdValues(value).contains(targetId);
+        }
+    }
+
+    private static boolean containsDictId(Object value, Long targetId) {
+        if (value instanceof Number number) {
+            return Objects.equals(number.longValue(), targetId);
+        }
+        if (value instanceof String text) {
+            return Objects.equals(DictService.num(text), targetId);
+        }
+        if (value instanceof List<?> list) {
+            return list.stream().anyMatch(item -> containsDictId(item, targetId));
+        }
+        if (value instanceof Map<?, ?> map) {
+            return map.values().stream().anyMatch(item -> containsDictId(item, targetId));
+        }
+        return false;
     }
 
     private static boolean hasRangeValue(Object value) {

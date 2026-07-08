@@ -6,7 +6,7 @@
   UploadOutlined,
 } from '@ant-design/icons';
 import { history, useLocation, useParams } from '@umijs/max';
-import { Alert, Button, Card, DatePicker, Form, Image, Input, Modal, Popconfirm, Space, Table, Tree, Typography, Upload, message } from 'antd';
+import { Alert, Button, Card, DatePicker, Form, Image, Input, Modal, Popconfirm, Select, Space, Table, Tree, Typography, Upload, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
@@ -35,6 +35,24 @@ function readListState(sceneId: string) {
 
 function writeListState(sceneId: string, state: Record<string, any>) {
   sessionStorage.setItem(`scene-knowledge-list-state:${sceneId}`, JSON.stringify(state));
+}
+
+const DEFAULT_SORT_OPTION = 'update_at_desc';
+
+const sortOptions = [
+  { label: 'ID降序', value: 'id_desc', sort: 'id', order: 'desc' },
+  { label: 'ID增序', value: 'id_asc', sort: 'id', order: 'asc' },
+  { label: '更新时间增序', value: 'update_at_asc', sort: 'update_at', order: 'asc' },
+  { label: '更新时间降序', value: DEFAULT_SORT_OPTION, sort: 'update_at', order: 'desc' },
+];
+
+function normalizeSortOption(value?: string) {
+  return sortOptions.some((option) => option.value === value) ? value : DEFAULT_SORT_OPTION;
+}
+
+function sortParams(value?: string) {
+  const option = sortOptions.find((item) => item.value === normalizeSortOption(value));
+  return { sort: option?.sort || 'update_at', order: option?.order || 'desc' };
 }
 
 function fileUrl(url?: string) {
@@ -187,6 +205,7 @@ export default function SceneKnowledge() {
 
   const restoreSearchValues = (values: any = {}) => {
     const next = { ...values };
+    next.sortOption = normalizeSortOption(next.sortOption);
     next.searchUpdateTime = restoreDateRange(next.searchUpdateTime);
     dateSearchItems.forEach((item: any) => {
       const key = `search_${item.id}`;
@@ -199,6 +218,8 @@ export default function SceneKnowledge() {
 
   const runList = async (dictId?: string, values: any = {}, nextPage = 1, nextPageSize = pageSize) => {
     const nextDictId = dictId && selectableDictIds.has(String(dictId)) ? String(dictId) : undefined;
+    const nextValues = { ...values, sortOption: normalizeSortOption(values.sortOption) };
+    const { sort, order } = sortParams(nextValues.sortOption);
     if (dictId && !nextDictId) {
       setSelectedDictId(undefined);
     }
@@ -206,24 +227,27 @@ export default function SceneKnowledge() {
     setPageSize(nextPageSize);
     writeListState(id, {
       selectedDictId: nextDictId,
-      values,
+      values: nextValues,
       pageNumber: nextPage,
       pageSize: nextPageSize,
     });
+    form.setFieldsValue({ sortOption: nextValues.sortOption });
     setListLoading(true);
     try {
       const searchKnowledgeItem = [
         ...(dictField && nextDictId ? [{ sceneItemId: dictField.id, sceneItemSelectDictIds: nextDictId }] : []),
-        ...buildFieldFilters(values),
+        ...buildFieldFilters(nextValues),
       ];
       const res = await businessApi.knowledgeList({
         sceneTemplateId: Number(id),
         pageNumber: nextPage,
         pageSize: nextPageSize,
-        keyword: values.keyword,
-        searchUpdateTime: formatDateRange(values.searchUpdateTime),
-        searchSceneItemIds: values.keyword ? keywordSearchItemIds : undefined,
+        keyword: nextValues.keyword,
+        searchUpdateTime: formatDateRange(nextValues.searchUpdateTime),
+        searchSceneItemIds: nextValues.keyword ? keywordSearchItemIds : undefined,
         searchKnowledgeItem: searchKnowledgeItem.length ? searchKnowledgeItem : undefined,
+        sort,
+        order,
       });
       setKnowledgeRows(Array.isArray(res?.content) ? res.content : []);
       setKnowledgeTotal(Number(res?.totalElements || 0));
@@ -493,25 +517,30 @@ export default function SceneKnowledge() {
             <Form
               form={form}
               layout="inline"
+              className="scene-knowledge-filter"
+              initialValues={{ sortOption: DEFAULT_SORT_OPTION }}
               onFinish={(values) => runList(selectedDictId, values, 1, pageSize)}
             >
               {keywordSearchItemIds.length ? (
-                <Form.Item name="keyword" label="关键词">
-                  <Input allowClear placeholder="搜索文本、图片、视频、文件名称" style={{ width: 320 }} />
+                <Form.Item name="keyword" label="关键词" className="scene-knowledge-keyword-filter">
+                  <Input allowClear placeholder="搜索文本、图片、视频、文件名称" />
                 </Form.Item>
               ) : null}
-              <Form.Item name="searchUpdateTime" label="更新日期">
-                <DatePicker.RangePicker showTime style={{ width: 340 }} />
+              <Form.Item name="searchUpdateTime" label="更新日期" className="scene-knowledge-range-filter">
+                <DatePicker.RangePicker showTime />
               </Form.Item>
               {dateSearchItems.map((item: any) => (
-                <Form.Item key={item.id} name={`search_${item.id}`} label={item.sceneItemName}>
-                  <DatePicker.RangePicker showTime style={{ width: 340 }} />
+                <Form.Item key={item.id} name={`search_${item.id}`} label={item.sceneItemName} className="scene-knowledge-range-filter">
+                  <DatePicker.RangePicker showTime />
                 </Form.Item>
               ))}
-              <Form.Item>
+              <Form.Item name="sortOption" label="排序" className="scene-knowledge-sort-filter">
+                <Select options={sortOptions.map(({ label, value }) => ({ label, value }))} />
+              </Form.Item>
+              <Form.Item className="scene-knowledge-filter-actions">
                 <Space>
                   <Button type="primary" htmlType="submit" icon={<SearchOutlined />}>查询</Button>
-                  <Button onClick={() => { form.resetFields(); runList(selectedDictId, {}, 1, pageSize); }}>重置</Button>
+                  <Button onClick={() => { form.resetFields(); runList(selectedDictId, { sortOption: DEFAULT_SORT_OPTION }, 1, pageSize); }}>重置</Button>
                 </Space>
               </Form.Item>
             </Form>
