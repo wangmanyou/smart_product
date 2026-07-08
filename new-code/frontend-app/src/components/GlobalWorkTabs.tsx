@@ -3,7 +3,7 @@ import { history, useLocation } from '@umijs/max';
 import { Tabs, message } from 'antd';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { authApi } from '@/services/api';
-import { confirmUnsavedLeave } from '@/utils/unsavedChanges';
+import { confirmUnsavedLeave, prepareUnsavedTabSwitch } from '@/utils/unsavedChanges';
 
 type TabItem = {
   key: string;
@@ -249,7 +249,7 @@ export default function GlobalWorkTabs() {
         activeKey={pathname}
         items={items}
         onChange={async (key) => {
-          const confirmed = await confirmUnsavedLeave(pathname);
+          const confirmed = await prepareUnsavedTabSwitch(pathname);
           if (confirmed) history.push(key);
         }}
       />

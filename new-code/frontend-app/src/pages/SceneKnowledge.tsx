@@ -452,6 +452,26 @@ export default function SceneKnowledge() {
     setImportFile(undefined);
     setImportResult(undefined);
   };
+  const openCreateKnowledge = () => {
+    const savedSelectedDictId = readListState(id).selectedDictId;
+    const activeDictId = selectedDictId || (savedSelectedDictId ? String(savedSelectedDictId) : undefined);
+    const params = new URLSearchParams();
+    if (activeDictId) {
+      params.set('defaultDictId', activeDictId);
+      if (dictField?.id) {
+        params.set('defaultDictFieldId', String(dictField.id));
+      }
+    }
+    history.push({
+      pathname: `/knowledge/scene/${id}/create`,
+      search: params.toString() ? `?${params.toString()}` : '',
+      state: {
+        tabLabel: '新增知识',
+        defaultDictId: activeDictId,
+        defaultDictFieldId: dictField?.id,
+      },
+    });
+  };
   const breadcrumb = `知识中心 / ${sceneName} / 知识列表`;
 
   return (
@@ -468,7 +488,7 @@ export default function SceneKnowledge() {
             <Button
               type="primary"
               icon={<PlusOutlined />}
-              onClick={() => history.push({ pathname: `/knowledge/scene/${id}/create`, state: { tabLabel: '新增知识' } })}
+              onClick={openCreateKnowledge}
             >
               新增知识
             </Button>
@@ -492,7 +512,8 @@ export default function SceneKnowledge() {
                 selectedKeys={selectedDictId ? [selectedDictId] : []}
                 treeData={treeData}
                 onSelect={(keys) => {
-                  const key = keys[0] ? String(keys[0]) : undefined;
+                  const key = keys[0] ? String(keys[0]) : selectedDictId;
+                  if (!key) return;
                   setSelectedDictId(key);
                   runList(key, form.getFieldsValue(), 1, pageSize);
                 }}
