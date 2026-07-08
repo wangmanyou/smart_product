@@ -3,9 +3,12 @@ import { useEffect, useRef } from 'react';
 
 type UnsavedGuard = {
   isDirty: () => boolean;
+  saveDraft?: () => void;
+  discardDraft?: () => void;
 };
 
 const GUARD_KEY = '__knowledgeHubUnsavedGuards__';
+const DRAFT_PATHS_KEY = 'knowledge-hub-unsaved-draft-paths';
 
 function guards(): Map<string, UnsavedGuard> {
   const win = window as any;
@@ -15,9 +18,45 @@ function guards(): Map<string, UnsavedGuard> {
   return win[GUARD_KEY];
 }
 
-export function useUnsavedChanges(path: string, dirty: boolean, enabled = true) {
+function readDraftPaths() {
+  try {
+    const value = sessionStorage.getItem(DRAFT_PATHS_KEY);
+    const paths = value ? JSON.parse(value) : [];
+    return Array.isArray(paths) ? paths.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeDraftPaths(paths: string[]) {
+  sessionStorage.setItem(DRAFT_PATHS_KEY, JSON.stringify(Array.from(new Set(paths))));
+}
+
+function markDraft(path?: string) {
+  if (!path) return;
+  writeDraftPaths([...readDraftPaths(), path]);
+}
+
+function clearDraftMark(path?: string) {
+  if (!path) return;
+  writeDraftPaths(readDraftPaths().filter((item) => item !== path));
+}
+
+function hasDraft(path?: string) {
+  if (!path) return false;
+  return readDraftPaths().includes(path);
+}
+
+export function useUnsavedChanges(
+  path: string,
+  dirty: boolean,
+  enabled = true,
+  options: { saveDraft?: () => void; discardDraft?: () => void } = {},
+) {
   const dirtyRef = useRef(dirty);
   const enabledRef = useRef(enabled);
+  const saveDraftRef = useRef(options.saveDraft);
+  const discardDraftRef = useRef(options.discardDraft);
 
   useEffect(() => {
     dirtyRef.current = dirty;
@@ -28,8 +67,15 @@ export function useUnsavedChanges(path: string, dirty: boolean, enabled = true) 
   }, [enabled]);
 
   useEffect(() => {
+    saveDraftRef.current = options.saveDraft;
+    discardDraftRef.current = options.discardDraft;
+  }, [options.saveDraft, options.discardDraft]);
+
+  useEffect(() => {
     guards().set(path, {
       isDirty: () => enabledRef.current && dirtyRef.current,
+      saveDraft: () => saveDraftRef.current?.(),
+      discardDraft: () => discardDraftRef.current?.(),
     });
     return () => {
       guards().delete(path);
@@ -38,12 +84,32 @@ export function useUnsavedChanges(path: string, dirty: boolean, enabled = true) 
 
   return () => {
     dirtyRef.current = false;
+    discardDraftRef.current?.();
+    clearDraftMark(path);
   };
 }
 
 export function hasUnsavedChanges(path?: string) {
   if (!path) return false;
-  return Boolean(guards().get(path)?.isDirty());
+  return Boolean(guards().get(path)?.isDirty() || hasDraft(path));
+}
+
+export function discardUnsavedDraft(path?: string) {
+  if (!path) return;
+  guards().get(path)?.discardDraft?.();
+  sessionStorage.removeItem(`knowledge-form-draft:${path}`);
+  clearDraftMark(path);
+}
+
+export async function prepareUnsavedTabSwitch(path?: string) {
+  if (!path) return true;
+  const guard = guards().get(path);
+  if (guard?.isDirty() && guard.saveDraft) {
+    guard.saveDraft();
+    markDraft(path);
+    return true;
+  }
+  return confirmUnsavedLeave(path);
 }
 
 export function confirmUnsavedLeave(path?: string) {
@@ -58,7 +124,10 @@ export function confirmUnsavedLeave(path?: string) {
       okText: '确认离开',
       cancelText: '继续编辑',
       centered: true,
-      onOk: () => resolve(true),
+      onOk: () => {
+        discardUnsavedDraft(path);
+        resolve(true);
+      },
       onCancel: () => resolve(false),
     });
   });

@@ -41,6 +41,45 @@ export function safeJson(value: any): any[] {
   }
 }
 
+function lastScalarValue(value: any): string | undefined {
+  if (Array.isArray(value)) {
+    for (let index = value.length - 1; index >= 0; index -= 1) {
+      const next = lastScalarValue(value[index]);
+      if (next) return next;
+    }
+    return undefined;
+  }
+  if (value && typeof value === 'object') {
+    return lastScalarValue(value.id ?? value.value ?? value.key);
+  }
+  const text = String(value ?? '').trim();
+  return text || undefined;
+}
+
+function scalarValues(value: any): string[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => scalarValues(item));
+  }
+  if (value && typeof value === 'object') {
+    return scalarValues(value.id ?? value.value ?? value.key);
+  }
+  const text = String(value ?? '').trim();
+  return text ? [text] : [];
+}
+
+export function normalizeDictFormValue(value: any, multiValue?: boolean) {
+  const parsed = safeJson(value);
+  if (!multiValue) {
+    return lastScalarValue(parsed);
+  }
+
+  const hasPathGroups = parsed.some((item) => Array.isArray(item));
+  const ids = hasPathGroups
+    ? parsed.map((item) => lastScalarValue(item)).filter(Boolean)
+    : scalarValues(parsed);
+  return Array.from(new Set(ids.map(String)));
+}
+
 export function formatBusinessDetail(data: any) {
   const sceneDetail = data?.sceneDetail || {};
   const sceneItems = sceneDetail.sceneItem || [];

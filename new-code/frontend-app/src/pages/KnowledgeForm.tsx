@@ -3,7 +3,7 @@ import { history, useLocation, useParams } from '@umijs/max';
 import { Button, Card, DatePicker, Form, Input, Select, Upload, message } from 'antd';
 import type { UploadFile, UploadProps } from 'antd';
 import dayjs from 'dayjs';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import { authApi, businessApi, fileApi } from '@/services/api';
 import {
@@ -13,7 +13,7 @@ import {
   findKnowledgeItem,
   formatBusinessDetail,
   knowledgeDisplayTitle,
-  safeJson,
+  normalizeDictFormValue,
   setWorkTabLabel,
 } from '@/utils/data';
 import { runAfterUnsavedConfirm, useUnsavedChanges } from '@/utils/unsavedChanges';
@@ -113,16 +113,107 @@ function validateUploadValues(values: Record<string, any>, sceneItems: any[]) {
   return true;
 }
 
+function draftStorageKey(path: string) {
+  return `knowledge-form-draft:${path}`;
+}
+
+function serializeDateValue(value: any): any {
+  if (Array.isArray(value)) return value.map(serializeDateValue);
+  if (dayjs.isDayjs(value)) return value.format('YYYY-MM-DD HH:mm:ss');
+  return value ?? undefined;
+}
+
+function restoreDateValue(value: any, multiValue?: boolean) {
+  const values = Array.isArray(value) ? value : value ? [value] : [];
+  const dates = values.map((date: any) => dayjs(date)).filter((date: any) => date.isValid());
+  return multiValue ? dates : dates[0];
+}
+
+function serializeUploadFiles(value: any) {
+  const files = Array.isArray(value) ? value : [];
+  return files.map((file: any) => ({
+    uid: file?.uid,
+    name: file?.name,
+    status: file?.status,
+    url: file?.url,
+    filePath: file?.filePath,
+    file_path: file?.file_path,
+    response: file?.response
+      ? {
+          filePath: file.response.filePath,
+          file_path: file.response.file_path,
+        }
+      : undefined,
+  }));
+}
+
+function serializeDraftValues(values: Record<string, any>, sceneItems: any[]) {
+  const result: Record<string, any> = {};
+  sceneItems.forEach((item: any) => {
+    const value = values[item.id];
+    if (value === undefined) return;
+    if (uploadTypes.includes(item.type)) {
+      result[item.id] = serializeUploadFiles(value);
+      return;
+    }
+    if (item.type === 'datetime') {
+      result[item.id] = serializeDateValue(value);
+      return;
+    }
+    result[item.id] = value;
+  });
+  return result;
+}
+
+function restoreDraftValues(values: Record<string, any>, sceneItems: any[]) {
+  const result: Record<string, any> = {};
+  sceneItems.forEach((item: any) => {
+    const value = values?.[item.id];
+    if (value === undefined) return;
+    if (uploadTypes.includes(item.type)) {
+      result[item.id] = toUploadFiles(value || []);
+      return;
+    }
+    if (item.type === 'datetime') {
+      result[item.id] = restoreDateValue(value, item.multiValue);
+      return;
+    }
+    result[item.id] = value;
+  });
+  return result;
+}
+
+function readDraft(path: string, sceneItems: any[]) {
+  try {
+    const raw = sessionStorage.getItem(draftStorageKey(path));
+    if (!raw) return undefined;
+    return restoreDraftValues(JSON.parse(raw), sceneItems);
+  } catch {
+    return undefined;
+  }
+}
+
+function writeDraft(path: string, values: Record<string, any>, sceneItems: any[]) {
+  sessionStorage.setItem(draftStorageKey(path), JSON.stringify(serializeDraftValues(values, sceneItems)));
+}
+
+function removeDraft(path: string) {
+  sessionStorage.removeItem(draftStorageKey(path));
+}
+
 export default function KnowledgeForm() {
   const { sceneId = '', id } = useParams();
   const location = useLocation();
+  const routeState = location.state as { defaultDictId?: string; defaultDictFieldId?: string | number } | undefined;
+  const query = new URLSearchParams(location.search);
+  const defaultDictId = routeState?.defaultDictId || query.get('defaultDictId') || undefined;
+  const defaultDictFieldId = routeState?.defaultDictFieldId || query.get('defaultDictFieldId') || undefined;
   const isCreate = !id;
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [sceneDetail, setSceneDetail] = useState<any>();
   const [knowledge, setKnowledge] = useState<any>();
   const [dirty, setDirty] = useState(false);
-  const clearUnsaved = useUnsavedChanges(location.pathname, dirty);
 
   const formatted = formatBusinessDetail(sceneDetail);
   const editableSceneItems = formatted.sceneItems.filter((item: any) => !item.isHide && !isSystemMaintainedDate(item));
@@ -130,6 +221,14 @@ export default function KnowledgeForm() {
   const isAdmin = Boolean(currentUser?.isBuiltin || currentUser?.setting?.admin || currentUser?.roleIds?.includes?.(1));
   const operationPermissions = new Set(currentUser?.setting?.operationPermissions || currentUser?.operationPermissions || []);
   const canSave = isAdmin || operationPermissions.has(isCreate ? 'knowledge:create' : 'knowledge:update');
+  const saveDraft = useCallback(() => {
+    writeDraft(location.pathname, form.getFieldsValue(true), editableSceneItems);
+    setDirty(false);
+  }, [editableSceneItems, form, location.pathname]);
+  const discardDraft = useCallback(() => {
+    removeDraft(location.pathname);
+  }, [location.pathname]);
+  const clearUnsaved = useUnsavedChanges(location.pathname, dirty, true, { saveDraft, discardDraft });
 
   const load = async () => {
     if (!sceneId) return;
@@ -137,40 +236,58 @@ export default function KnowledgeForm() {
     try {
       const sceneRes = await businessApi.detail(sceneId);
       setSceneDetail(sceneRes);
-      if (!id) {
-        setDirty(false);
-        return;
+      const scene = formatBusinessDetail(sceneRes);
+      const visibleItems = scene.sceneItems.filter((item: any) => !isSystemMaintainedDate(item));
+      const initial: Record<string, any> = {};
+      let hasDefaultDirectory = false;
+      let defaultDictItem: any;
+
+      if (id) {
+        const knowledge = await businessApi.knowledgeDetail(id);
+        setKnowledge(knowledge || {});
+        const title = knowledgeDisplayTitle(knowledge || {}, scene.sceneItems, scene.dictDetails);
+        setWorkTabLabel(location.pathname, `${title}知识编辑`);
+
+        visibleItems.forEach((item: any) => {
+          const value = findKnowledgeItem(knowledge, item.id);
+          if (item.type === 'dict') {
+            initial[item.id] = normalizeDictFormValue(value?.sceneItemSelectDictTreeIds, item.multiValue);
+            return;
+          }
+          if (uploadTypes.includes(item.type)) {
+            initial[item.id] = toUploadFiles(value?.sceneItemValue || []);
+            return;
+          }
+          if (item.type === 'datetime') {
+            const values = value?.sceneItemValue || [];
+            initial[item.id] = item.multiValue
+              ? values.slice(0, 2).map((date: string) => dayjs(date)).filter((date: any) => date.isValid())
+              : values[0] ? dayjs(values[0]) : undefined;
+            return;
+          }
+          initial[item.id] = value?.sceneItemValue?.join('，');
+        });
+      } else {
+        setKnowledge(undefined);
+        if (defaultDictId) {
+          const dictItems = visibleItems.filter((item: any) => item.type === 'dict');
+          defaultDictItem =
+            dictItems.find((item: any) => !defaultDictFieldId || String(item.id) === String(defaultDictFieldId)) ||
+            dictItems[0];
+          if (defaultDictItem) {
+            initial[defaultDictItem.id] = defaultDictItem.multiValue ? [String(defaultDictId)] : String(defaultDictId);
+            hasDefaultDirectory = true;
+          }
+        }
       }
 
-      const knowledge = await businessApi.knowledgeDetail(id);
-      setKnowledge(knowledge || {});
-      const scene = formatBusinessDetail(sceneRes);
-      const title = knowledgeDisplayTitle(knowledge || {}, scene.sceneItems, scene.dictDetails);
-      setWorkTabLabel(location.pathname, `${title}知识编辑`);
-      const initial: Record<string, any> = {};
-
-      scene.sceneItems.filter((item: any) => !isSystemMaintainedDate(item)).forEach((item: any) => {
-        const value = findKnowledgeItem(knowledge, item.id);
-        if (item.type === 'dict') {
-          const ids = safeJson(value?.sceneItemSelectDictTreeIds).flat(Infinity).map(String);
-          initial[item.id] = item.multiValue ? ids : ids[0];
-          return;
-        }
-        if (uploadTypes.includes(item.type)) {
-          initial[item.id] = toUploadFiles(value?.sceneItemValue || []);
-          return;
-        }
-        if (item.type === 'datetime') {
-          const values = value?.sceneItemValue || [];
-          initial[item.id] = item.multiValue
-            ? values.slice(0, 2).map((date: string) => dayjs(date)).filter((date: any) => date.isValid())
-            : values[0] ? dayjs(values[0]) : undefined;
-          return;
-        }
-        initial[item.id] = value?.sceneItemValue?.join('，');
-      });
-      form.setFieldsValue(initial);
-      setDirty(false);
+      const draft = readDraft(location.pathname, visibleItems);
+      const nextValues = draft ? { ...initial, ...draft } : initial;
+      if (!id && defaultDictId && defaultDictItem) {
+        nextValues[defaultDictItem.id] = defaultDictItem.multiValue ? [String(defaultDictId)] : String(defaultDictId);
+      }
+      form.setFieldsValue(nextValues);
+      setDirty(Boolean(draft) || hasDefaultDirectory);
     } finally {
       setLoading(false);
     }
@@ -178,7 +295,7 @@ export default function KnowledgeForm() {
 
   useEffect(() => {
     load();
-  }, [sceneId, id]);
+  }, [sceneId, id, defaultDictId, defaultDictFieldId]);
 
   const submit = async (values: any) => {
     if (!isCreate && knowledge?.hasPendingChange) {

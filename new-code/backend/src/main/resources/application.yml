@@ -2,7 +2,7 @@ server:
   port: 8001
 
 app:
-  upload-dir: D:/coder/code-store/go/smart_product/new-code/backend/upload
+  upload-dir: ${APP_UPLOAD_DIR:${user.dir}/../../deploy-data/files}
 
 spring:
   application:
