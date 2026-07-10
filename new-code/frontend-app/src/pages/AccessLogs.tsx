@@ -1,5 +1,5 @@
-import { ReloadOutlined, SearchOutlined } from '@ant-design/icons';
-import { Button, Card, DatePicker, Form, InputNumber, Select, Space, Table, Tag, Tooltip, Typography } from 'antd';
+import { DownOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons';
+import { Button, Card, DatePicker, Form, InputNumber, Select, Table, Tag, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
@@ -78,6 +78,7 @@ export default function AccessLogs() {
   const [pageSize, setPageSize] = useState(10);
   const [query, setQuery] = useState<any>({});
   const [loading, setLoading] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [operatorOptions, setOperatorOptions] = useState<{ label: string; value: string }[]>([]);
 
   const load = async (nextPage = page, nextPageSize = pageSize, nextQuery = query) => {
@@ -124,9 +125,15 @@ export default function AccessLogs() {
 
   const reset = () => {
     form.resetFields();
+    setAdvancedOpen(false);
     setQuery({});
     load(1, pageSize, {});
   };
+
+  const advancedFilterCount = ['bizType', 'bizId', 'sceneTemplateId'].filter((key) => {
+    const value = query[key];
+    return value !== undefined && value !== null && value !== '';
+  }).length;
 
   const columns: ColumnsType<any> = [
     { title: '时间', dataIndex: 'createTime', width: 160, render: formatTime },
@@ -193,55 +200,86 @@ export default function AccessLogs() {
 
   return (
     <PageHeader title="访问日志" breadcrumb="系统管理 / 访问日志" hideHeader>
-      <div className="access-log-breadcrumb page-breadcrumb">系统管理 / 访问日志</div>
-      <Card className="modern-table-card access-log-workbench">
-        <Form form={form} className="access-log-filter" layout="vertical" onFinish={submit}>
-          <div className="access-log-filter-grid">
-            <Form.Item name="userAccount" label="操作人">
-              <Select
-                allowClear
-                showSearch
-                optionFilterProp="label"
-                options={operatorOptions}
-                placeholder="搜索账号或昵称"
-              />
-            </Form.Item>
-            <Form.Item name="module" label="模块">
-              <Select allowClear options={moduleOptions} placeholder="全部模块" />
-            </Form.Item>
-            <Form.Item name="action" label="操作">
-              <Select allowClear showSearch options={actionOptions} placeholder="全部操作" optionFilterProp="label" />
-            </Form.Item>
-            <Form.Item name="bizType" label="业务对象">
-              <Select allowClear options={bizTypeOptions} placeholder="全部对象" />
-            </Form.Item>
-            <Form.Item name="bizId" label="对象ID">
-              <InputNumber min={1} precision={0} style={{ width: '100%' }} placeholder="输入对象ID" />
-            </Form.Item>
-            <Form.Item name="sceneTemplateId" label="场景ID">
-              <InputNumber min={1} precision={0} style={{ width: '100%' }} placeholder="输入场景ID" />
-            </Form.Item>
-            <Form.Item name="searchTime" label="时间范围" className="access-log-range-item">
-              <RangePicker showTime style={{ width: '100%' }} />
-            </Form.Item>
-            <Form.Item label=" " className="access-log-filter-actions">
-              <Space>
+      <div className="access-log-page">
+        <header className="access-log-page-header">
+          <div className="access-log-breadcrumb page-breadcrumb">系统管理 / 访问日志</div>
+          <div className="access-log-title-row">
+            <Typography.Title level={3} className="access-log-title">访问日志</Typography.Title>
+            <Typography.Text className="access-log-total">共 {total} 条</Typography.Text>
+          </div>
+        </header>
+
+        <section className="access-log-filter-panel" aria-label="访问日志筛选">
+          <Form form={form} className="access-log-filter" layout="vertical" onFinish={submit}>
+            <div className="access-log-primary-filters">
+              <Form.Item name="userAccount" label="操作人">
+                <Select
+                  allowClear
+                  showSearch
+                  optionFilterProp="label"
+                  options={operatorOptions}
+                  placeholder="账号或昵称"
+                />
+              </Form.Item>
+              <Form.Item name="module" label="模块">
+                <Select allowClear options={moduleOptions} placeholder="全部模块" />
+              </Form.Item>
+              <Form.Item name="action" label="操作">
+                <Select allowClear showSearch options={actionOptions} placeholder="全部操作" optionFilterProp="label" />
+              </Form.Item>
+              <Form.Item name="searchTime" label="时间范围" className="access-log-range-item">
+                <RangePicker
+                  showTime
+                  style={{ width: '100%' }}
+                  placeholder={['开始时间', '结束时间']}
+                />
+              </Form.Item>
+              <div className="access-log-filter-actions">
                 <Button type="primary" icon={<SearchOutlined />} htmlType="submit" loading={loading}>
                   查询
                 </Button>
                 <Button icon={<ReloadOutlined />} onClick={reset}>
                   重置
                 </Button>
-              </Space>
-            </Form.Item>
-          </div>
-        </Form>
-        <div className="access-log-table-wrap">
+              </div>
+            </div>
+
+            <div className="access-log-filter-more-row">
+              <Button
+                type="text"
+                size="small"
+                className="access-log-filter-more"
+                icon={<DownOutlined className={advancedOpen ? 'is-open' : ''} />}
+                aria-expanded={advancedOpen}
+                onClick={() => setAdvancedOpen((current) => !current)}
+              >
+                更多筛选{advancedFilterCount ? ` (${advancedFilterCount})` : ''}
+              </Button>
+            </div>
+
+            {advancedOpen ? (
+              <div className="access-log-advanced-filters">
+                <Form.Item name="bizType" label="业务对象">
+                  <Select allowClear options={bizTypeOptions} placeholder="全部对象" />
+                </Form.Item>
+                <Form.Item name="bizId" label="对象 ID">
+                  <InputNumber min={1} precision={0} style={{ width: '100%' }} placeholder="输入对象 ID" />
+                </Form.Item>
+                <Form.Item name="sceneTemplateId" label="场景 ID">
+                  <InputNumber min={1} precision={0} style={{ width: '100%' }} placeholder="输入场景 ID" />
+                </Form.Item>
+              </div>
+            ) : null}
+          </Form>
+        </section>
+
+        <Card className="modern-table-card access-log-table-card" bodyStyle={{ padding: 0 }}>
           <Table
             rowKey="accessLogId"
             columns={columns}
             dataSource={rows}
             loading={loading}
+            size="middle"
             scroll={{ x: 1750 }}
             pagination={{
               current: page,
@@ -252,8 +290,8 @@ export default function AccessLogs() {
               onChange: (nextPage, nextPageSize) => load(nextPage, nextPageSize, query),
             }}
           />
-        </div>
-      </Card>
+        </Card>
+      </div>
     </PageHeader>
   );
 }

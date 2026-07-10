@@ -6,6 +6,10 @@ release/
 _local-backup-before-origin-master-*/
 
 # Local runtime data. Keep source/config in git, keep databases/uploads out of git.
+spring-runtime-data/
+spring-server-secrets/
+**/jwt-secret
+# Retain old ignore rules so obsolete paths cannot be committed accidentally.
 deploy-data/
 dev-data/
 go-code/runtime-data/
@@ -41,6 +45,9 @@ go-code/backend/*.tar
 go-code/backend/*.tar.zip
 new-code/backend/target/
 new-code/backend/upload/
+
+# Local deployment secrets
+.env.server
 
 # Common local files
 .DS_Store

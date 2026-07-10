@@ -1,3 +1,5 @@
+name: smart-product-go-legacy
+
 services:
   mysql:
     image: mysql:8.0

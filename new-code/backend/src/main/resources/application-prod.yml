@@ -1,2 +1,7 @@
 app:
   upload-dir: ${APP_UPLOAD_DIR:/app/uploads}
+  security:
+    jwt:
+      # Production must provide its own secret. Never inherit the local-development file path.
+      secret: ${APP_JWT_SECRET:}
+      secret-file: ${APP_JWT_SECRET_FILE:}

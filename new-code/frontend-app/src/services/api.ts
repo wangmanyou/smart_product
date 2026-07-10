@@ -283,6 +283,8 @@ export const businessApi = {
   importData: (data: any) => post('/v1/data/business/knowledge/data/import', data),
   statisticsKnowledge: (params?: any) =>
     apiRequest('/v1/data/business/statistics/knowledge', { method: 'GET', params }),
+  dashboardOverview: (params?: any) =>
+    apiRequest('/v1/data/business/dashboard/overview', { method: 'GET', params }),
 };
 
 export const fileApi = {

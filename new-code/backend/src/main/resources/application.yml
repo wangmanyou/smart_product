@@ -2,7 +2,17 @@ server:
   port: 8001
 
 app:
-  upload-dir: ${APP_UPLOAD_DIR:${user.dir}/../../deploy-data/files}
+  upload-dir: ${APP_UPLOAD_DIR:${user.dir}/../../spring-runtime-data/dev/files}
+  security:
+    jwt:
+      # Local development uses a generated, Git-ignored file by default. The prod profile disables this fallback.
+      # APP_JWT_SECRET_FILE can override the path; APP_JWT_SECRET is intended only as a temporary local fallback.
+      # Both values must contain Base64 that decodes to at least 32 bytes.
+      secret: ${APP_JWT_SECRET:}
+      secret-file: ${APP_JWT_SECRET_FILE:${user.dir}/../../spring-runtime-data/dev/secrets/jwt-secret}
+      issuer: ${APP_JWT_ISSUER:smart-product-spring}
+      audience: ${APP_JWT_AUDIENCE:smart-product-web}
+      ttl-seconds: ${APP_JWT_TTL_SECONDS:86400}
 
 spring:
   application:

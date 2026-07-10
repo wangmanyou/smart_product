@@ -1,144 +1,131 @@
-# HTTPS 配置说明
+# Spring 主线 HTTPS 配置说明
 
-本文档只说明 HTTPS 配置，不调整数据库。
+## HTTPS 是否需要域名
 
-## 前提
+对公网正式环境，**建议准备独立域名**，例如 `spring.example.com`：
 
-需要准备：
+1. 域名的 A/AAAA 记录指向服务器公网 IP。
+2. Nginx 根据域名把请求转发到 Spring Web。
+3. 使用 Certbot 或云厂商证书为该域名签发受浏览器信任的证书。
+
+直接使用公网 IP 申请受信任证书的支持和运维条件都更受限，不建议作为常规生产方案。`localhost` 只适用于本地开发。
+
+## 当前服务关系
+
+Spring 运行包默认对外提供：
+
+```text
+Spring Web: http://服务器IP:18000
+```
+
+Go 旧版如果已经占用服务器的 `80/443`，不要再让 Spring 容器抢占这两个端口。正确方式是让当前负责公网入口的 Nginx 根据新域名转发到 Spring Web。
+
+## 上线前检查
+
+准备：
 
 | 项目 | 说明 |
 | --- | --- |
-| 域名 | 例如 `demo.example.com` |
-| DNS 解析 | 域名 A 记录指向服务器公网 IP |
-| 安全组 | 放行 `80` 和 `443` |
-| 新项目 | `http://127.0.0.1:18000` 可以访问 |
+| 域名 | 例如 `spring.example.com` |
+| DNS | 域名 A/AAAA 记录指向服务器公网 IP |
+| 安全组 | 放行 `80` 和 `443`；通常无需公网放行 `18001`、`23306`、`26379` |
+| Spring Web | 服务器本机访问 `http://127.0.0.1:18000` 正常 |
+| 证书 | 为新域名签发的证书和私钥 |
 
-先在服务器确认新项目可访问：
+先验证 Spring：
 
 ```bash
 curl -I http://127.0.0.1:18000
 ```
 
-## 方式一：宿主机 Nginx 配置 HTTPS
+## 方式一：公网入口是宿主机 Nginx
 
-适合宿主机 `80` 和 `443` 没有被旧项目占用的情况。
+如果监听 `80/443` 的 Nginx 直接运行在宿主机，可以代理到宿主机发布端口：
 
-先确认端口：
-
-```bash
-docker ps --format "table {{.Names}}\t{{.Ports}}"
-ss -lntp | grep -E ':80|:443' || true
-```
-
-设置域名和邮箱：
-
-```bash
-export DOMAIN=你的域名
-export EMAIL=你的邮箱
-```
-
-安装 Nginx 和 Certbot：
-
-```bash
-apt update
-apt install -y nginx snapd
-
-snap install core
-snap refresh core
-apt remove -y certbot python3-certbot-nginx || true
-snap install --classic certbot
-ln -sf /snap/bin/certbot /usr/bin/certbot
-```
-
-写入 Nginx 配置：
-
-```bash
-cat > /etc/nginx/conf.d/smart-product-new.conf <<EOF
+```nginx
 server {
     listen 80;
-    server_name $DOMAIN;
+    server_name spring.example.com;
 
     location / {
         proxy_pass http://127.0.0.1:18000;
         proxy_http_version 1.1;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
-EOF
 ```
 
-检查并启动 Nginx：
+检查配置：
 
 ```bash
 nginx -t
-systemctl enable --now nginx
 systemctl reload nginx
 ```
 
-申请 HTTPS 证书：
+如果使用 Certbot：
 
 ```bash
-certbot --nginx -d $DOMAIN --redirect -m $EMAIL --agree-tos --no-eff-email
-```
-
-验证：
-
-```bash
-curl -I https://$DOMAIN
+certbot --nginx -d spring.example.com --redirect -m your-email@example.com --agree-tos --no-eff-email
 certbot renew --dry-run
 ```
 
-浏览器访问：
+## 方式二：公网入口是 Go 旧版的 Nginx 容器
 
-```text
-https://你的域名
-```
-
-## 方式二：旧 Nginx 已占用 80/443
-
-如果旧项目的 Nginx 已经占用了 `80` 或 `443`，不要直接装宿主机 Nginx 抢端口。
-
-这种情况应在旧 Nginx 里新增一个域名配置，把新域名代理到：
-
-```text
-http://127.0.0.1:18000
-```
-
-先确认旧 Nginx 容器名：
+先找出真正监听 `80/443` 的容器和配置挂载：
 
 ```bash
-docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Ports}}"
+docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Ports}}'
+docker inspect Go入口Nginx容器 --format '{{range .Mounts}}{{println .Source "->" .Destination}}{{end}}'
 ```
 
-如果当前旧 Nginx 容器叫 `nginx`，查看配置目录：
+容器内的 `127.0.0.1` 指向该 Nginx 容器自身，**不能**在这个容器里写 `proxy_pass http://127.0.0.1:18000` 来访问宿主机 Spring 端口。
+
+推荐让入口 Nginx 同时加入 Spring 网络：
 
 ```bash
-docker inspect nginx --format '{{range .Mounts}}{{println .Source "->" .Destination}}{{end}}'
+docker network connect smart-product-spring-net Go入口Nginx容器
 ```
 
-把输出发给开发人员，根据实际挂载目录添加 HTTPS 配置。
+然后在入口 Nginx 的新域名配置中代理到 Spring Web 容器名：
 
-## 为什么必须 HTTPS
+```nginx
+server {
+    listen 80;
+    server_name spring.example.com;
 
-登录页使用浏览器安全加密能力。
+    location / {
+        proxy_pass http://smart-product-spring-web:80;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
 
-公网 HTTP：
+注意：手工执行 `docker network connect` 在入口 Nginx 容器被重建后可能失效。长期方案应把 `smart-product-spring-net` 作为 external network 写进入口 Nginx 自己的 Compose。修改服务器 Go 旧版 Compose 前，应先根据真实容器名和网络配置确认，不能直接套用本地文件。
+
+证书的申请、挂载和续期应沿用当前入口 Nginx 已有方案；如果现状不明确，先提供下面两条命令的输出再修改：
+
+```bash
+docker inspect Go入口Nginx容器
+docker network inspect smart-product-spring-net
+```
+
+## 验证
+
+```bash
+curl -I https://spring.example.com
+```
+
+浏览器正式访问：
 
 ```text
-http://服务器IP:18000
+https://spring.example.com
 ```
 
-浏览器会禁用该能力，登录会提示：
-
-```text
-当前浏览器不支持安全登录，请升级浏览器后重试
-```
-
-正式访问应使用：
-
-```text
-https://你的域名
-```
+登录流程使用浏览器安全加密能力，公网环境必须处于受信任的 HTTPS 安全上下文；仅通过 `http://服务器IP:18000` 访问可能导致安全登录能力不可用。

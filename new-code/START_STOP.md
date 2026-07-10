@@ -1,89 +1,118 @@
-# 新项目启动与关闭说明
+# Spring 主线服务器启停说明
 
-本文档只针对新项目并行部署环境，不影响旧线上项目。
+本文档只管理 Spring 主线服务器运行包。Go 旧版是独立保障环境，不应由下面的命令停止或删除。
 
-## 当前并行环境
+## 目录和唯一入口
 
-服务器目录：
-
-```bash
-/opt/smart-product-new/new-code
-```
-
-Compose 文件：
-
-```bash
-docker-compose.parallel.yml
-```
-
-新项目端口：
-
-| 服务 | 容器名 | 访问端口 |
-| --- | --- | --- |
-| 前端 | smart-product-parallel-web | 18000 |
-| 后端 | smart-product-parallel-spring | 18001 |
-| MySQL | smart-product-parallel-mysql | 23306 |
-| Redis | smart-product-parallel-redis | 26379 |
-
-旧项目容器 `nginx`、`server`、`mysql`、`redis` 不会被下面命令影响。
-
-## 启动新项目
-
-```bash
-cd /opt/smart-product-new/new-code
-docker compose -f docker-compose.parallel.yml up -d
-```
-
-访问地址：
+示例服务器目录：
 
 ```text
-http://服务器IP:18000
+/opt/smart-product-new/
+├── new-code/
+│   ├── docker-compose.server.yml
+│   ├── .env.server
+│   ├── backend-app/
+│   ├── frontend-dist/
+│   └── deploy/
+├── spring-runtime-data/
+│   └── prod/
+│       ├── mysql/
+│       ├── redis/
+│       └── files/
+└── spring-server-secrets/
+    └── jwt-secret
 ```
 
-## 查看运行状态
+真实 JWT 密钥位于运行包外，普通升级不能删除或覆盖。唯一 Compose 入口：
+
+```text
+docker-compose.server.yml
+```
+
+## Spring 服务边界
+
+| 服务 | 容器名 | 宿主机端口 | 数据/密钥 |
+| --- | --- | --- | --- |
+| Web/Nginx | `smart-product-spring-web` | `18000` | 前端静态文件，只读 |
+| Spring 后端 | `smart-product-spring-server` | `18001` | uploads + 只读 JWT secret |
+| MySQL | `smart-product-spring-mysql` | `127.0.0.1:23306` | `spring-runtime-data/prod/mysql` |
+| Redis | `smart-product-spring-redis` | `127.0.0.1:26379` | `spring-runtime-data/prod/redis` |
+
+Compose 项目名为 `smart-product-spring-server`，Docker 网络为 `smart-product-spring-net`。这些项目标签、名称、端口、目录和密钥均与 Go 旧版分开。
+
+## 启动前检查
 
 ```bash
 cd /opt/smart-product-new/new-code
-docker compose -f docker-compose.parallel.yml ps
+test -s /opt/smart-product-new/spring-server-secrets/jwt-secret
+stat -c '%a %n' /opt/smart-product-new/spring-server-secrets/jwt-secret
+docker compose --env-file .env.server -f docker-compose.server.yml config
 ```
 
-## 查看后端日志
+密钥建议权限为 `600`。首次生成方法见 `JWT_SECRET_SETUP.md`。
 
-```bash
-docker logs -f smart-product-parallel-spring
-```
-
-## 临时停止新项目
-
-只停止容器，容器和数据都会保留：
+## 启动
 
 ```bash
 cd /opt/smart-product-new/new-code
-docker compose -f docker-compose.parallel.yml stop
+docker compose --env-file .env.server -f docker-compose.server.yml up -d
 ```
 
-临时停止后，再次启动：
+## 查看状态
 
 ```bash
 cd /opt/smart-product-new/new-code
-docker compose -f docker-compose.parallel.yml start
+docker compose --env-file .env.server -f docker-compose.server.yml ps
 ```
 
-## 关闭并删除新项目容器
+## 查看日志
 
-删除的是新项目容器，不会删除数据库文件、附件文件，也不会影响旧项目：
+```bash
+docker logs -f smart-product-spring-server
+docker logs -f smart-product-spring-web
+docker logs -f smart-product-spring-mysql
+```
+
+后端日志不应出现密钥或完整 Token。密钥配置错误只会报告“缺失、不可读、格式错误或强度不足”。
+
+## 临时停止和恢复
+
+只停止 Spring 容器，保留容器、数据和服务器密钥：
 
 ```bash
 cd /opt/smart-product-new/new-code
-docker compose -f docker-compose.parallel.yml down
+docker compose --env-file .env.server -f docker-compose.server.yml stop
 ```
 
-再次启动：
+恢复：
+
+```bash
+docker compose --env-file .env.server -f docker-compose.server.yml start
+```
+
+## 删除并重建 Spring 容器
 
 ```bash
 cd /opt/smart-product-new/new-code
-docker compose -f docker-compose.parallel.yml up -d
+docker compose --env-file .env.server -f docker-compose.server.yml down
+docker compose --env-file .env.server -f docker-compose.server.yml up -d
 ```
+
+`down` 删除 Spring 容器和 Spring 网络，但不会删除绑定的数据和运行包外的 JWT 密钥。仍应在操作前备份数据库、上传文件和密钥文件。
+
+## 主动轮换 JWT 密钥
+
+只有怀疑泄露或计划让全部会话失效时才轮换：
+
+```bash
+umask 077
+openssl rand -base64 48 > /opt/smart-product-new/spring-server-secrets/jwt-secret
+chmod 600 /opt/smart-product-new/spring-server-secrets/jwt-secret
+cd /opt/smart-product-new/new-code
+docker compose --env-file .env.server -f docker-compose.server.yml up -d --force-recreate spring-server
+```
+
+轮换后所有旧 Spring Token 失效，用户必须重新登录；Go 旧版 Token 不受影响。
 
 ## 健康检查
 
@@ -92,17 +121,11 @@ curl -I http://127.0.0.1:18000
 curl http://127.0.0.1:18000/api/v1/data/user/login/key
 ```
 
-## 注意事项
+## 禁止事项
 
-不要执行下面这些命令，否则会影响旧线上项目：
-
-```bash
-docker stop nginx server mysql redis
-docker rm nginx server mysql redis
-```
-
-也不要在旧项目目录里执行：
-
-```bash
-docker compose down
-```
+- 不要对名称不明确的 `mysql`、`redis`、`nginx`、`server` 容器执行批量停止或删除。
+- 不要在 Go 旧版目录执行 Spring 的 `docker compose down`。
+- 不要让 Spring MySQL 与 Go MySQL 指向同一个宿主机数据目录。
+- 不要把 `SPRING_SERVER_DATA_ROOT` 设置为 Go 的 `runtime-data` 或 `legacy-runtime-data`。
+- 不要删除 `spring-runtime-data/prod` 来完成普通版本升级。
+- 不要把 `jwt-secret`、`.env.server` 或密钥内容放进运行包、Git 或 Go 旧版目录。

@@ -1,37 +1,39 @@
+name: smart-product-spring-server
+
 services:
   mysql:
     image: mysql:8.0
-    container_name: smart-product-parallel-mysql
+    container_name: smart-product-spring-mysql
     restart: unless-stopped
     environment:
       LANG: C.UTF-8
-      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ROOT_PASSWORD: ${SPRING_MYSQL_ROOT_PASSWORD:?SPRING_MYSQL_ROOT_PASSWORD is required}
       MYSQL_DATABASE: knowledge
     volumes:
-      - ../deploy-data/mysql:/var/lib/mysql
+      - ${SPRING_SERVER_DATA_ROOT:-../spring-runtime-data/prod}/mysql:/var/lib/mysql
       - ./deploy/mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
     ports:
-      - "23306:3306"
+      - "127.0.0.1:23306:3306"
     command: mysqld
     networks:
-      - smart-product-parallel-net
+      - smart-product-spring-net
 
   redis:
     image: redis:6.2
-    container_name: smart-product-parallel-redis
+    container_name: smart-product-spring-redis
     restart: unless-stopped
     volumes:
       - ./deploy/redis/redis.conf:/usr/local/redis/conf/redis.conf:ro
-      - ../deploy-data/redis:/data
+      - ${SPRING_SERVER_DATA_ROOT:-../spring-runtime-data/prod}/redis:/data
     command: ["redis-server", "/usr/local/redis/conf/redis.conf", "--appendonly", "yes"]
     ports:
-      - "26379:6379"
+      - "127.0.0.1:26379:6379"
     networks:
-      - smart-product-parallel-net
+      - smart-product-spring-net
 
   spring-server:
     image: m.daocloud.io/docker.io/library/eclipse-temurin:21-jre
-    container_name: smart-product-parallel-spring
+    container_name: smart-product-spring-server
     restart: unless-stopped
     working_dir: /app
     mem_limit: 1024m
@@ -39,16 +41,23 @@ services:
       JAVA_TOOL_OPTIONS: -Xms128m -Xmx768m -XX:MaxMetaspaceSize=192m
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/knowledge?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
       SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_MYSQL_ROOT_PASSWORD:?SPRING_MYSQL_ROOT_PASSWORD is required}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_DATA_REDIS_DATABASE: 6
       SPRING_PROFILES_ACTIVE: prod
       APP_UPLOAD_DIR: /app/uploads
+      APP_JWT_SECRET_FILE: /run/secrets/spring-jwt-secret
+      APP_JWT_ISSUER: ${SPRING_JWT_ISSUER:-smart-product-spring}
+      APP_JWT_AUDIENCE: ${SPRING_JWT_AUDIENCE:-smart-product-web}
+      APP_JWT_TTL_SECONDS: ${SPRING_JWT_TTL_SECONDS:-86400}
       SERVER_PORT: 8001
     volumes:
       - ./backend-app/app.jar:/app/app.jar:ro
-      - ../deploy-data/files:/app/uploads
+      - ${SPRING_SERVER_DATA_ROOT:-../spring-runtime-data/prod}/files:/app/uploads
+    secrets:
+      - source: spring-jwt-secret
+        target: spring-jwt-secret
     command: ["java", "-jar", "/app/app.jar"]
     ports:
       - "18001:8001"
@@ -56,11 +65,11 @@ services:
       - mysql
       - redis
     networks:
-      - smart-product-parallel-net
+      - smart-product-spring-net
 
   web:
     image: m.daocloud.io/docker.io/library/nginx:1.26-alpine3.19
-    container_name: smart-product-parallel-web
+    container_name: smart-product-spring-web
     restart: unless-stopped
     mem_limit: 128m
     volumes:
@@ -71,8 +80,12 @@ services:
     depends_on:
       - spring-server
     networks:
-      - smart-product-parallel-net
+      - smart-product-spring-net
+
+secrets:
+  spring-jwt-secret:
+    file: ${SPRING_JWT_SECRET_FILE:?SPRING_JWT_SECRET_FILE is required}
 
 networks:
-  smart-product-parallel-net:
-    name: smart-product-parallel-net
+  smart-product-spring-net:
+    name: smart-product-spring-net
