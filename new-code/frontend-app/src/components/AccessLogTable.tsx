@@ -1,4 +1,5 @@
-import { Table, Tag, Tooltip, Typography } from 'antd';
+import { SortAscendingOutlined, SortDescendingOutlined } from '@ant-design/icons';
+import { Button, Table, Tag, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useState } from 'react';
 import { formatTime } from '@/utils/data';
@@ -28,13 +29,21 @@ const actionText: Record<string, string> = {
   SCENE_ITEM_DELETE: '删除字段',
 };
 
+type AccessLogOrder = 'asc' | 'desc';
+
+type AccessLogTableParams = {
+  pageNumber: number;
+  pageSize: number;
+  order?: AccessLogOrder;
+};
+
 type AccessLogTableProps = {
   active?: boolean;
   compact?: boolean;
   showBiz?: boolean;
   showUser?: boolean;
   refreshKey?: string | number;
-  fetcher: (params: { pageNumber: number; pageSize: number }) => Promise<any>;
+  fetcher: (params: AccessLogTableParams) => Promise<any>;
 };
 
 const bizTypeText: Record<string, string> = {
@@ -67,16 +76,18 @@ export default function AccessLogTable({
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(compact ? 5 : 10);
   const [loading, setLoading] = useState(false);
+  const [timeOrder, setTimeOrder] = useState<AccessLogOrder>('desc');
 
-  const load = async (nextPage = page, nextPageSize = pageSize) => {
+  const load = async (nextPage = page, nextPageSize = pageSize, nextOrder = timeOrder) => {
     if (!active) return;
+    setPage(nextPage);
+    setPageSize(nextPageSize);
+    setTimeOrder(nextOrder);
     setLoading(true);
     try {
-      const res = await fetcher({ pageNumber: nextPage, pageSize: nextPageSize });
+      const res = await fetcher({ pageNumber: nextPage, pageSize: nextPageSize, order: nextOrder });
       setRows(Array.isArray(res?.content) ? res.content : []);
       setTotal(Number(res?.totalElements || 0));
-      setPage(nextPage);
-      setPageSize(nextPageSize);
     } finally {
       setLoading(false);
     }
@@ -86,8 +97,36 @@ export default function AccessLogTable({
     load(1, pageSize);
   }, [active, refreshKey]);
 
+  const tableScrollX = compact ? 900 : showBiz ? 1420 : 1280;
+
+  const toggleTimeOrder = () => {
+    const nextOrder: AccessLogOrder = timeOrder === 'desc' ? 'asc' : 'desc';
+    load(1, pageSize, nextOrder);
+  };
+
+  const handleTableChange = (pagination: any) => {
+    load(pagination.current || 1, pagination.pageSize || pageSize, timeOrder);
+  };
+
+  const timeTitle = (
+    <Button
+      type="text"
+      size="small"
+      className="access-log-time-sort"
+      icon={timeOrder === 'asc' ? <SortAscendingOutlined /> : <SortDescendingOutlined />}
+      onClick={toggleTimeOrder}
+    >
+      时间
+    </Button>
+  );
+
   const columns: ColumnsType<any> = [
-    { title: '时间', dataIndex: 'createTime', width: 150, render: formatTime },
+    {
+      title: timeTitle,
+      dataIndex: 'createTime',
+      width: 170,
+      render: formatTime,
+    },
     showUser
       ? {
           title: '操作人',
@@ -116,6 +155,7 @@ export default function AccessLogTable({
     {
       title: '说明',
       dataIndex: 'description',
+      width: compact ? 180 : 240,
       ellipsis: true,
       render: (value) => (
         <Tooltip title={value}>
@@ -140,7 +180,7 @@ export default function AccessLogTable({
     {
       title: '异常信息',
       dataIndex: 'errorMessage',
-      width: compact ? 160 : 220,
+      width: compact ? 160 : 190,
       ellipsis: true,
       render: (value) => (
         <Tooltip title={value}>
@@ -157,14 +197,14 @@ export default function AccessLogTable({
       columns={columns}
       dataSource={rows}
       loading={loading}
-      scroll={{ x: compact ? 850 : 1100 }}
+      scroll={{ x: tableScrollX }}
+      onChange={handleTableChange}
       pagination={{
         current: page,
         pageSize,
         total,
         showSizeChanger: !compact,
         showTotal: (count) => `共 ${count} 条`,
-        onChange: (nextPage, nextPageSize) => load(nextPage, nextPageSize),
       }}
     />
   );

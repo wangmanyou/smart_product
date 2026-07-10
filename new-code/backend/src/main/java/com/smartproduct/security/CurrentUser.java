@@ -8,7 +8,6 @@ import java.util.Set;
 public record CurrentUser(
         Long userId,
         String account,
-        Long roleId,
         java.util.Set<Long> roleIds,
         boolean admin,
         Set<String> permissions,

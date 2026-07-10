@@ -49,8 +49,7 @@ public class SecurityUserService {
                 .map(roleSettings::load)
                 .toList();
         boolean admin = Boolean.TRUE.equals(user.getBuiltin())
-                || roleIds.contains(1L)
-                || settings.stream().anyMatch(setting -> setting.admin);
+                || roleIds.contains(1L);
 
         Set<String> permissions = settings.stream()
                 .flatMap(setting -> setting.operationPermissions.stream())
@@ -85,7 +84,6 @@ public class SecurityUserService {
         return new CurrentUser(
                 user.getId(),
                 user.getAccount(),
-                user.getRoleId(),
                 roleIds,
                 admin,
                 permissions,
@@ -103,9 +101,6 @@ public class SecurityUserService {
                 .map(row -> row.roleId)
                 .filter(id -> id != null && id > 0)
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
-        if (ids.isEmpty() && user.getRoleId() != null && user.getRoleId() > 0) {
-            ids.add(user.getRoleId());
-        }
         return ids;
     }
 

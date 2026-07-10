@@ -35,6 +35,6 @@ mysql -uroot -p'root' knowledge < new-code/db/001_auth_approval_upgrade.sql
 
 ## 3. 不再使用旧数据脚本
 
-根目录旧 `db/knowledge_data_only_20260509.sql` 是 2026-05-09 的历史数据导入文件。
+归档文件 `new-code/db/archive/knowledge_data_only_20260509.sql` 是 2026-05-09 的历史数据导入文件。
 
-现在已有 2026-05-31 从服务器导出的最新 `knowledge.sql`，后续上线应以最新导出数据为准，不再使用旧数据脚本。
+现在已有 2026-05-31 从服务器导出的最新 `knowledge.sql`，后续上线应以最新导出数据为准，不再使用该归档脚本。

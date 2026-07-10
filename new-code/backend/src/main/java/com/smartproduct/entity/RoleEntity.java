@@ -19,8 +19,6 @@ public class RoleEntity {
     public Boolean isUsed;
     public String name;
     public String remark;
-    @TableField("setting_json")
-    public String settingJson;
     @TableField("create_at")
     public LocalDateTime createAt;
     @TableField("update_at")

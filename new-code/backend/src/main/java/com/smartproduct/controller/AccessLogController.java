@@ -29,9 +29,10 @@ public class AccessLogController {
             @RequestParam(required = false) String bizType,
             @RequestParam(required = false) Long bizId,
             @RequestParam(required = false) Long sceneTemplateId,
-            @RequestParam(required = false) List<String> searchTime
+            @RequestParam(required = false) List<String> searchTime,
+            @RequestParam(defaultValue = "desc") String order
     ) {
         return service.list(pageNumber, pageSize, userAccount, module, action, result, bizType, bizId,
-                sceneTemplateId, searchTime);
+                sceneTemplateId, searchTime, order);
     }
 }

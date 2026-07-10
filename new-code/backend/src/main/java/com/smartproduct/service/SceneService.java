@@ -153,12 +153,12 @@ public class SceneService {
                 item == null ? null : item.sceneTemplateId, "删除场景字段：" + (item == null ? sceneItemId : item.name));
     }
 
-    public Map<String, Object> logs(String action, int pageNumber, int pageSize) {
+    public Map<String, Object> logs(String action, int pageNumber, int pageSize, String order) {
         CurrentUser user = currentUsers.current();
         if (!user.hasPermission(com.smartproduct.security.PermissionCodes.SYSTEM_SCENE_MANAGE)) {
             throw new ApiException(HttpStatus.FORBIDDEN.value(), "没有查看场景操作记录的权限");
         }
-        return accessLogs.sceneLogs(action, pageNumber, pageSize);
+        return accessLogs.sceneLogs(action, pageNumber, pageSize, order);
     }
 
     public Map<String, Object> detail(Long sceneTemplateId) {

@@ -82,7 +82,6 @@ public class UserService {
     public Map<String, Object> list(int pageNumber, int pageSize, String account, String nickname, String email, String phone, String sex, String disabled, String keyword) {
         List<Long> keywordRoleIds = roleIdsByKeyword(keyword);
         Page<UserEntity> page = users.selectPage(Page.of(Math.max(pageNumber, 1), Math.max(pageSize, 1)), query(account, nickname, email, phone, sex, disabled, keyword, keywordRoleIds)
-                .orderByAsc(UserEntity::getRoleId)
                 .orderByAsc(UserEntity::getAccount)
                 .orderByDesc(UserEntity::getId));
 
@@ -115,8 +114,7 @@ public class UserService {
         user.setBuiltin(false);
         user.setAccount(request.userAccount);
         user.setNickname(empty(request.userNickname));
-        List<Long> roleIds = normalizeRoleIds(request.roleIds, request.roleId);
-        user.setRoleId(roleIds.isEmpty() ? 0L : roleIds.get(0));
+        List<Long> roleIds = normalizeRoleIds(request.roleIds);
         user.setPassword(passwordEncoder.encode(request.userPassword));
         user.setEmail(empty(request.userEmail));
         user.setDisabled(false);
@@ -135,7 +133,7 @@ public class UserService {
     }
 
     public void edit(UserRequests.EditUserRequest request) {
-        List<Long> roleIds = normalizeRoleIds(request.roleIds, request.roleId);
+        List<Long> roleIds = normalizeRoleIds(request.roleIds);
         users.update(new LambdaUpdateWrapper<UserEntity>()
                 .eq(UserEntity::getId, request.userId)
                 .eq(UserEntity::getDel, 0)
@@ -144,9 +142,8 @@ public class UserService {
                 .set(UserEntity::getPhoneNum, empty(request.userPhoneNum))
                 .set(UserEntity::getSex, empty(request.userSex))
                 .set(UserEntity::getPicture, empty(request.userPicture))
-                .set(!roleIds.isEmpty(), UserEntity::getRoleId, roleIds.isEmpty() ? 0L : roleIds.get(0))
                 .set(UserEntity::getUpdateAt, LocalDateTime.now()));
-        if (request.roleIds != null || request.roleId != null) {
+        if (request.roleIds != null) {
             saveUserRoles(request.userId, roleIds);
         }
     }
@@ -230,8 +227,7 @@ public class UserService {
                         .or().like(UserEntity::getPhoneNum, word);
                 if (keywordRoleIds != null && !keywordRoleIds.isEmpty()) {
                     String roleIds = commaIds(keywordRoleIds);
-                    group.or().in(UserEntity::getRoleId, keywordRoleIds)
-                            .or().inSql(UserEntity::getId, "select user_id from user_role where role_id in (" + roleIds + ")");
+                    group.or().inSql(UserEntity::getId, "select user_id from user_role where role_id in (" + roleIds + ")");
                 }
             });
         }
@@ -274,9 +270,6 @@ public class UserService {
                 .map(row -> row.roleId)
                 .filter(id -> id != null && id > 0)
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
-        if (ids.isEmpty() && user.getRoleId() != null && user.getRoleId() > 0) {
-            ids.add(user.getRoleId());
-        }
         return List.copyOf(ids);
     }
 
@@ -292,13 +285,10 @@ public class UserService {
         }
     }
 
-    private static List<Long> normalizeRoleIds(List<Long> roleIds, Long legacyRoleId) {
+    private static List<Long> normalizeRoleIds(List<Long> roleIds) {
         Set<Long> ids = new LinkedHashSet<>();
         if (roleIds != null) {
             roleIds.stream().filter(id -> id != null && id > 0).forEach(ids::add);
-        }
-        if (ids.isEmpty() && legacyRoleId != null && legacyRoleId > 0) {
-            ids.add(legacyRoleId);
         }
         return List.copyOf(ids);
     }

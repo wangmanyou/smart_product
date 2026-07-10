@@ -271,7 +271,7 @@ public class BusinessService {
         return detailDto(row, values);
     }
 
-    public Map<String, Object> knowledgeLogs(Long knowledgeId, String action, int pageNumber, int pageSize) {
+    public Map<String, Object> knowledgeLogs(Long knowledgeId, String action, int pageNumber, int pageSize, String order) {
         KnowledgeEntity row = knowledge.selectById(knowledgeId);
         CurrentUser user = currentUsers.current();
         requireKnowledge(row);
@@ -279,7 +279,7 @@ public class BusinessService {
         Long visibleUserId = user.hasScenePermission(PermissionCodes.KNOWLEDGE_LOG_VIEW_ALL, row.sceneTemplateId)
                 ? null
                 : user.userId();
-        return accessLogs.knowledgeLogs(knowledgeId, visibleUserId, action, pageNumber, pageSize);
+        return accessLogs.knowledgeLogs(knowledgeId, visibleUserId, action, pageNumber, pageSize, order);
     }
 
     public Map<String, Object> knowledgeVersions(Long knowledgeId, int pageNumber, int pageSize) {
@@ -290,13 +290,13 @@ public class BusinessService {
         return knowledgeVersions.detail(versionId);
     }
 
-    public Map<String, Object> sceneKnowledgeLogs(Long sceneTemplateId, String action, int pageNumber, int pageSize) {
+    public Map<String, Object> sceneKnowledgeLogs(Long sceneTemplateId, String action, int pageNumber, int pageSize, String order) {
         CurrentUser user = currentUsers.current();
         requireSceneAccess(user, sceneTemplateId);
         Long visibleUserId = user.hasScenePermission(PermissionCodes.KNOWLEDGE_LOG_VIEW_ALL, sceneTemplateId)
                 ? null
                 : user.userId();
-        return accessLogs.sceneKnowledgeLogs(sceneTemplateId, visibleUserId, action, pageNumber, pageSize);
+        return accessLogs.sceneKnowledgeLogs(sceneTemplateId, visibleUserId, action, pageNumber, pageSize, order);
     }
 
     public Map<String, Object> list(Map<String, Object> request) {

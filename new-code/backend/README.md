@@ -10,7 +10,7 @@ Make sure the existing Docker services are available:
 - Redis: `127.0.0.1:16379`, database `6`
 
 ```powershell
-cd knowledge-hub-backend-spring
+cd new-code/backend
 mvn spring-boot:run
 ```
 

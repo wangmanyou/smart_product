@@ -64,16 +64,18 @@ public class UserController {
 
     @GetMapping("/v1/data/user/login-log/my")
     public Map<String, Object> myLoginLogs(@RequestParam(defaultValue = "1") int pageNumber,
-                                           @RequestParam(defaultValue = "10") int pageSize) {
-        return accessLogs.myLoginLogs(pageNumber, pageSize);
+                                           @RequestParam(defaultValue = "10") int pageSize,
+                                           @RequestParam(defaultValue = "desc") String order) {
+        return accessLogs.myLoginLogs(pageNumber, pageSize, order);
     }
 
     @GetMapping("/v1/data/user/login-log/list")
     @PreAuthorize("hasAuthority('system:user:manage')")
     public Map<String, Object> userLoginLogs(@RequestParam Long userId,
                                              @RequestParam(defaultValue = "1") int pageNumber,
-                                             @RequestParam(defaultValue = "10") int pageSize) {
-        return accessLogs.userLoginLogs(userId, pageNumber, pageSize);
+                                             @RequestParam(defaultValue = "10") int pageSize,
+                                             @RequestParam(defaultValue = "desc") String order) {
+        return accessLogs.userLoginLogs(userId, pageNumber, pageSize, order);
     }
 
     @GetMapping("/v1/data/user/current/detail")

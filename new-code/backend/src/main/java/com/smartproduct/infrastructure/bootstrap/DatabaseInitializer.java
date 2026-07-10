@@ -44,6 +44,8 @@ public class DatabaseInitializer implements CommandLineRunner {
             seedAdmin();
             syncLegacyUserRoles();
             migrateRoleSettings();
+            seedAdminUserRole();
+            seedAdminRolePermissions();
         } finally {
             if (lockValue.equals(redis.opsForValue().get(LOCK_KEY))) {
                 redis.delete(LOCK_KEY);
@@ -59,7 +61,6 @@ public class DatabaseInitializer implements CommandLineRunner {
                     is_builtin bit(1) not null default b'0',
                     account varchar(100) not null,
                     nickname varchar(100) null,
-                    role_id bigint unsigned null default 0,
                     password varchar(100) not null,
                     email varchar(100) null,
                     phone_num varchar(50) null,
@@ -79,7 +80,6 @@ public class DatabaseInitializer implements CommandLineRunner {
                     is_used bit(1) not null default b'0',
                     name varchar(255) null,
                     remark varchar(255) null,
-                    setting_json text null,
                     create_at datetime null,
                     update_at datetime null,
                     del tinyint unsigned not null default 0
@@ -401,7 +401,7 @@ public class DatabaseInitializer implements CommandLineRunner {
         upsertPermission("knowledge:delete", "删除知识", "ACTION", "知识库", "删除授权场景下的知识", 40);
         upsertPermission("knowledge:import", "导入知识", "ACTION", "知识库", "批量导入知识", 50);
         upsertPermission("knowledge:log:view-all", "查看全部操作记录", "ACTION", "知识库", "查看授权场景下全部用户的知识操作记录", 54);
-        upsertPermission("knowledge:version:view", "查看知识历史版本", "ACTION", "知识库", "查看知识更新记录和历史版本", 55);
+        upsertPermission("knowledge:version:view", "查看知识历史版本", "ACTION", "知识库", "查看知识历史版本详情", 55);
         upsertPermission("knowledge:change-request:view-own", "查看我的审批", "ACTION", "审批", "查看自己提交的知识变更申请", 60);
         upsertPermission("knowledge:change-request:view-all", "查看全部审批", "ACTION", "审批", "查看所有知识变更申请", 70);
         upsertPermission("knowledge:change-request:approve", "审批通过", "ACTION", "审批", "通过知识变更申请", 80);
@@ -443,8 +443,8 @@ public class DatabaseInitializer implements CommandLineRunner {
         Integer count = jdbc.queryForObject("select count(*) from role where id = 1", Integer.class);
         if (count != null && count == 0) {
             jdbc.update("""
-                    insert into role (id, is_disabled, is_builtin, is_used, name, remark, setting_json, create_at, update_at, del)
-                    values (1, false, true, true, '超级管理员', '系统内置管理员角色', '{"admin":true}', now(), now(), 0)
+                    insert into role (id, is_disabled, is_builtin, is_used, name, remark, create_at, update_at, del)
+                    values (1, false, true, true, '超级管理员', '系统内置管理员角色', now(), now(), 0)
                     """);
         }
     }
@@ -453,23 +453,30 @@ public class DatabaseInitializer implements CommandLineRunner {
         Integer count = jdbc.queryForObject("select count(*) from `user` where account = 'admin'", Integer.class);
         if (count != null && count == 0) {
             jdbc.update("""
-                    insert into `user` (is_builtin, account, nickname, role_id, password, email, is_disabled, phone_num, sex, picture, del, create_at, update_at)
-                    values (true, 'admin', '超级管理员', 1, ?, '', false, '', '未知', '', 0, now(), now())
+                    insert into `user` (is_builtin, account, nickname, password, email, is_disabled, phone_num, sex, picture, del, create_at, update_at)
+                    values (true, 'admin', '超级管理员', ?, '', false, '', '未知', '', 0, now(), now())
                     """, DEFAULT_ADMIN_PASSWORD_HASH);
         }
     }
 
     private void syncLegacyUserRoles() {
+        if (!columnExists("user", "role_id")) {
+            return;
+        }
         jdbc.update("""
                 insert ignore into user_role (user_id, role_id, create_at)
                 select id, role_id, now()
                 from `user`
                 where role_id is not null and role_id > 0 and del = 0
                 """);
+        jdbc.execute("alter table `user` drop column role_id");
     }
 
     @SuppressWarnings("unchecked")
     private void migrateRoleSettings() {
+        if (!columnExists("role", "setting_json")) {
+            return;
+        }
         List<Map<String, Object>> rows = jdbc.queryForList("select id, setting_json from role where del = 0");
         for (Map<String, Object> row : rows) {
             Long roleId = ((Number) row.get("id")).longValue();
@@ -514,6 +521,31 @@ public class DatabaseInitializer implements CommandLineRunner {
                 });
             }
         }
+        jdbc.execute("alter table role drop column setting_json");
+    }
+
+    private void seedAdminUserRole() {
+        jdbc.update("""
+                insert ignore into user_role (user_id, role_id, create_at)
+                select id, 1, now()
+                from `user`
+                where account = 'admin' and del = 0
+                """);
+    }
+
+    private void seedAdminRolePermissions() {
+        jdbc.update("""
+                insert ignore into role_permission (role_id, permission_id, create_at)
+                select 1, id, now()
+                from sys_permission
+                where status = 'ENABLED'
+                """);
+        jdbc.update("""
+                insert ignore into role_scene (role_id, scene_template_id, create_at)
+                select 1, id, now()
+                from scene_template
+                where del = 0
+                """);
     }
 
     private void insertRolePermission(Long roleId, String code) {

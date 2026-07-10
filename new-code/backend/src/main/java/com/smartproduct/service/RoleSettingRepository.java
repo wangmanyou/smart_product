@@ -29,10 +29,11 @@ public class RoleSettingRepository {
     }
 
     public RoleSetting load(RoleEntity role) {
-        RoleSetting setting = parse(role == null ? null : role.settingJson);
+        RoleSetting setting = new RoleSetting();
         if (role == null || role.id == null) {
             return setting;
         }
+        setting.admin = role.id == 1 || Boolean.TRUE.equals(role.isBuiltin);
         List<PermissionRow> permissions = jdbc.query("""
                         select p.code, p.type
                         from role_permission rp
@@ -145,17 +146,6 @@ public class RoleSettingRepository {
         jdbc.update("delete from role_permission where role_id = ?", roleId);
         jdbc.update("delete from role_scene where role_id = ?", roleId);
         jdbc.update("delete from role_permission_approval where role_id = ?", roleId);
-    }
-
-    private static RoleSetting parse(String json) {
-        if (json == null || json.isBlank()) {
-            return new RoleSetting();
-        }
-        try {
-            return JSON.readValue(json, RoleSetting.class);
-        } catch (Exception ignored) {
-            return new RoleSetting();
-        }
     }
 
     private static Map<String, Object> normalize(Object value) {

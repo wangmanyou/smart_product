@@ -3,7 +3,6 @@
   DeleteOutlined,
   DownloadOutlined,
   EditOutlined,
-  FileSearchOutlined,
   FileOutlined,
   FileWordOutlined,
   HistoryOutlined,
@@ -12,7 +11,7 @@
   VideoCameraOutlined,
 } from '@ant-design/icons';
 import { history, useLocation, useParams } from '@umijs/max';
-import { Button, Card, Descriptions, Image, Modal, Popconfirm, Select, Space, Table, Tag, Tooltip, Typography, message } from 'antd';
+import { Button, Card, Descriptions, Image, Modal, Popconfirm, Radio, Space, Table, Tag, Tooltip, Typography, message } from 'antd';
 import { useEffect, useState } from 'react';
 import AccessLogTable from '@/components/AccessLogTable';
 import PageHeader from '@/components/PageHeader';
@@ -249,7 +248,6 @@ export default function KnowledgeDetail() {
   const [knowledge, setKnowledge] = useState<any>({});
   const [logOpen, setLogOpen] = useState(false);
   const [logAction, setLogAction] = useState<string | undefined>();
-  const [updateRecordOpen, setUpdateRecordOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [versions, setVersions] = useState<any[]>([]);
   const [versionTotal, setVersionTotal] = useState(0);
@@ -341,11 +339,6 @@ export default function KnowledgeDetail() {
     } finally {
       setVersionLoading(false);
     }
-  };
-
-  const openUpdateRecords = () => {
-    setUpdateRecordOpen(true);
-    loadVersions(1, versionPageSize);
   };
 
   const openHistoryVersions = () => {
@@ -490,11 +483,6 @@ export default function KnowledgeDetail() {
               操作记录
             </Button>
             {canViewVersions ? (
-              <Button type="link" icon={<FileSearchOutlined />} onClick={openUpdateRecords}>
-                更新记录
-              </Button>
-            ) : null}
-            {canViewVersions ? (
               <Button type="link" icon={<ProfileOutlined />} onClick={openHistoryVersions}>
                 历史版本
               </Button>
@@ -505,7 +493,8 @@ export default function KnowledgeDetail() {
       <Modal
         title="操作记录"
         open={logOpen}
-        width={980}
+        width={1040}
+        className="knowledge-log-modal"
         footer={null}
         destroyOnClose
         onCancel={() => setLogOpen(false)}
@@ -513,13 +502,12 @@ export default function KnowledgeDetail() {
         <Space direction="vertical" size={16} style={{ width: '100%' }}>
           <Space>
             <Typography.Text type="secondary">操作类型</Typography.Text>
-            <Select
-              allowClear
-              style={{ width: 180 }}
-              placeholder="全部类型"
-              value={logAction}
-              options={logActionOptions}
-              onChange={(value) => setLogAction(value)}
+            <Radio.Group
+              optionType="button"
+              buttonStyle="solid"
+              value={logAction || ''}
+              onChange={(event) => setLogAction(event.target.value || undefined)}
+              options={[{ label: '全部', value: '' }, ...logActionOptions]}
             />
           </Space>
           <AccessLogTable
@@ -529,23 +517,6 @@ export default function KnowledgeDetail() {
             fetcher={(params) => businessApi.knowledgeLogs(id, { ...params, action: logAction })}
           />
         </Space>
-      </Modal>
-      <Modal
-        title="更新记录"
-        open={updateRecordOpen}
-        width={920}
-        footer={null}
-        destroyOnClose
-        onCancel={() => setUpdateRecordOpen(false)}
-      >
-        <Table
-          rowKey="versionId"
-          columns={versionColumns}
-          dataSource={versions}
-          loading={versionLoading}
-          scroll={{ x: 820 }}
-          pagination={versionPagination}
-        />
       </Modal>
       <Modal
         title="历史版本"

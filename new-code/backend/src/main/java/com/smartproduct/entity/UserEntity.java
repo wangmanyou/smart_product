@@ -28,8 +28,6 @@ public class UserEntity {
     @TableField("update_at")
     private LocalDateTime updateAt;
     private Integer del;
-    @TableField("role_id")
-    private Long roleId;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -57,6 +55,4 @@ public class UserEntity {
     public void setUpdateAt(LocalDateTime updateAt) { this.updateAt = updateAt; }
     public Integer getDel() { return del; }
     public void setDel(Integer del) { this.del = del; }
-    public Long getRoleId() { return roleId; }
-    public void setRoleId(Long roleId) { this.roleId = roleId; }
 }

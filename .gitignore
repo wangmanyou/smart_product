@@ -1,42 +1,51 @@
 # Workspace-wide ignores for generated files and deployment artifacts.
 
+# Local browser/test profiles and generated release bundles
+.chrome-check-profile/
+release/
+_local-backup-before-origin-master-*/
+
+# Local runtime data. Keep source/config in git, keep databases/uploads out of git.
+deploy-data/
+dev-data/
+go-code/runtime-data/
+go-code/legacy-runtime-data/
+
 # Frontend dependencies and build outputs
-knowledge-hub-fe/node_modules/
-knowledge-hub-fe/dist/
-knowledge-hub-fe/.umi/
-knowledge-hub-fe/.umi-production/
-knowledge-hub-fe/.umi-test/
-knowledge-hub-fe/src/.umi/
-knowledge-hub-fe/src/.umi-production/
-knowledge-hub-fe/src/.umi-test/
-knowledge-hub-fe/.mfsu/
-knowledge-hub-modern-fe/node_modules/
-knowledge-hub-modern-fe/dist/
-knowledge-hub-modern-fe/.umi/
-knowledge-hub-modern-fe/.umi-production/
-knowledge-hub-modern-fe/.umi-test/
-knowledge-hub-modern-fe/src/.umi/
-knowledge-hub-modern-fe/src/.umi-production/
-knowledge-hub-modern-fe/src/.umi-test/
-knowledge-hub-modern-fe/.mfsu/
+go-code/frontend/node_modules/
+go-code/frontend/dist/
+go-code/frontend/.umi/
+go-code/frontend/.umi-production/
+go-code/frontend/.umi-test/
+go-code/frontend/src/.umi/
+go-code/frontend/src/.umi-production/
+go-code/frontend/src/.umi-test/
+go-code/frontend/.mfsu/
+new-code/frontend-app/node_modules/
+new-code/frontend-app/dist/
+new-code/frontend-app/.umi/
+new-code/frontend-app/.umi-production/
+new-code/frontend-app/.umi-test/
+new-code/frontend-app/src/.umi/
+new-code/frontend-app/src/.umi-production/
+new-code/frontend-app/src/.umi-test/
+new-code/frontend-app/.mfsu/
 
 # Backend build outputs and bundled deployment artifacts
-data-mannagement/data-mannagement/bin/
-data-mannagement/data-mannagement/bin.zip
-data-mannagement/data-mannagement/configs.zip
-data-mannagement/data-mannagement/deploy/data/
-data-mannagement/data-mannagement/deploy/log/
-data-mannagement/data-mannagement/deploy/*.tar
-data-mannagement/data-mannagement/*.tar
-data-mannagement/data-mannagement/*.tar.zip
+go-code/backend/bin/
+go-code/backend/bin.zip
+go-code/backend/configs.zip
+go-code/backend/.cache/
+go-code/backend/.test-output/
+go-code/backend/*.tar
+go-code/backend/*.tar.zip
+new-code/backend/target/
+new-code/backend/upload/
 
 # Common local files
 .DS_Store
 Thumbs.db
 __MACOSX/
-
-# Java build outputs
-knowledge-hub-backend-spring/target/
 
 # IDE files
 .idea/

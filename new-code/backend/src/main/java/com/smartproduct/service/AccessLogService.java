@@ -39,7 +39,7 @@ public class AccessLogService {
 
     public Map<String, Object> list(int pageNumber, int pageSize, String userAccount, String module,
                                     String action, String result, String bizType, Long bizId,
-                                    Long sceneTemplateId, List<String> searchTime) {
+                                    Long sceneTemplateId, List<String> searchTime, String order) {
         CurrentUser user = currentUsers.current();
         if (!user.hasPermission(PermissionCodes.SYSTEM_LOG_VIEW)) {
             throw new ApiException(HttpStatus.FORBIDDEN.value(), "没有查看访问日志的权限");
@@ -67,7 +67,7 @@ public class AccessLogService {
             query.eq("scene_template_id", sceneTemplateId);
         }
         applyTimeRange(query, searchTime);
-        query.orderByDesc("create_at").orderByDesc("id");
+        applyTimeOrder(query, order);
         Page<AccessLogEntity> page = logs.selectPage(Page.of(Math.max(pageNumber, 1), Math.max(pageSize, 1)), query);
         return Map.of(
                 "content", page.getRecords().stream().map(this::dto).toList(),
@@ -75,12 +75,12 @@ public class AccessLogService {
         );
     }
 
-    public Map<String, Object> myLoginLogs(int pageNumber, int pageSize) {
+    public Map<String, Object> myLoginLogs(int pageNumber, int pageSize, String order) {
         CurrentUser user = currentUsers.current();
-        return page(loginLogQuery(user.userId(), user.account()), pageNumber, pageSize);
+        return page(loginLogQuery(user.userId(), user.account()), pageNumber, pageSize, order);
     }
 
-    public Map<String, Object> userLoginLogs(Long userId, int pageNumber, int pageSize) {
+    public Map<String, Object> userLoginLogs(Long userId, int pageNumber, int pageSize, String order) {
         CurrentUser current = currentUsers.current();
         if (!current.hasPermission(PermissionCodes.SYSTEM_USER_MANAGE)) {
             throw new ApiException(HttpStatus.FORBIDDEN.value(), "没有查看用户登录记录的权限");
@@ -89,10 +89,11 @@ public class AccessLogService {
         if (user == null || user.getDel() != null && user.getDel() != 0) {
             throw new ApiException(HttpStatus.NOT_FOUND.value(), "用户不存在");
         }
-        return page(loginLogQuery(user.getId(), user.getAccount()), pageNumber, pageSize);
+        return page(loginLogQuery(user.getId(), user.getAccount()), pageNumber, pageSize, order);
     }
 
-    public Map<String, Object> knowledgeLogs(Long knowledgeId, Long visibleUserId, String action, int pageNumber, int pageSize) {
+    public Map<String, Object> knowledgeLogs(Long knowledgeId, Long visibleUserId, String action, int pageNumber,
+                                             int pageSize, String order) {
         QueryWrapper<AccessLogEntity> query = new QueryWrapper<AccessLogEntity>()
                 .eq("biz_type", "KNOWLEDGE")
                 .eq("biz_id", knowledgeId);
@@ -100,11 +101,11 @@ public class AccessLogService {
         if (visibleUserId != null) {
             query.eq("user_id", visibleUserId);
         }
-        return page(query, pageNumber, pageSize);
+        return page(query, pageNumber, pageSize, order);
     }
 
     public Map<String, Object> sceneKnowledgeLogs(Long sceneTemplateId, Long visibleUserId, String action,
-                                                  int pageNumber, int pageSize) {
+                                                  int pageNumber, int pageSize, String order) {
         QueryWrapper<AccessLogEntity> query = new QueryWrapper<AccessLogEntity>()
                 .eq("module", "知识库")
                 .eq("scene_template_id", sceneTemplateId);
@@ -114,14 +115,14 @@ public class AccessLogService {
         if (visibleUserId != null) {
             query.eq("user_id", visibleUserId);
         }
-        return page(query, pageNumber, pageSize);
+        return page(query, pageNumber, pageSize, order);
     }
 
-    public Map<String, Object> sceneLogs(String action, int pageNumber, int pageSize) {
+    public Map<String, Object> sceneLogs(String action, int pageNumber, int pageSize, String order) {
         QueryWrapper<AccessLogEntity> query = new QueryWrapper<AccessLogEntity>()
                 .eq("module", "场景管理");
         applySceneActionFilter(query, action);
-        return page(query, pageNumber, pageSize);
+        return page(query, pageNumber, pageSize, order);
     }
 
     public void success(String module, String action, String bizType, Long bizId, Long sceneTemplateId, String description) {
@@ -268,8 +269,8 @@ public class AccessLogService {
         query.in("action", effectiveActions);
     }
 
-    private Map<String, Object> page(QueryWrapper<AccessLogEntity> query, int pageNumber, int pageSize) {
-        query.orderByDesc("create_at").orderByDesc("id");
+    private Map<String, Object> page(QueryWrapper<AccessLogEntity> query, int pageNumber, int pageSize, String order) {
+        applyTimeOrder(query, order);
         Page<AccessLogEntity> page = logs.selectPage(Page.of(Math.max(pageNumber, 1), Math.max(pageSize, 1)), query);
         return Map.of(
                 "content", page.getRecords().stream().map(this::dto).toList(),
@@ -287,6 +288,14 @@ public class AccessLogService {
         if (searchTime.size() > 1 && !DictService.str(searchTime.get(1)).isBlank()) {
             query.le("create_at", searchTime.get(1));
         }
+    }
+
+    private static void applyTimeOrder(QueryWrapper<AccessLogEntity> query, String order) {
+        if ("asc".equalsIgnoreCase(order)) {
+            query.orderByAsc("create_at").orderByAsc("id");
+            return;
+        }
+        query.orderByDesc("create_at").orderByDesc("id");
     }
 
     private static HttpServletRequest currentRequest() {

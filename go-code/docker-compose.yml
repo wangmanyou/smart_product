@@ -1,0 +1,67 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: smart-product-go-mysql
+    restart: unless-stopped
+    environment:
+      LANG: C.UTF-8
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: knowledge
+    volumes:
+      - ./runtime-data/mysql:/var/lib/mysql
+      - ./deploy/mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+      - ./backend/configs/db:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "13307:3306"
+    command: mysqld
+    networks:
+      - smart-product-go-net
+
+  redis:
+    image: redis:6.2
+    container_name: smart-product-go-redis
+    restart: unless-stopped
+    volumes:
+      - ./deploy/redis/redis.conf:/usr/local/redis/conf/redis.conf:ro
+      - ./runtime-data/redis:/data
+    command: ["redis-server", "/usr/local/redis/conf/redis.conf", "--appendonly", "yes"]
+    ports:
+      - "16380:6379"
+    networks:
+      - smart-product-go-net
+
+  go-server:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: smart-product-go-server:v1.0
+    container_name: smart-product-go-server
+    restart: unless-stopped
+    volumes:
+      - ./backend/configs:/data/conf:ro
+      - ./runtime-data/files:/data/files
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - smart-product-go-net
+
+  go-web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: smart-product-go-web:v1.0
+    container_name: smart-product-go-web
+    restart: unless-stopped
+    environment:
+      PROXY_PASS: http://go-server:8000
+    ports:
+      - "8002:8080"
+    depends_on:
+      - go-server
+    networks:
+      - smart-product-go-net
+
+networks:
+  smart-product-go-net:
+    name: smart-product-go-net

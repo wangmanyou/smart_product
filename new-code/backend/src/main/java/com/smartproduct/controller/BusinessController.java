@@ -50,8 +50,9 @@ public class BusinessController {
     public Map<String, Object> knowledgeLogs(@RequestParam("knowledgeId") Long knowledgeId,
                                              @RequestParam(required = false) String action,
                                              @RequestParam(defaultValue = "1") int pageNumber,
-                                             @RequestParam(defaultValue = "10") int pageSize) {
-        return service.knowledgeLogs(knowledgeId, action, pageNumber, pageSize);
+                                             @RequestParam(defaultValue = "10") int pageSize,
+                                             @RequestParam(defaultValue = "desc") String order) {
+        return service.knowledgeLogs(knowledgeId, action, pageNumber, pageSize, order);
     }
 
     @GetMapping("/v1/data/business/knowledge/version/list")
@@ -73,8 +74,9 @@ public class BusinessController {
     public Map<String, Object> sceneKnowledgeLogs(@RequestParam("sceneTemplateId") Long sceneTemplateId,
                                                   @RequestParam(required = false) String action,
                                                   @RequestParam(defaultValue = "1") int pageNumber,
-                                                  @RequestParam(defaultValue = "10") int pageSize) {
-        return service.sceneKnowledgeLogs(sceneTemplateId, action, pageNumber, pageSize);
+                                                  @RequestParam(defaultValue = "10") int pageSize,
+                                                  @RequestParam(defaultValue = "desc") String order) {
+        return service.sceneKnowledgeLogs(sceneTemplateId, action, pageNumber, pageSize, order);
     }
 
     @PostMapping("/v1/data/business/knowledge/edit")

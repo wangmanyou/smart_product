@@ -68,7 +68,6 @@ public class RoleService {
         RoleEntity role = new RoleEntity();
         role.name = str(request.get("roleName"));
         role.remark = str(request.get("roleRemark"));
-        role.settingJson = settingJson(request.get("setting"));
         role.isDisabled = false;
         role.isBuiltin = false;
         role.isUsed = false;
@@ -79,18 +78,19 @@ public class RoleService {
     }
 
     public void edit(Map<String, Object> request) {
+        requireEditableRole(num(request.get("roleId")));
         roles.update(new UpdateWrapper<RoleEntity>()
                 .eq("id", num(request.get("roleId")))
                 .eq("del", 0)
                 .set("name", str(request.get("roleName")))
-                .set("remark", str(request.get("roleRemark")))
-                .set(request.containsKey("setting"), "setting_json", settingJson(request.get("setting"))));
+                .set("remark", str(request.get("roleRemark"))));
         if (request.containsKey("setting")) {
             roleSettings.save(num(request.get("roleId")), request.get("setting"));
         }
     }
 
     public void editStatus(Map<String, Object> request) {
+        requireEditableRole(num(request.get("roleId")));
         roles.update(new UpdateWrapper<RoleEntity>()
                 .eq("id", num(request.get("roleId")))
                 .set("is_disabled", bool(request.get("isDisabled"))));
@@ -160,20 +160,6 @@ public class RoleService {
         return value instanceof Boolean b ? b : Boolean.parseBoolean(String.valueOf(value));
     }
 
-    private static String settingJson(Object value) {
-        if (value == null) {
-            return "{}";
-        }
-        if (value instanceof String text) {
-            return text.isBlank() ? "{}" : text;
-        }
-        try {
-            return new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(value);
-        } catch (Exception ex) {
-            return "{}";
-        }
-    }
-
     private boolean isReferencedByUser(Long roleId) {
         if (roleId == null) {
             return false;
@@ -181,11 +167,23 @@ public class RoleService {
         Long count = jdbc.queryForObject("""
                 select count(distinct u.id)
                 from `user` u
-                left join user_role ur on ur.user_id = u.id
+                join user_role ur on ur.user_id = u.id
                 where u.del = 0
-                    and (u.role_id = ? or ur.role_id = ?)
-                """, Long.class, roleId, roleId);
+                    and ur.role_id = ?
+                """, Long.class, roleId);
         return count != null && count > 0;
+    }
+
+    private void requireEditableRole(Long roleId) {
+        RoleEntity role = roles.selectOne(new QueryWrapper<RoleEntity>()
+                .eq("id", roleId)
+                .eq("del", 0));
+        if (role == null) {
+            throw new ApiException(HttpStatus.NOT_FOUND.value(), "Role not found");
+        }
+        if (Boolean.TRUE.equals(role.isBuiltin)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST.value(), "Built-in role cannot be modified");
+        }
     }
 
 }

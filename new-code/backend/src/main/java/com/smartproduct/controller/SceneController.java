@@ -39,8 +39,9 @@ public class SceneController {
     @PreAuthorize("hasAuthority('system:scene:manage')")
     public Map<String, Object> logs(@RequestParam(required = false) String action,
                                     @RequestParam(defaultValue = "1") int pageNumber,
-                                    @RequestParam(defaultValue = "10") int pageSize) {
-        return service.logs(action, pageNumber, pageSize);
+                                    @RequestParam(defaultValue = "10") int pageSize,
+                                    @RequestParam(defaultValue = "desc") String order) {
+        return service.logs(action, pageNumber, pageSize, order);
     }
 
     @PostMapping("/v1/data/scene/create")
