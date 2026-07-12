@@ -271,7 +271,8 @@ public class BusinessService {
         return detailDto(row, values);
     }
 
-    public Map<String, Object> knowledgeLogs(Long knowledgeId, String action, int pageNumber, int pageSize, String order) {
+    public Map<String, Object> knowledgeLogs(Long knowledgeId, String action, Long operatorId,
+                                             int pageNumber, int pageSize, String order) {
         KnowledgeEntity row = knowledge.selectById(knowledgeId);
         CurrentUser user = currentUsers.current();
         requireKnowledge(row);
@@ -279,7 +280,18 @@ public class BusinessService {
         Long visibleUserId = user.hasScenePermission(PermissionCodes.KNOWLEDGE_LOG_VIEW_ALL, row.sceneTemplateId)
                 ? null
                 : user.userId();
-        return accessLogs.knowledgeLogs(knowledgeId, visibleUserId, action, pageNumber, pageSize, order);
+        return accessLogs.knowledgeLogs(knowledgeId, visibleUserId, operatorId, action, pageNumber, pageSize, order);
+    }
+
+    public List<Map<String, Object>> knowledgeLogOperators(Long knowledgeId) {
+        KnowledgeEntity row = knowledge.selectById(knowledgeId);
+        CurrentUser user = currentUsers.current();
+        requireKnowledge(row);
+        requireSceneAccess(user, row.sceneTemplateId);
+        Long visibleUserId = user.hasScenePermission(PermissionCodes.KNOWLEDGE_LOG_VIEW_ALL, row.sceneTemplateId)
+                ? null
+                : user.userId();
+        return accessLogs.knowledgeLogOperators(knowledgeId, visibleUserId);
     }
 
     public Map<String, Object> knowledgeVersions(Long knowledgeId, int pageNumber, int pageSize) {
@@ -290,13 +302,23 @@ public class BusinessService {
         return knowledgeVersions.detail(versionId);
     }
 
-    public Map<String, Object> sceneKnowledgeLogs(Long sceneTemplateId, String action, int pageNumber, int pageSize, String order) {
+    public Map<String, Object> sceneKnowledgeLogs(Long sceneTemplateId, String action, Long operatorId,
+                                                  int pageNumber, int pageSize, String order) {
         CurrentUser user = currentUsers.current();
         requireSceneAccess(user, sceneTemplateId);
         Long visibleUserId = user.hasScenePermission(PermissionCodes.KNOWLEDGE_LOG_VIEW_ALL, sceneTemplateId)
                 ? null
                 : user.userId();
-        return accessLogs.sceneKnowledgeLogs(sceneTemplateId, visibleUserId, action, pageNumber, pageSize, order);
+        return accessLogs.sceneKnowledgeLogs(sceneTemplateId, visibleUserId, operatorId, action, pageNumber, pageSize, order);
+    }
+
+    public List<Map<String, Object>> sceneKnowledgeLogOperators(Long sceneTemplateId) {
+        CurrentUser user = currentUsers.current();
+        requireSceneAccess(user, sceneTemplateId);
+        Long visibleUserId = user.hasScenePermission(PermissionCodes.KNOWLEDGE_LOG_VIEW_ALL, sceneTemplateId)
+                ? null
+                : user.userId();
+        return accessLogs.sceneKnowledgeLogOperators(sceneTemplateId, visibleUserId);
     }
 
     public Map<String, Object> list(Map<String, Object> request) {
@@ -561,7 +583,7 @@ public class BusinessService {
                         }
                         item.put("sceneItemValue", List.of());
                         item.put("sceneItemSelectDictTreeIds", directoryValue.jsonValue());
-                    } else if ("text".equals(sceneItem.type) || "richtext".equals(sceneItem.type)) {
+                    } else if ("title".equals(sceneItem.type) || "text".equals(sceneItem.type) || "richtext".equals(sceneItem.type)) {
                         item.put("sceneItemValue", value.isEmpty() ? List.of() : List.of(value));
                     } else if ("tag".equals(sceneItem.type)) {
                         item.put("sceneItemValue", splitTagValue(value));
@@ -695,6 +717,9 @@ public class BusinessService {
             }
             SceneItemEntity sceneItem = sceneItems.selectById(sceneItemId);
             Object sceneItemValue = normalizeSceneItemValue(sceneItem, map.get("sceneItemValue"));
+            if (sceneItem != null && "title".equals(sceneItem.type) && touched.contains(sceneItemId)) {
+                throw new ApiException(HttpStatus.BAD_REQUEST.value(), "标题字段只能提交一个值");
+            }
             validateMediaFiles(sceneItem, sceneItemValue);
             Object dictIds = map.get("sceneItemSelectDictTreeIds");
             if (dictIds == null) {
@@ -767,12 +792,18 @@ public class BusinessService {
         if (!(value instanceof List<?> list)) {
             return;
         }
+        Set<Long> titleFields = new HashSet<>();
         for (Object one : list) {
             if (!(one instanceof Map<?, ?> map) || map.get("sceneItemId") == null) {
                 continue;
             }
-            SceneItemEntity sceneItem = sceneItems.selectById(DictService.num(map.get("sceneItemId")));
-            validateMediaFiles(sceneItem, normalizeSceneItemValue(sceneItem, map.get("sceneItemValue")));
+            Long sceneItemId = DictService.num(map.get("sceneItemId"));
+            SceneItemEntity sceneItem = sceneItems.selectById(sceneItemId);
+            Object normalizedValue = normalizeSceneItemValue(sceneItem, map.get("sceneItemValue"));
+            if (sceneItem != null && "title".equals(sceneItem.type) && !titleFields.add(sceneItemId)) {
+                throw new ApiException(HttpStatus.BAD_REQUEST.value(), "标题字段只能提交一个值");
+            }
+            validateMediaFiles(sceneItem, normalizedValue);
             Object dictIds = map.get("sceneItemSelectDictTreeIds");
             if (dictIds == null) {
                 dictIds = map.get("sceneItemSelectDictIds");
@@ -833,6 +864,9 @@ public class BusinessService {
         if (sceneItem == null || sceneItem.type == null) {
             return value;
         }
+        if ("title".equals(sceneItem.type)) {
+            return normalizeTitleValue(value);
+        }
         if ("tag".equals(sceneItem.type)) {
             return normalizeTagValue(value);
         }
@@ -840,6 +874,25 @@ public class BusinessService {
             return normalizeRichTextValue(value);
         }
         return value;
+    }
+
+    private static List<String> normalizeTitleValue(Object value) {
+        if (value == null) {
+            return List.of();
+        }
+        List<?> values = value instanceof List<?> list ? list : List.of(value);
+        List<String> normalized = values.stream()
+                .map(DictService::str)
+                .map(text -> Jsoup.parse(text).text().trim())
+                .filter(text -> !text.isBlank())
+                .toList();
+        if (normalized.size() > 1) {
+            throw new ApiException(HttpStatus.BAD_REQUEST.value(), "标题字段只能填写一个值");
+        }
+        if (!normalized.isEmpty() && normalized.get(0).length() > 120) {
+            throw new ApiException(HttpStatus.BAD_REQUEST.value(), "知识标题不能超过120个字符");
+        }
+        return normalized;
     }
 
     private static List<String> normalizeTagValue(Object value) {
@@ -963,7 +1016,7 @@ public class BusinessService {
             dto.put("sceneItemId", value.sceneItemId);
             dto.put("sceneItemType", type);
             dto.put("sceneItemValue", switch (type) {
-                case "text", "richtext" -> textValue(value.sceneItemValue);
+                case "title", "text", "richtext" -> textValue(value.sceneItemValue);
                 case "tag" -> splitTagValue(value.sceneItemValue);
                 default -> splitValue(value.sceneItemValue);
             });
@@ -1035,7 +1088,7 @@ public class BusinessService {
     private List<SceneItemEntity> exportableTemplateHeaders(Long sceneTemplateId, boolean includeDirectory) {
         return visibleSceneItems(sceneTemplateId).stream()
                 .filter(item -> includeDirectory || !"dict".equals(item.type))
-                .filter(item -> List.of("text", "integer", "decimal", "datetime", "tag", "richtext").contains(item.type)
+                .filter(item -> List.of("title", "text", "integer", "decimal", "datetime", "tag", "richtext").contains(item.type)
                         || includeDirectory && "dict".equals(item.type))
                 .filter(item -> !"dict".equals(item.type) || item.dictTemplateId != null)
                 .toList();
@@ -1251,6 +1304,7 @@ public class BusinessService {
             case "integer" -> 1;
             case "decimal" -> 1.1;
             case "datetime" -> "2025-01-02";
+            case "title" -> "知识标题";
             case "richtext" -> "<p>example-text</p>";
             case "tag" -> "安全,操作规范、设备维护";
             default -> "example-text";

@@ -11,6 +11,7 @@ import PageHeader from '@/components/PageHeader';
 import { authApi, businessApi, fileApi } from '@/services/api';
 import {
   buildKnowledgePayload,
+  buildWorkTabLabel,
   closeWorkTab,
   dictNodes,
   findKnowledgeItem,
@@ -170,8 +171,38 @@ function RichTextEditor({ value, onChange, placeholder }: RichTextEditorProps) {
     modalAppendToBody: true,
   }), []);
 
-  useEffect(() => () => {
-    editor?.destroy();
+  useEffect(() => {
+    if (!editor) return undefined;
+
+    const syncFullscreenButton = () => {
+      const container = editor.getEditableContainer().closest('.rich-text-editor');
+      const fullscreenButton = container?.querySelector<HTMLButtonElement>('[data-menu-key="fullScreen"]');
+      if (!fullscreenButton) return;
+      const label = editor.isFullScreen ? '退出全屏（Esc）' : '全屏编辑';
+      fullscreenButton.setAttribute('aria-label', label);
+      fullscreenButton.setAttribute('aria-pressed', String(editor.isFullScreen));
+      fullscreenButton.setAttribute('data-tooltip', label);
+    };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || !editor.isFullScreen) return;
+      event.preventDefault();
+      event.stopPropagation();
+      editor.hidePanelOrModal();
+      editor.unFullScreen();
+    };
+
+    const frame = window.requestAnimationFrame(syncFullscreenButton);
+    editor.on('fullScreen', syncFullscreenButton);
+    editor.on('unFullScreen', syncFullscreenButton);
+    window.addEventListener('keydown', handleEscape);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      editor.off('fullScreen', syncFullscreenButton);
+      editor.off('unFullScreen', syncFullscreenButton);
+      window.removeEventListener('keydown', handleEscape);
+      editor.destroy();
+    };
   }, [editor]);
 
   return (
@@ -323,11 +354,15 @@ export default function KnowledgeForm() {
       let hasDefaultDirectory = false;
       let defaultDictItem: any;
 
+      if (!id) {
+        setWorkTabLabel(location.pathname, buildWorkTabLabel('knowledge-create', scene.scene.sceneName));
+      }
+
       if (id) {
         const knowledge = await businessApi.knowledgeDetail(id);
         setKnowledge(knowledge || {});
         const title = knowledgeDisplayTitle(knowledge || {}, scene.sceneItems, scene.dictDetails);
-        setWorkTabLabel(location.pathname, `${title}知识编辑`);
+        setWorkTabLabel(location.pathname, buildWorkTabLabel('knowledge-edit', title));
 
         visibleItems.forEach((item: any) => {
           const value = findKnowledgeItem(knowledge, item.id);
@@ -403,7 +438,7 @@ export default function KnowledgeForm() {
       history.push({
         pathname: `/knowledge/scene/${sceneId}`,
         state: {
-          tabLabel: formatted.scene.sceneName || '知识列表',
+          tabLabel: buildWorkTabLabel('knowledge-list', formatted.scene.sceneName),
           replacePath: location.pathname,
         },
       });
@@ -414,7 +449,10 @@ export default function KnowledgeForm() {
       history.replace({
         pathname: `/knowledge/scene/${sceneId}/detail/${id}`,
         state: {
-          tabLabel: `知识 ${id}`,
+          tabLabel: buildWorkTabLabel(
+            'knowledge-detail',
+            String(values[editableSceneItems.find((item: any) => item.type === 'title')?.id] || knowledgeDisplayTitle(knowledge, formatted.sceneItems, formatted.dictDetails)).trim(),
+          ),
           replacePath: location.pathname,
         },
       });
@@ -514,6 +552,23 @@ export default function KnowledgeForm() {
       );
     }
 
+    if (item.type === 'title') {
+      return (
+        <Form.Item
+          key={item.id}
+          name={item.id}
+          label={item.sceneItemName}
+          className="knowledge-form-field knowledge-title-field is-wide"
+          rules={[
+            { required: item.isRequired, message: `请输入${item.sceneItemName}` },
+            { max: 120, message: '知识标题不能超过120个字符' },
+          ]}
+        >
+          <Input maxLength={120} showCount placeholder={`请输入${item.sceneItemName}`} />
+        </Form.Item>
+      );
+    }
+
     if (item.type === 'tag') {
       return (
         <Form.Item key={item.id} name={item.id} label={item.sceneItemName} className="knowledge-form-field" rules={[{ required: item.isRequired }]}>
@@ -552,7 +607,7 @@ export default function KnowledgeForm() {
       title={isCreate ? '新增知识' : '编辑知识'}
       breadcrumb={`知识中心 / ${formatted.scene.sceneName || ''} / ${isCreate ? '新增知识' : '编辑知识'}`}
       extra={[
-        <Button key="back" onClick={() => runAfterUnsavedConfirm(location.pathname, () => history.push({ pathname: `/knowledge/scene/${sceneId}`, state: { tabLabel: formatted.scene.sceneName || '知识列表' } }))}>返回列表</Button>,
+        <Button key="back" onClick={() => runAfterUnsavedConfirm(location.pathname, () => history.push({ pathname: `/knowledge/scene/${sceneId}`, state: { tabLabel: buildWorkTabLabel('knowledge-list', formatted.scene.sceneName) } }))}>返回列表</Button>,
         canSave ? <Button key="save" type="primary" icon={<SaveOutlined />} disabled={!isCreate && knowledge?.hasPendingChange} onClick={() => form.submit()}>保存</Button> : null,
       ].filter(Boolean)}
     >

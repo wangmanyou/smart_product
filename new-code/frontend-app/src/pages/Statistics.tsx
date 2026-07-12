@@ -1,12 +1,10 @@
 import {
   AuditOutlined,
   BookOutlined,
-  CheckCircleOutlined,
   EyeOutlined,
   FileAddOutlined,
   ReloadOutlined,
   TeamOutlined,
-  WarningOutlined,
 } from '@ant-design/icons';
 import { history } from '@umijs/max';
 import ReactECharts from 'echarts-for-react';
@@ -27,6 +25,7 @@ import dayjs, { Dayjs } from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import { businessApi } from '@/services/api';
+import { buildWorkTabLabel } from '@/utils/data';
 import './Statistics.less';
 
 const { RangePicker } = DatePicker;
@@ -451,7 +450,7 @@ export default function Statistics() {
           onClick={() =>
             history.push({
               pathname: '/knowledge/scene/' + record.sceneTemplateId + '/detail/' + record.knowledgeId,
-              state: { tabLabel: text || '知识 #' + record.knowledgeId },
+              state: { tabLabel: buildWorkTabLabel('knowledge-detail', text || '知识 #' + record.knowledgeId) },
             })
           }
         >
@@ -501,7 +500,7 @@ export default function Statistics() {
           onClick={() =>
             history.push({
               pathname: '/knowledge/scene/' + record.sceneTemplateId,
-              state: { tabLabel: text || '知识列表' },
+              state: { tabLabel: buildWorkTabLabel('knowledge-list', text) },
             })
           }
         >
@@ -609,9 +608,6 @@ export default function Statistics() {
               重置
             </Button>
           </div>
-          <Tooltip title="期间访问量仅统计 access_log 中 VIEW 且 SUCCESS 的知识查看记录。">
-            <span className="dashboard-v2-caliber">统计口径：成功知识访问</span>
-          </Tooltip>
         </section>
 
         <section className="dashboard-v2-kpis">
@@ -706,18 +702,6 @@ export default function Statistics() {
               </div>
             )}
 
-            <div className={'dashboard-v2-risk ' + (overview.riskSummary.hasRisk ? 'is-warning' : 'is-clear')}>
-              {overview.riskSummary.hasRisk ? <WarningOutlined /> : <CheckCircleOutlined />}
-              <span>
-                {overview.riskSummary.hasRisk
-                  ? '本周期失败操作 ' +
-                    numberFormatter.format(numberValue(overview.riskSummary.failedOperationCount)) +
-                    ' 次，超时审批 ' +
-                    numberFormatter.format(numberValue(overview.riskSummary.overdueApprovalCount)) +
-                    ' 项'
-                  : '本周期未发现失败操作或超时审批'}
-              </span>
-            </div>
           </Card>
         </section>
 

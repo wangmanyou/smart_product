@@ -206,6 +206,16 @@ export const sceneApi = {
   create: (data: any) => post('/v1/data/scene/create', data),
   copy: (data: any) => post('/v1/data/scene/copy', data),
   edit: (data: any) => post('/v1/data/scene/edit', data),
+  requiredEligibility: (sceneItemId: number | string) =>
+    apiRequest('/v1/data/scene/item/required-eligibility', {
+      method: 'GET',
+      params: { sceneItemId },
+    }),
+  typeMigrationPreview: (sceneItemId: number | string, targetType: string) =>
+    apiRequest('/v1/data/scene/item/type-migration-preview', {
+      method: 'GET',
+      params: { sceneItemId, targetType },
+    }),
   deleteItem: (sceneItemId: number | string) =>
     apiRequest('/v1/data/scene/item/delete', {
       method: 'DELETE',
@@ -256,6 +266,11 @@ export const businessApi = {
       method: 'GET',
       params: { knowledgeId, pageNumber: 1, pageSize: 10, ...params },
     }),
+  knowledgeLogOperators: (knowledgeId: number | string) =>
+    apiRequest('/v1/data/business/knowledge/log/operator/list', {
+      method: 'GET',
+      params: { knowledgeId },
+    }),
   knowledgeVersions: (knowledgeId: number | string, params?: any) =>
     apiRequest('/v1/data/business/knowledge/version/list', {
       method: 'GET',
@@ -270,6 +285,11 @@ export const businessApi = {
     apiRequest('/v1/data/business/scene/knowledge-log/list', {
       method: 'GET',
       params: { sceneTemplateId, pageNumber: 1, pageSize: 10, ...params },
+    }),
+  sceneKnowledgeLogOperators: (sceneTemplateId: number | string) =>
+    apiRequest('/v1/data/business/scene/knowledge-log/operator/list', {
+      method: 'GET',
+      params: { sceneTemplateId },
     }),
   addKnowledge: (data: any) => post('/v1/data/business/knowledge/add', data),
   editKnowledge: (data: any) => post('/v1/data/business/knowledge/edit', data),

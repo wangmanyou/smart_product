@@ -11,12 +11,13 @@
   VideoCameraOutlined,
 } from '@ant-design/icons';
 import { history, useLocation, useParams } from '@umijs/max';
-import { Button, Card, Descriptions, Image, Modal, Popconfirm, Radio, Space, Table, Tag, Tooltip, Typography, message } from 'antd';
+import { Button, Card, Descriptions, Image, Modal, Popconfirm, Radio, Select, Space, Table, Tag, Tooltip, Typography, message } from 'antd';
 import { useEffect, useState } from 'react';
 import AccessLogTable from '@/components/AccessLogTable';
 import PageHeader from '@/components/PageHeader';
 import { authApi, businessApi } from '@/services/api';
 import {
+  buildWorkTabLabel,
   closeWorkTab,
   displayKnowledgeValue,
   findKnowledgeItem,
@@ -185,6 +186,21 @@ function renderDetailValue(item: DetailItem) {
   return <Typography.Paragraph className="knowledge-text-value">{item.value || '--'}</Typography.Paragraph>;
 }
 
+function detailPlainText(item: DetailItem) {
+  if (item.type === 'richtext') {
+    return stripHtml((item.raw?.sceneItemValue || []).join('')).trim();
+  }
+  if (item.type === 'tag') {
+    return (item.raw?.sceneItemValue || []).filter(Boolean).join('，').trim();
+  }
+  return stripHtml(String(item.value === '--' ? '' : item.value || '')).trim();
+}
+
+function hasDetailValue(item: DetailItem) {
+  if (mediaTypes.includes(item.type || '')) return normalizeFiles(item.raw).length > 0;
+  return Boolean(detailPlainText(item));
+}
+
 function renderResourceIcon(type?: string) {
   if (type === 'picture') return <PictureOutlined />;
   if (type === 'video') return <VideoCameraOutlined />;
@@ -210,6 +226,10 @@ function versionSnapshotFields(snapshot: any): DetailItem[] {
 }
 
 function snapshotOfVersion(versionDetail: any) {
+  if (versionDetail?.operationType === 'UPDATE') {
+    const beforeFields = versionSnapshotFields(versionDetail?.beforeSnapshot);
+    if (beforeFields.length) return versionDetail.beforeSnapshot;
+  }
   const afterFields = versionSnapshotFields(versionDetail?.afterSnapshot);
   if (afterFields.length) return versionDetail.afterSnapshot;
   return versionDetail?.beforeSnapshot || {};
@@ -248,6 +268,9 @@ export default function KnowledgeDetail() {
   const [knowledge, setKnowledge] = useState<any>({});
   const [logOpen, setLogOpen] = useState(false);
   const [logAction, setLogAction] = useState<string | undefined>();
+  const [logOperatorId, setLogOperatorId] = useState<number | undefined>();
+  const [logOperatorOptions, setLogOperatorOptions] = useState<{ label: string; value: number }[]>([]);
+  const [logOperatorLoading, setLogOperatorLoading] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [versions, setVersions] = useState<any[]>([]);
   const [versionTotal, setVersionTotal] = useState(0);
@@ -277,25 +300,43 @@ export default function KnowledgeDetail() {
         value: item.sceneItemValue?.length ? item.sceneItemValue.join('，') : (item.sceneItemSelectDictTreeIds || '--'),
         raw: item,
       }));
-  const visibleItems = detailItems;
-  const dictItems = visibleItems.filter((item: DetailItem) => item.type === 'dict');
-  const mediaItems = visibleItems.filter((item: DetailItem) => mediaTypes.includes(item.type || ''));
-  const normalItems = visibleItems.filter((item: DetailItem) => item.type !== 'dict' && !mediaTypes.includes(item.type || ''));
-  const titleItem = normalItems.find((item) => /主题|标题|名称|title|name/i.test(item.name || ''));
-  const articleTitle = titleItem?.value && titleItem.value !== '--' ? titleItem.value : knowledgeTitle || '知识详情';
-  const articleItems = normalItems.filter((item) => item.key !== titleItem?.key);
+  const visibleItems = detailItems.filter(hasDetailValue);
+  const textItems = visibleItems.filter((item: DetailItem) => item.type === 'text');
+  const titleItem =
+    visibleItems.find((item: DetailItem) => item.type === 'title') ||
+    textItems.find((item: DetailItem) => /标题|主题|名称|问题|知识|title|name/i.test(item.name || '')) ||
+    textItems.find((item: DetailItem) => detailPlainText(item).length <= 120);
+  const articleTitle = titleItem ? detailPlainText(titleItem) : knowledgeTitle || '知识详情';
+  const contentItems = visibleItems.filter((item: DetailItem) => item.key !== titleItem?.key);
+  const dictItems = contentItems.filter((item: DetailItem) => item.type === 'dict');
+  const tagItems = contentItems.filter((item: DetailItem) => item.type === 'tag');
+  const richTextItems = contentItems.filter((item: DetailItem) => item.type === 'richtext');
+  const mediaItems = contentItems.filter((item: DetailItem) => mediaTypes.includes(item.type || ''));
+  const longTextItems = contentItems.filter((item: DetailItem) =>
+    item.type === 'text' && (detailPlainText(item).length > 120 || /\r?\n/.test(String(item.value || ''))),
+  );
+  const longTextKeys = new Set(longTextItems.map((item: DetailItem) => item.key));
+  const compactItems = contentItems.filter((item: DetailItem) =>
+    item.type !== 'dict' &&
+    item.type !== 'tag' &&
+    item.type !== 'richtext' &&
+    !mediaTypes.includes(item.type || '') &&
+    !longTextKeys.has(item.key),
+  );
+  const hasArticleBody = richTextItems.length || longTextItems.length || compactItems.length || mediaItems.length;
   const currentUser = authApi.getCurrentUser();
   const isAdmin = Boolean(currentUser?.isBuiltin || currentUser?.setting?.admin || currentUser?.roleIds?.includes?.(1));
   const operationPermissions = new Set(currentUser?.setting?.operationPermissions || currentUser?.operationPermissions || []);
   const canUpdate = isAdmin || operationPermissions.has('knowledge:update');
   const canDelete = isAdmin || operationPermissions.has('knowledge:delete');
+  const canViewLogs = isAdmin || operationPermissions.has('knowledge:log:view-all');
   const canViewVersions = isAdmin || operationPermissions.has('knowledge:version:view');
   const hasPendingChange = Boolean(knowledge?.hasPendingChange);
   const backToList = () => {
     closeWorkTab(location.pathname);
     history.push({
       pathname: `/knowledge/scene/${sceneId}`,
-      state: { tabLabel: `${sceneName}知识列表` },
+      state: { tabLabel: buildWorkTabLabel('knowledge-list', sceneName) },
     });
   };
 
@@ -312,7 +353,7 @@ export default function KnowledgeDetail() {
         setKnowledge(knowledgeRes || {});
         const formattedScene = formatBusinessDetail(sceneRes);
         const title = knowledgeDisplayTitle(knowledgeRes || {}, formattedScene.sceneItems, formattedScene.dictDetails);
-        setWorkTabLabel(location.pathname, `${title}知识详情`);
+        setWorkTabLabel(location.pathname, buildWorkTabLabel('knowledge-detail', title));
       })
       .finally(() => {
         if (mounted) setLoading(false);
@@ -326,6 +367,25 @@ export default function KnowledgeDetail() {
     await businessApi.deleteKnowledge(id);
     message.success('已删除');
     backToList();
+  };
+
+  const openOperationLogs = async () => {
+    setLogOpen(true);
+    setLogOperatorLoading(true);
+    try {
+      const res = await businessApi.knowledgeLogOperators(id);
+      const options = (Array.isArray(res) ? res : [])
+        .filter((item: any) => item?.operatorId)
+        .map((item: any) => ({
+          value: Number(item.operatorId),
+          label: item.operatorName || '未识别',
+        }));
+      setLogOperatorOptions(options);
+    } catch {
+      setLogOperatorOptions([]);
+    } finally {
+      setLogOperatorLoading(false);
+    }
   };
 
   const loadVersions = async (nextPage = versionPage, nextPageSize = versionPageSize) => {
@@ -409,7 +469,7 @@ export default function KnowledgeDetail() {
           onClick={() => history.push({
             pathname: `/knowledge/scene/${sceneId}/edit/${id}`,
             state: {
-              tabLabel: `${knowledgeTitle}知识编辑`,
+              tabLabel: buildWorkTabLabel('knowledge-edit', knowledgeTitle),
               replacePath: location.pathname,
             },
           })}
@@ -422,14 +482,24 @@ export default function KnowledgeDetail() {
       ].filter(Boolean)}
     >
       <div className="knowledge-detail-layout knowledge-detail-redesign">
-        <div className="knowledge-detail-main">
+        <main className="knowledge-detail-main">
           <Card className="knowledge-article-card" loading={loading}>
             <article>
               <header className="knowledge-article-header">
                 <div className="knowledge-article-kicker">{sceneName}</div>
                 <Typography.Title level={2}>{articleTitle}</Typography.Title>
+                {tagItems.length ? (
+                  <div className="knowledge-header-tags">
+                    {tagItems.map((item: DetailItem) => (
+                      <div className="knowledge-header-tag-group" key={item.key}>
+                        {tagItems.length > 1 ? <span>{item.name}</span> : null}
+                        {renderTags(item.raw)}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
                 {dictItems.length ? (
-                  <div className="knowledge-taxonomy-row">
+                  <div className="knowledge-article-meta">
                     {dictItems.map((item: DetailItem) => (
                       <span className="knowledge-directory-pill" key={item.key}>{item.name}：{item.value}</span>
                     ))}
@@ -437,57 +507,77 @@ export default function KnowledgeDetail() {
                 ) : null}
               </header>
 
-              {articleItems.length ? (
-                <div className="knowledge-article-body">
-                  {articleItems.map((item: DetailItem) => (
-                    <section className="knowledge-article-section" key={item.key}>
-                      <Typography.Title level={4}>{item.name}</Typography.Title>
-                      {renderDetailValue(item)}
-                    </section>
-                  ))}
-                </div>
-              ) : null}
-            </article>
-
-            {mediaItems.length ? (
-              <section className="knowledge-article-section knowledge-article-assets">
-                <Typography.Title level={4}>资源内容</Typography.Title>
-                <div className="knowledge-media-section">
-                {mediaItems.map((item: DetailItem) => (
-                  <div className="knowledge-media-card" key={item.key}>
-                    <div className="knowledge-field-label">
-                      {renderResourceIcon(item.type)}
-                      {item.name}
-                    </div>
+              <div className="knowledge-article-body">
+                {richTextItems.map((item: DetailItem) => (
+                  <section className={`knowledge-content-section ${richTextItems.length === 1 ? 'is-primary' : ''}`} key={item.key}>
+                    {richTextItems.length > 1 ? <Typography.Title level={4}>{item.name}</Typography.Title> : null}
                     {renderDetailValue(item)}
-                  </div>
+                  </section>
                 ))}
-                </div>
-              </section>
-            ) : null}
-            {!detailItems.length ? <Typography.Text type="secondary">暂无知识内容</Typography.Text> : null}
+
+                {longTextItems.map((item: DetailItem) => (
+                  <section className="knowledge-content-section" key={item.key}>
+                    <Typography.Title level={4}>{item.name}</Typography.Title>
+                    {renderDetailValue(item)}
+                  </section>
+                ))}
+
+                {compactItems.length ? (
+                  <section className="knowledge-fact-section">
+                    <Typography.Title level={4}>知识属性</Typography.Title>
+                    <div className="knowledge-fact-grid">
+                      {compactItems.map((item: DetailItem) => (
+                        <div className="knowledge-fact-item" key={item.key}>
+                          <div className="knowledge-fact-label">{item.name}</div>
+                          <div className="knowledge-fact-value">{renderDetailValue(item)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
+
+                {mediaItems.length ? (
+                  <section className="knowledge-article-section knowledge-article-assets">
+                    <Typography.Title level={4}>资源附件</Typography.Title>
+                    <div className="knowledge-media-section">
+                      {mediaItems.map((item: DetailItem) => (
+                        <div className="knowledge-media-card" key={item.key}>
+                          <div className="knowledge-field-label">
+                            {renderResourceIcon(item.type)}
+                            {item.name}
+                          </div>
+                          {renderDetailValue(item)}
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
+
+                {!hasArticleBody ? <div className="knowledge-content-empty">暂无补充内容</div> : null}
+              </div>
+            </article>
           </Card>
-        </div>
+        </main>
         <aside className="knowledge-detail-side">
-          <Card title="基础信息" className="knowledge-side-card" loading={loading}>
+          <Card title="知识概览" className="knowledge-side-card" loading={loading}>
             <Descriptions column={1} size="small">
-              <Descriptions.Item label="知识ID">{knowledge.knowledgeId || id}</Descriptions.Item>
+              <Descriptions.Item label="知识 ID">{knowledge.knowledgeId || id}</Descriptions.Item>
               <Descriptions.Item label="创建人">{knowledge.creatorName || '--'}</Descriptions.Item>
-              <Descriptions.Item label="点击次数">{knowledge.viewTime ?? '--'}</Descriptions.Item>
+              <Descriptions.Item label="访问次数">{knowledge.viewTime ?? '--'}</Descriptions.Item>
               <Descriptions.Item label="创建时间">{formatTime(knowledge.createTime)}</Descriptions.Item>
               <Descriptions.Item label="更新时间">{formatTime(knowledge.updateTime)}</Descriptions.Item>
             </Descriptions>
-          </Card>
-          <div className="knowledge-side-link-row">
-            <Button type="link" icon={<HistoryOutlined />} onClick={() => setLogOpen(true)}>
-              操作记录
-            </Button>
-            {canViewVersions ? (
-              <Button type="link" icon={<ProfileOutlined />} onClick={openHistoryVersions}>
-                历史版本
-              </Button>
+            {canViewLogs || canViewVersions ? (
+              <div className="knowledge-side-actions">
+                {canViewLogs ? (
+                  <Button type="text" icon={<HistoryOutlined />} onClick={openOperationLogs}>操作记录</Button>
+                ) : null}
+                {canViewVersions ? (
+                  <Button type="text" icon={<ProfileOutlined />} onClick={openHistoryVersions}>历史版本</Button>
+                ) : null}
+              </div>
             ) : null}
-          </div>
+          </Card>
         </aside>
       </div>
       <Modal
@@ -500,21 +590,37 @@ export default function KnowledgeDetail() {
         onCancel={() => setLogOpen(false)}
       >
         <Space direction="vertical" size={16} style={{ width: '100%' }}>
-          <Space>
-            <Typography.Text type="secondary">操作类型</Typography.Text>
-            <Radio.Group
-              optionType="button"
-              buttonStyle="solid"
-              value={logAction || ''}
-              onChange={(event) => setLogAction(event.target.value || undefined)}
-              options={[{ label: '全部', value: '' }, ...logActionOptions]}
-            />
+          <Space wrap size={16}>
+            <Space size={8}>
+              <Typography.Text type="secondary">操作类型</Typography.Text>
+              <Radio.Group
+                optionType="button"
+                buttonStyle="solid"
+                value={logAction || ''}
+                onChange={(event) => setLogAction(event.target.value || undefined)}
+                options={[{ label: '全部', value: '' }, ...logActionOptions]}
+              />
+            </Space>
+            <Space size={8}>
+              <Typography.Text type="secondary">操作人</Typography.Text>
+              <Select
+                allowClear
+                showSearch
+                optionFilterProp="label"
+                value={logOperatorId}
+                options={logOperatorOptions}
+                loading={logOperatorLoading}
+                placeholder="全部操作人"
+                style={{ width: 180 }}
+                onChange={(value) => setLogOperatorId(value)}
+              />
+            </Space>
           </Space>
           <AccessLogTable
             active={logOpen}
             showUser
-            refreshKey={logAction || 'all'}
-            fetcher={(params) => businessApi.knowledgeLogs(id, { ...params, action: logAction })}
+            refreshKey={`${logAction || 'all'}:${logOperatorId || 'all'}`}
+            fetcher={(params) => businessApi.knowledgeLogs(id, { ...params, action: logAction, operatorId: logOperatorId })}
           />
         </Space>
       </Modal>

@@ -26,7 +26,7 @@ public class KnowledgeChangeRequestController {
         return service.listMine(pageNumber, pageSize, status);
     }
 
-    @PreAuthorize("hasAnyAuthority('knowledge:change-request:view-all','system:approval:manage')")
+    @PreAuthorize("hasAnyAuthority('knowledge:change-request:view-all','knowledge:change-request:approve','knowledge:change-request:reject','system:approval:manage')")
     @GetMapping("/v1/data/business/knowledge/change-request/list")
     public Map<String, Object> listAll(@RequestParam(defaultValue = "1") int pageNumber,
                                        @RequestParam(defaultValue = "10") int pageSize,

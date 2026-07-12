@@ -8,6 +8,7 @@ import PageHeader from '@/components/PageHeader';
 import StatusTag from '@/components/StatusTag';
 import { accessLogApi, roleApi, userApi } from '@/services/api';
 import { DEFAULT_AVATAR, avatarUrl } from '@/utils/avatar';
+import { buildWorkTabLabel } from '@/utils/data';
 
 export default function UserManagement() {
   const [loading, setLoading] = useState(false);
@@ -68,7 +69,9 @@ export default function UserManagement() {
     history.push({
       pathname: record ? `/system/users/${record.userId}/config` : '/system/users/new/config',
       state: {
-        tabLabel: record ? `${record.userAccount}用户编辑` : '新增用户',
+        tabLabel: record
+          ? buildWorkTabLabel('user-edit', record.userAccount)
+          : buildWorkTabLabel('user-create'),
       },
     });
   };

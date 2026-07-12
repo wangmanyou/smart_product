@@ -111,11 +111,15 @@ Copy-Item -LiteralPath (Join-Path $Root "frontend-app\dist") -Destination (Join-
 Copy-Item -LiteralPath (Join-Path $Root "deploy") -Destination (Join-Path $PackageDir "deploy") -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $Root "db") -Destination (Join-Path $PackageDir "db") -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $Root "docker-compose.server.yml") -Destination (Join-Path $PackageDir "docker-compose.server.yml") -Force
+Copy-Item -LiteralPath (Join-Path $Root "docker-compose.next.yml") -Destination (Join-Path $PackageDir "docker-compose.next.yml") -Force
 Copy-Item -LiteralPath (Join-Path $Root ".env.server.example") -Destination (Join-Path $PackageDir ".env.server.example") -Force
+Copy-Item -LiteralPath (Join-Path $Root ".env.next.example") -Destination (Join-Path $PackageDir ".env.next.example") -Force
 Copy-Item -LiteralPath (Join-Path $Root "PACKAGE_RELEASE.md") -Destination (Join-Path $PackageDir "PACKAGE_RELEASE.md") -Force
 Copy-Item -LiteralPath (Join-Path $Root "START_STOP.md") -Destination (Join-Path $PackageDir "START_STOP.md") -Force
+Copy-Item -LiteralPath (Join-Path $Root "SERVER_DEPLOYMENT_STATUS.md") -Destination (Join-Path $PackageDir "SERVER_DEPLOYMENT_STATUS.md") -Force
 Copy-Item -LiteralPath (Join-Path $Root "PRODUCTION_SECURITY_HTTPS.md") -Destination (Join-Path $PackageDir "PRODUCTION_SECURITY_HTTPS.md") -Force
 Copy-Item -LiteralPath (Join-Path $Root "JWT_SECRET_SETUP.md") -Destination (Join-Path $PackageDir "JWT_SECRET_SETUP.md") -Force
+Copy-Item -LiteralPath (Join-Path $Root "NEXT_PARALLEL_DEPLOY.md") -Destination (Join-Path $PackageDir "NEXT_PARALLEL_DEPLOY.md") -Force
 
 # Real server secrets are intentionally never copied. Stop immediately if one appears in the generated directory.
 Assert-NoSensitivePackageFiles -TargetPath $PackageDir

@@ -12,7 +12,7 @@ import { useEffect, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import StatusTag from '@/components/StatusTag';
 import { dictApi } from '@/services/api';
-import { formatTime } from '@/utils/data';
+import { buildWorkTabLabel, formatTime } from '@/utils/data';
 
 export default function DirectoryManagement() {
   const [form] = Form.useForm();
@@ -61,7 +61,7 @@ export default function DirectoryManagement() {
             icon={<EyeOutlined />}
             onClick={() => history.push({
               pathname: `/system/dicts/${record.dictTemplateId}`,
-              state: { tabLabel: `${record.dictName}目录详情` },
+              state: { tabLabel: buildWorkTabLabel('directory-detail', record.dictName) },
             })}
           >
             查看
@@ -71,7 +71,7 @@ export default function DirectoryManagement() {
             icon={<EditOutlined />}
             onClick={() => history.push({
               pathname: `/system/dicts/${record.dictTemplateId}/edit`,
-              state: { tabLabel: `${record.dictName}目录编辑` },
+              state: { tabLabel: buildWorkTabLabel('directory-edit', record.dictName) },
             })}
           >
             编辑
@@ -132,7 +132,7 @@ export default function DirectoryManagement() {
             <Button
               type="primary"
               icon={<PlusOutlined />}
-              onClick={() => history.push({ pathname: '/system/dicts/new/edit', state: { tabLabel: '新增目录' } })}
+              onClick={() => history.push({ pathname: '/system/dicts/new/edit', state: { tabLabel: buildWorkTabLabel('directory-create') } })}
             >
               新增目录
             </Button>

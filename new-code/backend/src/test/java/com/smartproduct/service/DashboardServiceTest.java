@@ -53,4 +53,10 @@ class DashboardServiceTest {
                 .isInstanceOf(ApiException.class)
                 .hasMessageContaining("DAY、WEEK、MONTH");
     }
+
+    @Test
+    void popularKnowledgeNeverFallsBackToAnArbitraryBusinessField() {
+        assertThat(DashboardService.cleanPreview(null, 328L)).isEqualTo("未设置标题 · 知识 #328");
+        assertThat(DashboardService.cleanPreview("  ", 342L)).isEqualTo("未设置标题 · 知识 #342");
+    }
 }

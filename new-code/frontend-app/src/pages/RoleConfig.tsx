@@ -5,7 +5,7 @@ import type { TransferProps } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import { permissionApi, roleApi, sceneApi } from '@/services/api';
-import { closeWorkTab, setWorkTabLabel } from '@/utils/data';
+import { buildWorkTabLabel, closeWorkTab, setWorkTabLabel } from '@/utils/data';
 import { runAfterUnsavedConfirm, useUnsavedChanges } from '@/utils/unsavedChanges';
 
 const approvalCodes = ['knowledge:create', 'knowledge:update', 'knowledge:delete'];
@@ -19,7 +19,13 @@ const knowledgeViewCode = 'knowledge:view';
 const knowledgePageCode = 'page:knowledge';
 const approvalPageCode = 'page:system:approvals';
 const logPageCode = 'page:system:logs';
-const hiddenPermissionCodes = [approvalManageCode, permissionManageCode, approvalViewOwnCode];
+const hiddenPermissionCodes = [
+  approvalManageCode,
+  permissionManageCode,
+  approvalViewOwnCode,
+  logViewCode,
+  logPageCode,
+];
 const permissionDisplayMap: Record<string, { name: string; description: string }> = {
   [approvalViewOwnCode]: {
     name: '查看我的申请',
@@ -27,7 +33,7 @@ const permissionDisplayMap: Record<string, { name: string; description: string }
   },
   'knowledge:change-request:view-all': {
     name: '查看全部申请',
-    description: '查看所有人的知识变更申请',
+    description: '查看授权场景下全部待审和历史审批；未选时审批人仅看待处理及自己处理过的申请',
   },
   'knowledge:change-request:approve': {
     name: '审批通过',
@@ -111,7 +117,12 @@ export default function RoleConfig() {
       );
       setSceneKeys(loadedSceneKeys);
       setInitialSceneKeys(loadedSceneKeys);
-      setWorkTabLabel(location.pathname, roleRes?.roleName ? `${roleRes.roleName}角色配置` : '新增角色');
+      setWorkTabLabel(
+        location.pathname,
+        roleRes?.roleName
+          ? buildWorkTabLabel('role-config', roleRes.roleName)
+          : buildWorkTabLabel('role-create'),
+      );
       setDirty(false);
     } finally {
       setLoading(false);

@@ -10,9 +10,13 @@ frontend-dist/
 deploy/
 db/
 docker-compose.server.yml
+docker-compose.next.yml
 .env.server.example
+.env.next.example
 PACKAGE_RELEASE.md
 START_STOP.md
+SERVER_DEPLOYMENT_STATUS.md
+NEXT_PARALLEL_DEPLOY.md
 PRODUCTION_SECURITY_HTTPS.md
 JWT_SECRET_SETUP.md
 ```
@@ -20,7 +24,7 @@ JWT_SECRET_SETUP.md
 运行包明确不包含：
 
 - MySQL、Redis 和上传文件；
-- 服务器的 `.env.server`；
+- 服务器的 `.env.server` 和 `.env.next`；
 - 真实 JWT 密钥文件 `jwt-secret`。
 
 默认运行数据与密钥均位于运行包目录外：
@@ -61,6 +65,8 @@ new-code/release/smart-product-runtime.zip
 ```
 
 旧的 `runtime`、`parallel`、`app-only` Compose 不再进入运行包。
+
+如果需要把功能迭代版和当前线上版本并行部署，使用运行包里的 `docker-compose.next.yml` 和 `.env.next.example`，详细步骤见 `NEXT_PARALLEL_DEPLOY.md`。
 
 ## 二、上传和解压
 

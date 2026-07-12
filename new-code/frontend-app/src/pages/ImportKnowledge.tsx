@@ -4,12 +4,12 @@ import {
   ExclamationCircleOutlined,
   InboxOutlined,
 } from '@ant-design/icons';
-import { history, useParams, useRequest } from '@umijs/max';
+import { history, useLocation, useParams, useRequest } from '@umijs/max';
 import { Button, Modal, Radio, Space, Tag, Typography, Upload, message } from 'antd';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import { businessApi, fileApi } from '@/services/api';
-import { formatBusinessDetail } from '@/utils/data';
+import { buildWorkTabLabel, formatBusinessDetail, setWorkTabLabel } from '@/utils/data';
 
 const metricItems = [
   { key: 'totalRows', label: '读取行数' },
@@ -20,6 +20,7 @@ const metricItems = [
 
 export default function ImportKnowledge() {
   const { sceneId = '' } = useParams();
+  const location = useLocation();
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<any>();
   const [templateOpen, setTemplateOpen] = useState(false);
@@ -30,6 +31,12 @@ export default function ImportKnowledge() {
   const visibleItems = formatted.sceneItems.filter((item: any) => !item.isHide);
   const directoryItems = visibleItems.filter((item: any) => item.type === 'dict');
   const hasRequiredDirectoryItem = directoryItems.some((item: any) => item.isRequired);
+
+  useEffect(() => {
+    if (formatted.scene.sceneName) {
+      setWorkTabLabel(location.pathname, buildWorkTabLabel('knowledge-import', formatted.scene.sceneName));
+    }
+  }, [formatted.scene.sceneName, location.pathname]);
 
   const downloadTemplate = async (includeDirectory = false) => {
     const result = await businessApi.exportTemplate(sceneId, includeDirectory);
@@ -62,7 +69,7 @@ export default function ImportKnowledge() {
   const goList = () => {
     history.push({
       pathname: `/knowledge/scene/${sceneId}`,
-      state: { tabLabel: formatted.scene.sceneName || '知识列表' },
+      state: { tabLabel: buildWorkTabLabel('knowledge-list', formatted.scene.sceneName) },
     });
   };
 

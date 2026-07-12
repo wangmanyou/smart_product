@@ -1,6 +1,7 @@
 ﻿import dayjs from 'dayjs';
 
 export const sceneTypeText: Record<string, string> = {
+  title: '标题',
   dict: '数据目录',
   text: '文本',
   integer: '整数',
@@ -272,26 +273,76 @@ export function findKnowledgeItem(row: any, sceneItemId: number | string) {
   return row?.knowledgeShow?.find((item: any) => String(item.sceneItemId) === String(sceneItemId));
 }
 
+function knowledgeTitleValue(knowledge: any, sceneItem: any, dictDetails: any[]) {
+  if (!sceneItem) return '';
+  const value = displayKnowledgeValue(findKnowledgeItem(knowledge, sceneItem.id), sceneItem, dictDetails);
+  const text = stripHtml(String(value === '--' ? '' : value || '')).trim();
+  return text;
+}
+
 export function knowledgeDisplayTitle(knowledge: any, sceneItems: any[] = [], dictDetails: any[] = []) {
   const visibleItems = sceneItems.filter((item: any) => !item.isHide);
-  const preferred =
-    visibleItems.find((item: any) => /主题|标题|名称|问题|知识/.test(item.sceneItemName || '')) ||
-    visibleItems.find((item: any) => item.type !== 'dict') ||
-    visibleItems[0];
+  const textItems = visibleItems.filter((item: any) => item.type === 'text');
+  const explicitTitle = visibleItems.find((item: any) => item.type === 'title');
+  const namedTitle = textItems.find((item: any) => /标题|主题|名称|问题|知识|title|name/i.test(item.sceneItemName || ''));
 
-  if (preferred) {
-    const value = displayKnowledgeValue(findKnowledgeItem(knowledge, preferred.id), preferred, dictDetails);
-    if (value && value !== '--') return String(value).slice(0, 24);
+  for (const item of [explicitTitle, namedTitle].filter(Boolean)) {
+    const title = knowledgeTitleValue(knowledge, item, dictDetails);
+    if (title) return title.slice(0, 120);
+  }
+
+  for (const item of textItems) {
+    const title = knowledgeTitleValue(knowledge, item, dictDetails);
+    if (title && title.length <= 120) return title;
   }
 
   const fallback = (knowledge?.knowledgeShow || [])
-    .map((item: any) => {
-      if (item.sceneItemValue?.length) return stripHtml(item.sceneItemValue.join('，'));
-      return '';
-    })
-    .find(Boolean);
+    .filter((item: any) => !['dict', 'tag', 'richtext', 'picture', 'video', 'audio', 'file'].includes(item.sceneItemType || item.type || ''))
+    .map((item: any) => stripHtml((item.sceneItemValue || []).join('，')).trim())
+    .find((value: string) => Boolean(value) && value.length <= 120);
 
-  return fallback ? String(fallback).slice(0, 24) : `知识 ${knowledge?.knowledgeId || ''}`.trim();
+  return fallback || `知识 ${knowledge?.knowledgeId || ''}`.trim();
+}
+
+export type WorkTabLabelKind =
+  | 'knowledge-list'
+  | 'knowledge-detail'
+  | 'knowledge-edit'
+  | 'knowledge-create'
+  | 'knowledge-import'
+  | 'scene-detail'
+  | 'scene-edit'
+  | 'scene-create'
+  | 'directory-detail'
+  | 'directory-edit'
+  | 'directory-create'
+  | 'role-config'
+  | 'role-create'
+  | 'user-edit'
+  | 'user-create';
+
+const workTabLabelPrefix: Record<WorkTabLabelKind, string> = {
+  'knowledge-list': '知识列表',
+  'knowledge-detail': '知识详情',
+  'knowledge-edit': '知识编辑',
+  'knowledge-create': '新增知识',
+  'knowledge-import': '知识导入',
+  'scene-detail': '场景详情',
+  'scene-edit': '场景编辑',
+  'scene-create': '新增场景',
+  'directory-detail': '目录详情',
+  'directory-edit': '目录编辑',
+  'directory-create': '新增目录',
+  'role-config': '角色配置',
+  'role-create': '新增角色',
+  'user-edit': '用户编辑',
+  'user-create': '新增用户',
+};
+
+export function buildWorkTabLabel(kind: WorkTabLabelKind, subject?: string | number) {
+  const prefix = workTabLabelPrefix[kind];
+  const text = String(subject ?? '').trim();
+  return text ? `${prefix} — ${text}` : prefix;
 }
 
 export function setWorkTabLabel(path: string, label: string) {

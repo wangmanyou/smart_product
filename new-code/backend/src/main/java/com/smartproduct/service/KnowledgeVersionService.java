@@ -144,7 +144,7 @@ public class KnowledgeVersionService {
                 .filter(path -> !path.isBlank())
                 .toList();
         List<String> sceneItemValue = switch (type) {
-            case "text", "richtext" -> textValue(rawValue);
+            case "title", "text", "richtext" -> textValue(rawValue);
             case "tag" -> splitTagValue(rawValue);
             default -> splitValue(rawValue);
         };

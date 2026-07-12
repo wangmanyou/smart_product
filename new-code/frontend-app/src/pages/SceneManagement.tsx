@@ -7,7 +7,7 @@ import AccessLogTable from '@/components/AccessLogTable';
 import PageHeader from '@/components/PageHeader';
 import StatusTag from '@/components/StatusTag';
 import { sceneApi } from '@/services/api';
-import { formatTime } from '@/utils/data';
+import { buildWorkTabLabel, formatTime } from '@/utils/data';
 
 const logActionOptions = [
   { label: '新增', value: 'CREATE' },
@@ -91,7 +91,7 @@ export default function SceneManagement() {
             type="link"
             onClick={() => history.push({
               pathname: `/system/scenes/${record.sceneTemplateId}/view`,
-              state: { tabLabel: `${record.sceneName}场景详情` },
+              state: { tabLabel: buildWorkTabLabel('scene-detail', record.sceneName) },
             })}
           >
             查看
@@ -100,7 +100,7 @@ export default function SceneManagement() {
             type="link"
             onClick={() => history.push({
               pathname: `/system/scenes/${record.sceneTemplateId}/config`,
-              state: { tabLabel: `${record.sceneName}场景编辑` },
+              state: { tabLabel: buildWorkTabLabel('scene-edit', record.sceneName) },
             })}
           >
             编辑
@@ -162,7 +162,7 @@ export default function SceneManagement() {
                 <Button
                   type="primary"
                   icon={<PlusOutlined />}
-                  onClick={() => history.push({ pathname: '/system/scenes/new/config', state: { tabLabel: '创建场景' } })}
+                  onClick={() => history.push({ pathname: '/system/scenes/new/config', state: { tabLabel: buildWorkTabLabel('scene-create') } })}
                 >
                   新增场景
                 </Button>

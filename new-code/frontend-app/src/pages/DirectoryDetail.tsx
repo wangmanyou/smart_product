@@ -6,11 +6,7 @@ import { useEffect, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import StatusTag from '@/components/StatusTag';
 import { dictApi } from '@/services/api';
-import { formatTime } from '@/utils/data';
-
-function setCurrentTabLabel(path: string, label: string) {
-  window.dispatchEvent(new CustomEvent('work-tab-label-change', { detail: { path, label } }));
-}
+import { buildWorkTabLabel, formatTime, setWorkTabLabel } from '@/utils/data';
 
 export default function DirectoryDetail() {
   const { id = '' } = useParams();
@@ -34,10 +30,11 @@ export default function DirectoryDetail() {
       setExpandedRowKeys([]);
       const dictName = res?.dictTemplate?.dictName;
       if (dictName) {
-        setCurrentTabLabel(location.pathname, `${dictName}目录详情`);
+        const tabLabel = buildWorkTabLabel('directory-detail', dictName);
+        setWorkTabLabel(location.pathname, tabLabel);
         history.replace({
           pathname: location.pathname,
-          state: { tabLabel: `${dictName}目录详情` },
+          state: { tabLabel },
         });
       }
     } finally {
@@ -81,7 +78,7 @@ export default function DirectoryDetail() {
               onClick={() => history.push({
                 pathname: `/system/dicts/${id}/edit`,
                 state: {
-                  tabLabel: `${template.dictName || ''}目录编辑`,
+                  tabLabel: buildWorkTabLabel('directory-edit', template.dictName),
                   replacePath: location.pathname,
                 },
               })}

@@ -78,4 +78,17 @@ public class SceneController {
         service.deleteItem(sceneItemId);
         return Map.of();
     }
+
+    @GetMapping("/v1/data/scene/item/required-eligibility")
+    @PreAuthorize("hasAuthority('system:scene:manage')")
+    public Map<String, Object> requiredEligibility(@RequestParam("sceneItemId") Long sceneItemId) {
+        return service.requiredEligibility(sceneItemId);
+    }
+
+    @GetMapping("/v1/data/scene/item/type-migration-preview")
+    @PreAuthorize("hasAuthority('system:scene:manage')")
+    public Map<String, Object> typeMigrationPreview(@RequestParam("sceneItemId") Long sceneItemId,
+                                                    @RequestParam("targetType") String targetType) {
+        return service.typeMigrationPreview(sceneItemId, targetType);
+    }
 }

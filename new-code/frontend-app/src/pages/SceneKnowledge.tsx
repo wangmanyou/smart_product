@@ -15,6 +15,7 @@ import AccessLogTable from '@/components/AccessLogTable';
 import PageHeader from '@/components/PageHeader';
 import { authApi, businessApi, fileApi } from '@/services/api';
 import {
+  buildWorkTabLabel,
   dictForSceneItem,
   dictNodes,
   displayKnowledgeValue,
@@ -183,6 +184,9 @@ export default function SceneKnowledge() {
   const [templateDownloading, setTemplateDownloading] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
   const [logAction, setLogAction] = useState<string | undefined>();
+  const [logOperatorId, setLogOperatorId] = useState<number | undefined>();
+  const [logOperatorOptions, setLogOperatorOptions] = useState<{ label: string; value: number }[]>([]);
+  const [logOperatorLoading, setLogOperatorLoading] = useState(false);
 
   const formatted = formatBusinessDetail(detail);
   const dictField =
@@ -196,6 +200,15 @@ export default function SceneKnowledge() {
     [nodes],
   );
   const treeData = useMemo(() => toAntTree(dictDetail?.treeDict?.treeDict || []), [dictDetail]);
+  const orderedDirectoryData = useMemo(
+    () => nodes.map((node: any) => ({
+      key: String(node.id),
+      title: node.name,
+      disabled: Boolean(node.isDisabled),
+    })),
+    [nodes],
+  );
+  const directoryTreeData = isTree ? treeData : orderedDirectoryData;
   const visibleItems = formatted.sceneItems.filter((item: any) => !item.isHide);
   const directoryItems = visibleItems.filter((item: any) => item.type === 'dict');
   const hasRequiredDirectoryItem = directoryItems.some((item: any) => item.isRequired);
@@ -214,6 +227,7 @@ export default function SceneKnowledge() {
   const canUpdate = hasPermission('knowledge:update');
   const canDelete = hasPermission('knowledge:delete');
   const canImport = hasPermission('knowledge:import');
+  const canViewLogs = hasPermission('knowledge:log:view-all');
   const sceneName = formatted.scene.sceneName || '场景知识列表';
   const importSucceeded = Boolean(importResult && !importResult.failed);
   const importFailedRows = Array.isArray(importResult?.failedRows) ? importResult.failedRows : [];
@@ -294,7 +308,7 @@ export default function SceneKnowledge() {
         if (!mounted) return;
         setDetail(res);
         const nextSceneName = formatBusinessDetail(res).scene.sceneName || '场景';
-        setWorkTabLabel(location.pathname, `${nextSceneName}知识列表`);
+        setWorkTabLabel(location.pathname, buildWorkTabLabel('knowledge-list', nextSceneName));
       })
       .finally(() => {
         if (mounted) setDetailLoading(false);
@@ -332,7 +346,7 @@ export default function SceneKnowledge() {
           type="link"
           onClick={() => history.push({
             pathname: `/knowledge/scene/${id}/detail/${value}`,
-            state: { tabLabel: `${getKnowledgeTitle(record)}知识详情` },
+            state: { tabLabel: buildWorkTabLabel('knowledge-detail', getKnowledgeTitle(record)) },
           })}
         >
           {value}
@@ -370,7 +384,7 @@ export default function SceneKnowledge() {
             type="link"
             onClick={() => history.push({
               pathname: `/knowledge/scene/${id}/detail/${record.knowledgeId}`,
-              state: { tabLabel: `${getKnowledgeTitle(record)}知识详情` },
+              state: { tabLabel: buildWorkTabLabel('knowledge-detail', getKnowledgeTitle(record)) },
             })}
           >
             查看
@@ -387,7 +401,7 @@ export default function SceneKnowledge() {
               type="link"
               onClick={() => history.push({
                 pathname: `/knowledge/scene/${id}/edit/${record.knowledgeId}`,
-                state: { tabLabel: `${getKnowledgeTitle(record)}知识编辑` },
+                state: { tabLabel: buildWorkTabLabel('knowledge-edit', getKnowledgeTitle(record)) },
               })}
             >
               编辑
@@ -476,6 +490,27 @@ export default function SceneKnowledge() {
     setImportFile(undefined);
     setImportResult(undefined);
   };
+  const openOperationLogs = async () => {
+    setLogOpen(true);
+    setLogOperatorLoading(true);
+    try {
+      const res = await businessApi.sceneKnowledgeLogOperators(id);
+      const options = (Array.isArray(res) ? res : [])
+        .filter((item: any) => item?.operatorId)
+        .map((item: any) => ({
+          value: Number(item.operatorId),
+          label: item.operatorName || '未识别',
+        }));
+      setLogOperatorOptions(options);
+      if (logOperatorId && !options.some((option) => option.value === logOperatorId)) {
+        setLogOperatorId(undefined);
+      }
+    } catch {
+      setLogOperatorOptions([]);
+    } finally {
+      setLogOperatorLoading(false);
+    }
+  };
   const openCreateKnowledge = () => {
     const savedSelectedDictId = readListState(id).selectedDictId;
     const activeDictId = selectedDictId || (savedSelectedDictId ? String(savedSelectedDictId) : undefined);
@@ -490,7 +525,7 @@ export default function SceneKnowledge() {
       pathname: `/knowledge/scene/${id}/create`,
       search: params.toString() ? `?${params.toString()}` : '',
       state: {
-        tabLabel: '新增知识',
+        tabLabel: buildWorkTabLabel('knowledge-create', sceneName),
         defaultDictId: activeDictId,
         defaultDictFieldId: dictField?.id,
       },
@@ -529,45 +564,30 @@ export default function SceneKnowledge() {
             title={dictDetail?.dictTemplate?.dictName || '目录'}
             extra={<Button type="link" onClick={() => { setSelectedDictId(undefined); runList(undefined, form.getFieldsValue(), 1, pageSize); }}>全部</Button>}
           >
-            {isTree ? (
-              <Tree
-                showLine
-                defaultExpandAll
-                selectedKeys={selectedDictId ? [selectedDictId] : []}
-                treeData={treeData}
-                onSelect={(keys) => {
-                  const key = keys[0] ? String(keys[0]) : selectedDictId;
-                  if (!key) return;
-                  setSelectedDictId(key);
-                  runList(key, form.getFieldsValue(), 1, pageSize);
-                }}
-              />
-            ) : (
-              <Space direction="vertical" style={{ width: '100%' }}>
-                {nodes.map((node: any) => (
-                  <Button
-                    block
-                    key={node.id}
-                    type={selectedDictId === String(node.id) ? 'primary' : 'default'}
-                    disabled={node.isDisabled}
-                    onClick={() => {
-                      const key = String(node.id);
-                      setSelectedDictId(key);
-                      runList(key, form.getFieldsValue(), 1, pageSize);
-                    }}
-                  >
-                    {node.name}
-                  </Button>
-                ))}
-                {!nodes.length ? <Typography.Text type="secondary">暂无目录项</Typography.Text> : null}
-              </Space>
-            )}
+            <div className="directory-tree-content">
+              {directoryTreeData.length ? (
+                <Tree
+                  showLine
+                  defaultExpandAll
+                  selectedKeys={selectedDictId ? [selectedDictId] : []}
+                  treeData={directoryTreeData}
+                  onSelect={(keys) => {
+                    const key = keys[0] ? String(keys[0]) : selectedDictId;
+                    if (!key) return;
+                    setSelectedDictId(key);
+                    runList(key, form.getFieldsValue(), 1, pageSize);
+                  }}
+                />
+              ) : <Typography.Text type="secondary">暂无目录项</Typography.Text>}
+            </div>
+            {canViewLogs ? (
+              <div className="knowledge-side-actions knowledge-directory-actions">
+                <Button type="text" icon={<HistoryOutlined />} onClick={openOperationLogs}>
+                  操作记录
+                </Button>
+              </div>
+            ) : null}
           </Card>
-          <div className="knowledge-side-link-row">
-            <Button type="link" icon={<HistoryOutlined />} onClick={() => setLogOpen(true)}>
-              操作记录
-            </Button>
-          </div>
         </div>
         <div>
           <Card className="toolbar-card">
@@ -721,27 +741,44 @@ export default function SceneKnowledge() {
         open={logOpen}
         title={`${sceneName} 操作记录`}
         width={1040}
+        className="knowledge-log-modal"
         footer={null}
         destroyOnClose
         onCancel={() => setLogOpen(false)}
       >
         <Space direction="vertical" size={16} style={{ width: '100%' }}>
-          <Space>
-            <Typography.Text type="secondary">操作类型</Typography.Text>
-            <Radio.Group
-              optionType="button"
-              buttonStyle="solid"
-              value={logAction || ''}
-              onChange={(event) => setLogAction(event.target.value || undefined)}
-              options={[{ label: '全部', value: '' }, ...logActionOptions]}
-            />
+          <Space wrap size={16}>
+            <Space size={8}>
+              <Typography.Text type="secondary">操作类型</Typography.Text>
+              <Radio.Group
+                optionType="button"
+                buttonStyle="solid"
+                value={logAction || ''}
+                onChange={(event) => setLogAction(event.target.value || undefined)}
+                options={[{ label: '全部', value: '' }, ...logActionOptions]}
+              />
+            </Space>
+            <Space size={8}>
+              <Typography.Text type="secondary">操作人</Typography.Text>
+              <Select
+                allowClear
+                showSearch
+                optionFilterProp="label"
+                value={logOperatorId}
+                options={logOperatorOptions}
+                loading={logOperatorLoading}
+                placeholder="全部操作人"
+                style={{ width: 180 }}
+                onChange={(value) => setLogOperatorId(value)}
+              />
+            </Space>
           </Space>
           <AccessLogTable
             active={logOpen}
             showBiz
             showUser
-            refreshKey={logAction || 'all'}
-            fetcher={(params) => businessApi.sceneKnowledgeLogs(id, { ...params, action: logAction })}
+            refreshKey={`${logAction || 'all'}:${logOperatorId || 'all'}`}
+            fetcher={(params) => businessApi.sceneKnowledgeLogs(id, { ...params, action: logAction, operatorId: logOperatorId })}
           />
         </Space>
       </Modal>

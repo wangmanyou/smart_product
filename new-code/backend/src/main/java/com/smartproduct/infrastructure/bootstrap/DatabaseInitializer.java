@@ -403,7 +403,7 @@ public class DatabaseInitializer implements CommandLineRunner {
         upsertPermission("knowledge:log:view-all", "查看全部操作记录", "ACTION", "知识库", "查看授权场景下全部用户的知识操作记录", 54);
         upsertPermission("knowledge:version:view", "查看知识历史版本", "ACTION", "知识库", "查看知识历史版本详情", 55);
         upsertPermission("knowledge:change-request:view-own", "查看我的审批", "ACTION", "审批", "查看自己提交的知识变更申请", 60);
-        upsertPermission("knowledge:change-request:view-all", "查看全部审批", "ACTION", "审批", "查看所有知识变更申请", 70);
+        upsertPermission("knowledge:change-request:view-all", "查看全部申请", "ACTION", "审批操作", "查看授权场景下全部待审和历史审批", 70);
         upsertPermission("knowledge:change-request:approve", "审批通过", "ACTION", "审批", "通过知识变更申请", 80);
         upsertPermission("knowledge:change-request:reject", "审批驳回", "ACTION", "审批", "驳回知识变更申请", 90);
         upsertPermission("page:knowledge", "知识中心", "PAGE", "页面权限", "访问知识中心页面", 100);
@@ -413,14 +413,14 @@ public class DatabaseInitializer implements CommandLineRunner {
         upsertPermission("page:system:users", "用户管理", "PAGE", "页面权限", "访问用户管理页面", 140);
         upsertPermission("page:system:roles", "角色管理", "PAGE", "页面权限", "访问角色管理页面", 150);
         upsertPermission("page:system:approvals", "变更审批", "PAGE", "页面权限", "访问变更审批页面", 160);
-        upsertPermission("page:system:logs", "访问日志", "PAGE", "页面权限", "访问系统访问日志页面", 165);
+        upsertPermission("page:system:logs", "系统审计日志", "PAGE", "系统内置权限", "仅超级管理员访问系统审计日志页面", 165);
         upsertPermission("system:dict:manage", "目录管理", "ACTION", "系统管理", "管理目录及目录字典配置", 170);
         upsertPermission("system:scene:manage", "场景管理", "ACTION", "系统管理", "管理业务场景和字段配置", 180);
         upsertPermission("system:user:manage", "用户管理", "ACTION", "系统管理", "管理用户、停用用户和重置密码", 190);
         upsertPermission("system:role:manage", "角色管理", "ACTION", "系统管理", "管理角色、页面权限、操作权限和授权场景", 200);
         upsertPermission("system:permission:manage", "权限管理", "ACTION", "系统管理", "维护权限字典", 210);
         upsertPermission("system:approval:manage", "审批管理", "ACTION", "系统管理", "查看和处理知识变更审批", 220);
-        upsertPermission("system:log:view", "查看访问日志", "ACTION", "系统管理", "查看登录、退出、查看和增删改等访问日志", 225);
+        upsertPermission("system:log:view", "查看系统审计日志", "ACTION", "系统内置权限", "仅超级管理员查看全系统审计日志", 225);
         jdbc.update("delete from sys_permission where code = 'system:manage'");
     }
 

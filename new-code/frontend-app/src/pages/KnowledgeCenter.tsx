@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import StatusTag from '@/components/StatusTag';
 import { businessApi, sceneApi } from '@/services/api';
-import { formatTime } from '@/utils/data';
+import { buildWorkTabLabel, formatTime } from '@/utils/data';
 
 export default function KnowledgeCenter() {
   const [form] = Form.useForm();
@@ -18,7 +18,7 @@ export default function KnowledgeCenter() {
   const openScene = (scene: any) => {
     history.push({
       pathname: `/knowledge/scene/${scene.sceneTemplateId}`,
-      state: { tabLabel: `${scene.sceneName}知识列表` },
+      state: { tabLabel: buildWorkTabLabel('knowledge-list', scene.sceneName) },
     });
   };
 

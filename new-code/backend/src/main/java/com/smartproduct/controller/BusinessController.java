@@ -49,10 +49,17 @@ public class BusinessController {
     @PreAuthorize("hasAuthority('knowledge:view')")
     public Map<String, Object> knowledgeLogs(@RequestParam("knowledgeId") Long knowledgeId,
                                              @RequestParam(required = false) String action,
+                                             @RequestParam(required = false) Long operatorId,
                                              @RequestParam(defaultValue = "1") int pageNumber,
                                              @RequestParam(defaultValue = "10") int pageSize,
                                              @RequestParam(defaultValue = "desc") String order) {
-        return service.knowledgeLogs(knowledgeId, action, pageNumber, pageSize, order);
+        return service.knowledgeLogs(knowledgeId, action, operatorId, pageNumber, pageSize, order);
+    }
+
+    @GetMapping("/v1/data/business/knowledge/log/operator/list")
+    @PreAuthorize("hasAnyAuthority('knowledge:view','knowledge:change-request:view-all','knowledge:change-request:approve','knowledge:change-request:reject','system:approval:manage')")
+    public List<Map<String, Object>> knowledgeLogOperators(@RequestParam("knowledgeId") Long knowledgeId) {
+        return service.knowledgeLogOperators(knowledgeId);
     }
 
     @GetMapping("/v1/data/business/knowledge/version/list")
@@ -73,10 +80,17 @@ public class BusinessController {
     @PreAuthorize("hasAuthority('knowledge:view')")
     public Map<String, Object> sceneKnowledgeLogs(@RequestParam("sceneTemplateId") Long sceneTemplateId,
                                                   @RequestParam(required = false) String action,
+                                                  @RequestParam(required = false) Long operatorId,
                                                   @RequestParam(defaultValue = "1") int pageNumber,
                                                   @RequestParam(defaultValue = "10") int pageSize,
                                                   @RequestParam(defaultValue = "desc") String order) {
-        return service.sceneKnowledgeLogs(sceneTemplateId, action, pageNumber, pageSize, order);
+        return service.sceneKnowledgeLogs(sceneTemplateId, action, operatorId, pageNumber, pageSize, order);
+    }
+
+    @GetMapping("/v1/data/business/scene/knowledge-log/operator/list")
+    @PreAuthorize("hasAuthority('knowledge:view')")
+    public List<Map<String, Object>> sceneKnowledgeLogOperators(@RequestParam("sceneTemplateId") Long sceneTemplateId) {
+        return service.sceneKnowledgeLogOperators(sceneTemplateId);
     }
 
     @PostMapping("/v1/data/business/knowledge/edit")

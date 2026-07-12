@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import { fileApi, roleApi, userApi } from '@/services/api';
 import { DEFAULT_AVATAR, avatarUrl, isImageFile } from '@/utils/avatar';
-import { closeWorkTab, setWorkTabLabel } from '@/utils/data';
+import { buildWorkTabLabel, closeWorkTab, setWorkTabLabel } from '@/utils/data';
 import { runAfterUnsavedConfirm, useUnsavedChanges } from '@/utils/unsavedChanges';
 
 export default function UserConfig() {
@@ -66,13 +66,13 @@ export default function UserConfig() {
         const loadedRoleIds = (userRes.roleIds?.length ? userRes.roleIds : userRes.roleId ? [userRes.roleId] : []).map(String);
         setRoleIds(loadedRoleIds);
         setInitialRoleIds(loadedRoleIds);
-        setWorkTabLabel(location.pathname, `${userRes.userAccount}用户编辑`);
+        setWorkTabLabel(location.pathname, buildWorkTabLabel('user-edit', userRes.userAccount));
       } else {
         setAvatarPath('');
         form.resetFields();
         setRoleIds([]);
         setInitialRoleIds([]);
-        setWorkTabLabel(location.pathname, '新增用户');
+        setWorkTabLabel(location.pathname, buildWorkTabLabel('user-create'));
       }
       setDirty(false);
     } finally {

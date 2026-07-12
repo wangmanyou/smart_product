@@ -5,6 +5,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useMemo, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import { dictApi } from '@/services/api';
+import { buildWorkTabLabel, setWorkTabLabel } from '@/utils/data';
 import { useUnsavedChanges } from '@/utils/unsavedChanges';
 
 type DirectoryRow = {
@@ -126,10 +127,6 @@ function toSubmitTree(nodes: DirectoryRow[] = []): any[] {
     }));
 }
 
-function setCurrentTabLabel(path: string, label: string) {
-  window.dispatchEvent(new CustomEvent('work-tab-label-change', { detail: { path, label } }));
-}
-
 export default function DirectoryForm() {
   const { id = '' } = useParams();
   const location = useLocation();
@@ -158,10 +155,11 @@ export default function DirectoryForm() {
       const type = template.dictType === 'plane' ? 'plane' : 'tree';
       form.setFieldsValue({ dictName: template.dictName, dictType: type });
       if (template.dictName) {
-        setCurrentTabLabel(location.pathname, `${template.dictName}目录编辑`);
+        const tabLabel = buildWorkTabLabel('directory-edit', template.dictName);
+        setWorkTabLabel(location.pathname, tabLabel);
         history.replace({
           pathname: location.pathname,
-          state: { tabLabel: `${template.dictName}目录编辑` },
+          state: { tabLabel },
         });
       }
       setDictType(type);
@@ -264,7 +262,7 @@ export default function DirectoryForm() {
       history.replace({
         pathname: `/system/dicts/${result?.dictTemplateId}`,
         state: {
-          tabLabel: `${values.dictName}目录详情`,
+          tabLabel: buildWorkTabLabel('directory-detail', values.dictName),
           replacePath: location.pathname,
         },
       });
@@ -305,7 +303,7 @@ export default function DirectoryForm() {
     history.replace({
       pathname: `/system/dicts/${id}`,
       state: {
-        tabLabel: `${values.dictName}目录详情`,
+        tabLabel: buildWorkTabLabel('directory-detail', values.dictName),
         replacePath: location.pathname,
       },
     });

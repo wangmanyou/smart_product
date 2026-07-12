@@ -13,6 +13,7 @@
 | --- | --- | --- | --- | --- |
 | Spring 本地开发依赖 | `new-code/docker-compose.dev.yml` | `smart-product-spring-dev` | `smart-product-spring-dev-*` | `spring-runtime-data/dev/` |
 | Spring 服务器完整运行包 | `new-code/docker-compose.server.yml` | `smart-product-spring-server` | `smart-product-spring-*` | `spring-runtime-data/prod/` |
+| Spring 升级并行环境 | `new-code/docker-compose.next.yml` | `smart-product-next` | `smart-product-next-*` | `/opt/smart-product-next/deploy-data/` |
 | Go 旧版独立运行 | `go-code/docker-compose.yml` | `smart-product-go-legacy` | `smart-product-go-*` | `go-code/runtime-data/` |
 
 三套入口使用不同的容器名、网络名、宿主机端口和数据目录。即使 MySQL 中数据库名称都叫 `knowledge`，它们也不会加载同一套数据。
@@ -73,6 +74,8 @@ docker compose --env-file .env.server -f docker-compose.server.yml up -d
 
 详细步骤见：
 
+- `new-code/SERVER_DEPLOYMENT_STATUS.md`
+- `new-code/NEXT_PARALLEL_DEPLOY.md`
 - `new-code/PACKAGE_RELEASE.md`
 - `new-code/START_STOP.md`
 - `new-code/PRODUCTION_SECURITY_HTTPS.md`

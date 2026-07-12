@@ -1,11 +1,11 @@
 import { DownOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons';
-import { Button, Card, DatePicker, Form, InputNumber, Select, Table, Tag, Tooltip, Typography } from 'antd';
+import { Button, Card, DatePicker, Form, Select, Table, Tag, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
-import { accessLogApi, userApi } from '@/services/api';
-import { formatTime } from '@/utils/data';
+import { accessLogApi, businessApi, dictApi, sceneApi, userApi } from '@/services/api';
+import { formatBusinessDetail, formatTime, knowledgeDisplayTitle } from '@/utils/data';
 
 const { RangePicker } = DatePicker;
 
@@ -38,6 +38,22 @@ const actionText: Record<string, string> = {
 
 const actionOptions = Object.entries(actionText).map(([value, label]) => ({ value, label }));
 
+const moduleActionCodes: Record<string, string[]> = {
+  '用户认证': ['LOGIN', 'LOGOUT'],
+  '知识库': ['VIEW', 'CREATE', 'CREATE_REQUEST', 'UPDATE', 'UPDATE_REQUEST', 'DELETE', 'DELETE_REQUEST'],
+  '目录管理': [
+    'DICT_CREATE',
+    'DICT_UPDATE',
+    'DICT_STATUS',
+    'DICT_DELETE',
+    'DIRECTORY_RENAME',
+    'DIRECTORY_STATUS',
+    'DIRECTORY_DELETE',
+    'DIRECTORY_SORT',
+  ],
+  '场景管理': ['SCENE_CREATE', 'SCENE_COPY', 'SCENE_UPDATE', 'SCENE_STATUS', 'SCENE_ITEM_DELETE'],
+};
+
 const bizTypeText: Record<string, string> = {
   USER: '用户',
   KNOWLEDGE: '知识',
@@ -48,7 +64,12 @@ const bizTypeText: Record<string, string> = {
   DICT_DIRECTORY: '目录项',
 };
 
-const bizTypeOptions = Object.entries(bizTypeText).map(([value, label]) => ({ value, label }));
+const bizTypeOptions = [
+  { value: 'USER', label: '用户' },
+  { value: 'KNOWLEDGE', label: '知识' },
+  { value: 'SCENE_TEMPLATE', label: '场景' },
+  { value: 'DICT_TEMPLATE', label: '目录' },
+];
 
 function formatFilters(values: any) {
   const searchTime = Array.isArray(values.searchTime)
@@ -72,6 +93,9 @@ function resultTag(value?: string) {
 
 export default function AccessLogs() {
   const [form] = Form.useForm();
+  const selectedModule = Form.useWatch('module', form);
+  const selectedBizType = Form.useWatch('bizType', form);
+  const selectedSceneId = Form.useWatch('sceneTemplateId', form);
   const [rows, setRows] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -80,6 +104,11 @@ export default function AccessLogs() {
   const [loading, setLoading] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [operatorOptions, setOperatorOptions] = useState<{ label: string; value: string }[]>([]);
+  const [userObjectOptions, setUserObjectOptions] = useState<{ label: string; value: number }[]>([]);
+  const [sceneOptions, setSceneOptions] = useState<{ label: string; value: number }[]>([]);
+  const [dictOptions, setDictOptions] = useState<{ label: string; value: number }[]>([]);
+  const [knowledgeOptions, setKnowledgeOptions] = useState<{ label: string; value: number }[]>([]);
+  const [knowledgeLoading, setKnowledgeLoading] = useState(false);
 
   const load = async (nextPage = page, nextPageSize = pageSize, nextQuery = query) => {
     setLoading(true);
@@ -99,8 +128,13 @@ export default function AccessLogs() {
   };
 
   const loadOperators = async () => {
-    const res = await userApi.list({ pageNumber: 1, pageSize: 500 });
-    const options = (Array.isArray(res?.content) ? res.content : [])
+    const [userRes, sceneRes, dictRes] = await Promise.all([
+      userApi.list({ pageNumber: 1, pageSize: 500 }),
+      sceneApi.list({ pageNumber: 1, pageSize: 1000, searchSceneDisabled: '' }),
+      dictApi.list({ pageNumber: 1, pageSize: 1000 }),
+    ]);
+    const users = Array.isArray(userRes?.content) ? userRes.content : [];
+    const options = users
       .filter((user: any) => user?.userAccount)
       .map((user: any) => {
         const nickname = user.userNickname ? `（${user.userNickname}）` : '';
@@ -110,12 +144,50 @@ export default function AccessLogs() {
         };
       });
     setOperatorOptions(options);
+    setUserObjectOptions(users.map((user: any) => ({
+      value: Number(user.userId),
+      label: `${user.userAccount}${user.userNickname ? `（${user.userNickname}）` : ''}`,
+    })));
+    setSceneOptions((Array.isArray(sceneRes?.content) ? sceneRes.content : []).map((scene: any) => ({
+      value: Number(scene.sceneTemplateId),
+      label: scene.sceneName || `场景 #${scene.sceneTemplateId}`,
+    })));
+    setDictOptions((Array.isArray(dictRes?.content) ? dictRes.content : []).map((dict: any) => ({
+      value: Number(dict.dictTemplateId),
+      label: dict.dictName || `目录 #${dict.dictTemplateId}`,
+    })));
   };
 
   useEffect(() => {
     load(1, pageSize, {});
     loadOperators();
   }, []);
+
+  useEffect(() => {
+    if (selectedBizType !== 'KNOWLEDGE' || !selectedSceneId) {
+      setKnowledgeOptions([]);
+      return;
+    }
+    let active = true;
+    setKnowledgeLoading(true);
+    Promise.all([
+      businessApi.detail(selectedSceneId),
+      businessApi.knowledgeList({ sceneTemplateId: selectedSceneId, pageNumber: 1, pageSize: 1000 }),
+    ]).then(([detailRes, listRes]) => {
+      if (!active) return;
+      const formatted = formatBusinessDetail(detailRes);
+      const rows = Array.isArray(listRes?.content) ? listRes.content : [];
+      setKnowledgeOptions(rows.map((row: any) => ({
+        value: Number(row.knowledgeId),
+        label: knowledgeDisplayTitle(row, formatted.sceneItems, formatted.dictDetails) || `知识 #${row.knowledgeId}`,
+      })));
+    }).finally(() => {
+      if (active) setKnowledgeLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [selectedBizType, selectedSceneId]);
 
   const submit = (values: any) => {
     const next = formatFilters(values);
@@ -134,6 +206,67 @@ export default function AccessLogs() {
     const value = query[key];
     return value !== undefined && value !== null && value !== '';
   }).length;
+
+  const visibleActionOptions = selectedModule
+    ? actionOptions.filter((option) => moduleActionCodes[selectedModule]?.includes(option.value))
+    : actionOptions;
+
+  const clearObjectFilters = () => {
+    form.setFieldsValue({ bizId: undefined, sceneTemplateId: undefined });
+    setKnowledgeOptions([]);
+  };
+
+  const objectSelector = (() => {
+    if (selectedBizType === 'USER') {
+      return (
+        <Form.Item name="bizId" label="用户">
+          <Select allowClear showSearch optionFilterProp="label" options={userObjectOptions} placeholder="搜索账号或昵称" />
+        </Form.Item>
+      );
+    }
+    if (selectedBizType === 'KNOWLEDGE') {
+      return (
+        <>
+          <Form.Item name="sceneTemplateId" label="所属场景">
+            <Select
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              options={sceneOptions}
+              placeholder="先选择场景"
+              onChange={() => form.setFieldValue('bizId', undefined)}
+            />
+          </Form.Item>
+          <Form.Item name="bizId" label="知识">
+            <Select
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              options={knowledgeOptions}
+              loading={knowledgeLoading}
+              disabled={!selectedSceneId}
+              placeholder={selectedSceneId ? '搜索知识标题' : '请先选择场景'}
+            />
+          </Form.Item>
+        </>
+      );
+    }
+    if (selectedBizType === 'SCENE_TEMPLATE') {
+      return (
+        <Form.Item name="bizId" label="场景">
+          <Select allowClear showSearch optionFilterProp="label" options={sceneOptions} placeholder="搜索场景名称" />
+        </Form.Item>
+      );
+    }
+    if (selectedBizType === 'DICT_TEMPLATE') {
+      return (
+        <Form.Item name="bizId" label="目录">
+          <Select allowClear showSearch optionFilterProp="label" options={dictOptions} placeholder="搜索目录名称" />
+        </Form.Item>
+      );
+    }
+    return null;
+  })();
 
   const columns: ColumnsType<any> = [
     { title: '时间', dataIndex: 'createTime', width: 160, render: formatTime },
@@ -199,14 +332,10 @@ export default function AccessLogs() {
   ];
 
   return (
-    <PageHeader title="访问日志" breadcrumb="系统管理 / 访问日志" hideHeader>
+    <PageHeader title="系统审计日志" breadcrumb="系统管理 / 系统审计日志" hideHeader>
       <div className="access-log-page">
         <header className="access-log-page-header">
-          <div className="access-log-breadcrumb page-breadcrumb">系统管理 / 访问日志</div>
-          <div className="access-log-title-row">
-            <Typography.Title level={3} className="access-log-title">访问日志</Typography.Title>
-            <Typography.Text className="access-log-total">共 {total} 条</Typography.Text>
-          </div>
+          <div className="access-log-breadcrumb page-breadcrumb">系统管理 / 系统审计日志</div>
         </header>
 
         <section className="access-log-filter-panel" aria-label="访问日志筛选">
@@ -222,10 +351,21 @@ export default function AccessLogs() {
                 />
               </Form.Item>
               <Form.Item name="module" label="模块">
-                <Select allowClear options={moduleOptions} placeholder="全部模块" />
+                <Select
+                  allowClear
+                  options={moduleOptions}
+                  placeholder="全部模块"
+                  onChange={() => form.setFieldValue('action', undefined)}
+                />
               </Form.Item>
               <Form.Item name="action" label="操作">
-                <Select allowClear showSearch options={actionOptions} placeholder="全部操作" optionFilterProp="label" />
+                <Select
+                  allowClear
+                  showSearch
+                  options={visibleActionOptions}
+                  placeholder={selectedModule ? `全部${selectedModule}操作` : '全部操作'}
+                  optionFilterProp="label"
+                />
               </Form.Item>
               <Form.Item name="searchTime" label="时间范围" className="access-log-range-item">
                 <RangePicker
@@ -260,14 +400,14 @@ export default function AccessLogs() {
             {advancedOpen ? (
               <div className="access-log-advanced-filters">
                 <Form.Item name="bizType" label="业务对象">
-                  <Select allowClear options={bizTypeOptions} placeholder="全部对象" />
+                  <Select
+                    allowClear
+                    options={bizTypeOptions}
+                    placeholder="选择需要精确定位的对象"
+                    onChange={clearObjectFilters}
+                  />
                 </Form.Item>
-                <Form.Item name="bizId" label="对象 ID">
-                  <InputNumber min={1} precision={0} style={{ width: '100%' }} placeholder="输入对象 ID" />
-                </Form.Item>
-                <Form.Item name="sceneTemplateId" label="场景 ID">
-                  <InputNumber min={1} precision={0} style={{ width: '100%' }} placeholder="输入场景 ID" />
-                </Form.Item>
+                {objectSelector}
               </div>
             ) : null}
           </Form>

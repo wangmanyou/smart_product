@@ -90,7 +90,6 @@ export const layout: RunTimeLayoutConfig = () => ({
       'page:system:scenes': ['system:scene:manage'],
       'page:system:users': ['system:user:manage'],
       'page:system:roles': ['system:role:manage'],
-      'page:system:logs': ['system:log:view'],
       'page:system:approvals': [
         'system:approval:manage',
         'knowledge:change-request:view-own',
@@ -119,7 +118,7 @@ export const layout: RunTimeLayoutConfig = () => ({
           canPage('page:system:users') ? { path: '/system/users', name: '用户管理', icon: <TeamOutlined /> } : null,
           canPage('page:system:roles') ? { path: '/system/roles', name: '角色管理', icon: <SettingOutlined /> } : null,
           canPage('page:system:approvals') ? { path: '/system/approvals', name: approvalTitle(user), icon: <BellOutlined /> } : null,
-          canPage('page:system:logs') ? { path: '/system/logs', name: '访问日志', icon: <FileSearchOutlined /> } : null,
+          isAdmin ? { path: '/system/logs', name: '系统审计日志', icon: <FileSearchOutlined /> } : null,
         ].filter(Boolean),
       },
       canPage('page:statistics') ? { path: '/statistics', name: '数据看板', icon: <BarChartOutlined /> } : null,

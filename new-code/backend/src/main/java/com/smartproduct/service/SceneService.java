@@ -26,6 +26,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.ArrayList;
 import java.util.stream.Collectors;
 
 @Service
@@ -78,6 +80,7 @@ public class SceneService {
     @Transactional
     public Map<String, Object> create(Map<String, Object> request, String authorization) {
         validateSingleDictItem(request.get("sceneItem"));
+        validateSingleTitleItem(request.get("sceneItem"));
         validateUsableDictItemsForCreate(request.get("sceneItem"));
         TokenService.TokenUser user = resolveUser(authorization);
         SceneTemplateEntity template = newTemplate(DictService.str(request.get("sceneName")), 0L, user);
@@ -119,14 +122,20 @@ public class SceneService {
     @Transactional
     public void edit(Map<String, Object> request) {
         validateSingleDictItem(request.get("sceneItem"));
+        validateSingleTitleItem(request.get("sceneItem"));
         Long id = DictService.num(request.get("sceneTemplateId"));
         validateUsableDictItemsForEdit(id, request.get("sceneItem"));
         validateSceneItemChanges(id, request.get("sceneItem"));
+        List<String> migrations = migrateSceneItemValues(id, request.get("sceneItem"));
         templates.update(new UpdateWrapper<SceneTemplateEntity>()
                 .eq("id", id)
                 .set("name", DictService.str(request.get("sceneName")))
                 .set("update_at", LocalDateTime.now()));
         saveItems(id, request.get("sceneItem"));
+        if (!migrations.isEmpty()) {
+            accessLogs.success("场景管理", "SCENE_FIELD_MIGRATE", "SCENE_TEMPLATE", id, id,
+                    "迁移字段类型：" + String.join("；", migrations));
+        }
         accessLogs.success("场景管理", "SCENE_UPDATE", "SCENE_TEMPLATE", id, id,
                 "编辑场景：" + DictService.str(request.get("sceneName")));
     }
@@ -143,14 +152,72 @@ public class SceneService {
                 (disabled ? "禁用场景：" : "启用场景：") + (template == null ? id : template.name));
     }
 
+    @Transactional
     public void deleteItem(Long sceneItemId) {
         SceneItemEntity item = items.selectById(sceneItemId);
-        if (item != null && hasKnowledge(item.sceneTemplateId)) {
-            throw new ApiException(HttpStatus.BAD_REQUEST.value(), "场景已有知识，不能删除字段，请先处理历史知识数据");
+        if (item == null) {
+            throw new ApiException(HttpStatus.NOT_FOUND.value(), "场景字段不存在或已删除");
         }
+        List<KnowledgeItemEntity> fieldValues = knowledgeItems.selectList(new QueryWrapper<KnowledgeItemEntity>()
+                .eq("scene_item_id", sceneItemId));
+        long usedKnowledgeCount = fieldValues.stream()
+                .filter(SceneService::hasKnowledgeItemValue)
+                .map(value -> value.knowledgeId)
+                .distinct()
+                .count();
+        if (usedKnowledgeCount > 0) {
+            throw new ApiException(HttpStatus.BAD_REQUEST.value(),
+                    "该字段已有 " + usedKnowledgeCount + " 条知识填写了内容，不能删除，请先清空或迁移字段数据");
+        }
+        knowledgeItems.delete(new QueryWrapper<KnowledgeItemEntity>().eq("scene_item_id", sceneItemId));
         items.deleteById(sceneItemId);
         accessLogs.success("场景管理", "SCENE_ITEM_DELETE", "SCENE_ITEM", sceneItemId,
-                item == null ? null : item.sceneTemplateId, "删除场景字段：" + (item == null ? sceneItemId : item.name));
+                item.sceneTemplateId, "删除场景字段：" + item.name);
+    }
+
+    public Map<String, Object> requiredEligibility(Long sceneItemId) {
+        SceneItemEntity item = items.selectById(sceneItemId);
+        if (item == null) {
+            throw new ApiException(HttpStatus.NOT_FOUND.value(), "场景字段不存在或已删除");
+        }
+        long missingKnowledgeCount = missingKnowledgeValueCount(item.sceneTemplateId, item);
+        return Map.of(
+                "canSetRequired", missingKnowledgeCount == 0,
+                "missingKnowledgeCount", missingKnowledgeCount
+        );
+    }
+
+    public Map<String, Object> typeMigrationPreview(Long sceneItemId, String targetType) {
+        SceneItemEntity item = items.selectById(sceneItemId);
+        if (item == null) {
+            throw new ApiException(HttpStatus.NOT_FOUND.value(), "场景字段不存在或已删除");
+        }
+        if (!isSafeTypeConversion(item.type, targetType)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST.value(), "不支持该字段类型转换");
+        }
+        List<KnowledgeItemEntity> values = knowledgeItems.selectList(new QueryWrapper<KnowledgeItemEntity>()
+                .eq("scene_item_id", sceneItemId));
+        long affected = values.stream().filter(SceneService::hasKnowledgeItemValue).count();
+        long invalid = values.stream()
+                .filter(SceneService::hasKnowledgeItemValue)
+                .filter(value -> {
+                    try {
+                        convertKnowledgeValue(value.sceneItemValue, item.type, targetType, item.name);
+                        return false;
+                    } catch (ApiException ex) {
+                        return true;
+                    }
+                })
+                .count();
+        return Map.of(
+                "sceneItemId", sceneItemId,
+                "fieldName", item.name,
+                "sourceType", item.type,
+                "targetType", targetType,
+                "affectedKnowledgeCount", affected,
+                "invalidKnowledgeCount", invalid,
+                "canMigrate", invalid == 0
+        );
     }
 
     public Map<String, Object> logs(String action, int pageNumber, int pageSize, String order) {
@@ -212,6 +279,11 @@ public class SceneService {
             item.isHide = DictService.bool(map.get("isHide"));
             item.isRequired = DictService.bool(map.get("isRequired"));
             item.isSupportSearch = map.get("isSupportSearch") == null || DictService.bool(map.get("isSupportSearch"));
+            if ("title".equals(item.type)) {
+                item.multiValue = false;
+                item.isHide = false;
+                item.isSupportSearch = true;
+            }
             item.del = 0;
             if (id == 0L) {
                 items.insert(item);
@@ -231,6 +303,18 @@ public class SceneService {
                 .count();
         if (dictCount > 1) {
             throw new ApiException(HttpStatus.BAD_REQUEST.value(), "每个场景只能配置一个目录字段");
+        }
+    }
+
+    private void validateSingleTitleItem(Object value) {
+        if (!(value instanceof List<?> list)) {
+            return;
+        }
+        long titleCount = list.stream()
+                .filter(one -> one instanceof Map<?, ?> map && "title".equals(DictService.str(map.get("type"))))
+                .count();
+        if (titleCount > 1) {
+            throw new ApiException(HttpStatus.BAD_REQUEST.value(), "每个场景只能配置一个标题字段");
         }
     }
 
@@ -321,7 +405,7 @@ public class SceneService {
                 continue;
             }
             String nextType = DictService.str(map.get("type"));
-            if (!Objects.equals(current.type, nextType)) {
+            if (!Objects.equals(current.type, nextType) && !isSafeTypeConversion(current.type, nextType)) {
                 throw new ApiException(HttpStatus.BAD_REQUEST.value(), "场景已有知识，字段类型不能修改");
             }
             Long nextDictTemplateId = map.get("dictTemplateId") == null ? 0L : DictService.num(map.get("dictTemplateId"));
@@ -334,6 +418,11 @@ public class SceneService {
         }
     }
 
+    private static boolean isTextTitleConversion(String currentType, String nextType) {
+        return ("text".equals(currentType) || "title".equals(currentType))
+                && ("text".equals(nextType) || "title".equals(nextType));
+    }
+
     private boolean hasKnowledge(Long sceneTemplateId) {
         return sceneTemplateId != null && knowledge.selectCount(new QueryWrapper<KnowledgeEntity>()
                 .eq("scene_template_id", sceneTemplateId)
@@ -341,19 +430,115 @@ public class SceneService {
     }
 
     private boolean allKnowledgeHasValue(Long sceneTemplateId, SceneItemEntity sceneItem) {
-        List<KnowledgeEntity> rows = knowledge.selectList(new QueryWrapper<KnowledgeEntity>()
-                .eq("scene_template_id", sceneTemplateId)
-                .eq("del", 0));
-        for (KnowledgeEntity row : rows) {
-            KnowledgeItemEntity value = knowledgeItems.selectOne(new QueryWrapper<KnowledgeItemEntity>()
-                    .eq("knowledge_id", row.id)
-                    .eq("scene_item_id", sceneItem.id)
-                    .last("limit 1"));
-            if (!hasSceneItemValue(sceneItem, value)) {
-                return false;
-            }
+        return missingKnowledgeValueCount(sceneTemplateId, sceneItem) == 0;
+    }
+
+    private static boolean isSafeTypeConversion(String currentType, String nextType) {
+        return isTextTitleConversion(currentType, nextType)
+                || "text".equals(currentType) && ("richtext".equals(nextType) || "tag".equals(nextType));
+    }
+
+    private List<String> migrateSceneItemValues(Long sceneTemplateId, Object value) {
+        if (sceneTemplateId == null || !(value instanceof List<?> list)) {
+            return List.of();
         }
-        return true;
+        Map<Long, SceneItemEntity> currentItems = items.selectList(new QueryWrapper<SceneItemEntity>()
+                        .eq("scene_template_id", sceneTemplateId)
+                        .eq("del", 0))
+                .stream()
+                .collect(Collectors.toMap(item -> item.id, item -> item, (a, b) -> a));
+        List<String> migrations = new ArrayList<>();
+        for (Object one : list) {
+            if (!(one instanceof Map<?, ?> map) || map.get("id") == null) {
+                continue;
+            }
+            Long itemId = DictService.num(map.get("id"));
+            SceneItemEntity current = currentItems.get(itemId);
+            String nextType = DictService.str(map.get("type"));
+            if (current == null || Objects.equals(current.type, nextType)) {
+                continue;
+            }
+            if (!isSafeTypeConversion(current.type, nextType)) {
+                continue;
+            }
+            List<KnowledgeItemEntity> values = knowledgeItems.selectList(new QueryWrapper<KnowledgeItemEntity>()
+                    .eq("scene_item_id", current.id));
+            List<ConvertedKnowledgeValue> converted = new ArrayList<>();
+            for (KnowledgeItemEntity item : values) {
+                converted.add(new ConvertedKnowledgeValue(item, convertKnowledgeValue(item.sceneItemValue, current.type, nextType, current.name)));
+            }
+            for (ConvertedKnowledgeValue conversion : converted) {
+                conversion.item.sceneItemValue = conversion.value;
+                knowledgeItems.updateById(conversion.item);
+            }
+            long affected = values.stream().filter(SceneService::hasKnowledgeItemValue).count();
+            migrations.add(current.name + "：" + current.type + " → " + nextType + "（" + affected + " 条）");
+        }
+        return migrations;
+    }
+
+    private static String convertKnowledgeValue(String value, String currentType, String nextType, String fieldName) {
+        String source = value == null ? "" : value;
+        if (source.isBlank()) {
+            return "";
+        }
+        if ("text".equals(currentType) && "title".equals(nextType)) {
+            String title = org.jsoup.Jsoup.parse(source).text().trim();
+            if (title.length() > 120) {
+                throw new ApiException(HttpStatus.BAD_REQUEST.value(), fieldName + "存在超过 120 个字符的历史值，不能迁移为标题");
+            }
+            return title;
+        }
+        if ("text".equals(currentType) && "richtext".equals(nextType)) {
+            return plainTextToRichText(source);
+        }
+        if ("text".equals(currentType) && "tag".equals(nextType)) {
+            return java.util.Arrays.stream(source.split("[,，、]+"))
+                    .map(String::trim)
+                    .filter(item -> !item.isBlank())
+                    .distinct()
+                    .collect(Collectors.joining(","));
+        }
+        return source;
+    }
+
+    private static String plainTextToRichText(String value) {
+        return java.util.Arrays.stream(value.replace("\r\n", "\n").replace('\r', '\n').split("\n", -1))
+                .map(SceneService::escapeHtml)
+                .map(line -> line.isBlank() ? "<p><br></p>" : "<p>" + line + "</p>")
+                .collect(Collectors.joining());
+    }
+
+    private static String escapeHtml(String value) {
+        return value.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
+    }
+
+    private record ConvertedKnowledgeValue(KnowledgeItemEntity item, String value) {
+    }
+
+    private long missingKnowledgeValueCount(Long sceneTemplateId, SceneItemEntity sceneItem) {
+        Set<Long> activeKnowledgeIds = knowledge.selectList(new QueryWrapper<KnowledgeEntity>()
+                        .eq("scene_template_id", sceneTemplateId)
+                        .eq("del", 0))
+                .stream()
+                .map(row -> row.id)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (activeKnowledgeIds.isEmpty()) {
+            return 0;
+        }
+        Set<Long> filledKnowledgeIds = knowledgeItems.selectList(new QueryWrapper<KnowledgeItemEntity>()
+                        .eq("scene_item_id", sceneItem.id))
+                .stream()
+                .filter(value -> activeKnowledgeIds.contains(value.knowledgeId))
+                .filter(value -> hasSceneItemValue(sceneItem, value))
+                .map(value -> value.knowledgeId)
+                .collect(Collectors.toSet());
+        return activeKnowledgeIds.size() - filledKnowledgeIds.size();
     }
 
     private static boolean hasSceneItemValue(SceneItemEntity sceneItem, KnowledgeItemEntity value) {
@@ -361,6 +546,15 @@ public class SceneService {
             return false;
         }
         String raw = "dict".equals(sceneItem.type) ? value.selectDictTreeIds : value.sceneItemValue;
+        return hasStoredValue(raw);
+    }
+
+    private static boolean hasKnowledgeItemValue(KnowledgeItemEntity value) {
+        return value != null
+                && (hasStoredValue(value.sceneItemValue) || hasStoredValue(value.selectDictTreeIds));
+    }
+
+    private static boolean hasStoredValue(String raw) {
         return raw != null && !raw.isBlank() && !"[]".equals(raw.trim());
     }
 

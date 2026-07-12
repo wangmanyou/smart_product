@@ -1,8 +1,9 @@
 import { CloseOutlined } from '@ant-design/icons';
 import { history, useLocation } from '@umijs/max';
-import { Tabs, message } from 'antd';
+import { Tabs, Tooltip, message } from 'antd';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { authApi } from '@/services/api';
+import { buildWorkTabLabel, type WorkTabLabelKind } from '@/utils/data';
 import { confirmUnsavedLeave, prepareUnsavedTabSwitch } from '@/utils/unsavedChanges';
 
 type TabItem = {
@@ -16,6 +17,41 @@ type TabItem = {
 const STORE_KEY = 'knowledge-work-tabs-v6';
 const OLD_STORE_KEYS = ['knowledge-work-tabs-v5', 'knowledge-work-tabs-v4', 'knowledge-work-tabs-v3', 'knowledge-work-tabs'];
 const MAX_GROUP_TABS = 8;
+
+const dynamicLabelRules: Array<{
+  pattern: RegExp;
+  kind: WorkTabLabelKind;
+  legacySuffix?: string;
+}> = [
+  { pattern: /^\/system\/dicts\/new\/edit/, kind: 'directory-create' },
+  { pattern: /^\/system\/dicts\/[^/]+\/edit/, kind: 'directory-edit', legacySuffix: '目录编辑' },
+  { pattern: /^\/system\/dicts\/[^/]+/, kind: 'directory-detail', legacySuffix: '目录详情' },
+  { pattern: /^\/system\/scenes\/new\/config/, kind: 'scene-create' },
+  { pattern: /^\/system\/scenes\/[^/]+\/config/, kind: 'scene-edit', legacySuffix: '场景编辑' },
+  { pattern: /^\/system\/scenes\/[^/]+(?:\/view)?/, kind: 'scene-detail', legacySuffix: '场景详情' },
+  { pattern: /^\/system\/roles\/new\/config/, kind: 'role-create' },
+  { pattern: /^\/system\/roles\/[^/]+\/config/, kind: 'role-config', legacySuffix: '角色配置' },
+  { pattern: /^\/system\/users\/new\/config/, kind: 'user-create' },
+  { pattern: /^\/system\/users\/[^/]+\/config/, kind: 'user-edit', legacySuffix: '用户编辑' },
+  { pattern: /^\/knowledge\/scene\/[^/]+\/detail\/[^/]+/, kind: 'knowledge-detail', legacySuffix: '知识详情' },
+  { pattern: /^\/knowledge\/scene\/[^/]+\/edit\/[^/]+/, kind: 'knowledge-edit', legacySuffix: '知识编辑' },
+  { pattern: /^\/knowledge\/scene\/[^/]+\/create/, kind: 'knowledge-create' },
+  { pattern: /^\/knowledge\/scene\/[^/]+\/import/, kind: 'knowledge-import' },
+  { pattern: /^\/knowledge\/scene\/[^/]+/, kind: 'knowledge-list', legacySuffix: '知识列表' },
+];
+
+function normalizeTabLabel(path: string, label: string) {
+  const text = String(label || '').trim();
+  const rule = dynamicLabelRules.find((item) => item.pattern.test(path));
+  if (!rule) return text;
+  const prefix = buildWorkTabLabel(rule.kind);
+  if (text === prefix || text.startsWith(`${prefix} — `)) return text;
+  if (rule.legacySuffix && text.endsWith(rule.legacySuffix)) {
+    const subject = text.slice(0, -rule.legacySuffix.length).trim();
+    return buildWorkTabLabel(rule.kind, subject);
+  }
+  return text || prefix;
+}
 
 function shouldOpenTab(path: string) {
   if (path === '/login') return false;
@@ -38,32 +74,32 @@ function titleOf(path: string) {
   if (path === '/system/dicts') return '目录管理';
   if (path === '/system/scenes') return '场景管理';
   if (path === '/system/users') return '用户管理';
-  if (path === '/system/logs') return '访问日志';
-  if (/^\/system\/users\/new\/config/.test(path)) return '新增用户';
-  if (/^\/system\/users\/[^/]+\/config/.test(path)) return '用户编辑';
+  if (path === '/system/logs') return '系统审计日志';
+  if (/^\/system\/users\/new\/config/.test(path)) return buildWorkTabLabel('user-create');
+  if (/^\/system\/users\/[^/]+\/config/.test(path)) return buildWorkTabLabel('user-edit');
   if (path === '/system/roles') return '角色管理';
   if (path === '/system/approvals') return approvalTitle();
   if (path === '/statistics') return '数据展板';
-  if (/^\/system\/roles\/new\/config/.test(path)) return '新增角色';
-  if (/^\/system\/roles\/[^/]+\/config/.test(path)) return '角色配置';
-  if (/^\/system\/dicts\/new\/edit/.test(path)) return '新增目录';
-  if (/^\/system\/dicts\/[^/]+\/edit/.test(path)) return '目录编辑';
-  if (/^\/system\/dicts\/[^/]+/.test(path)) return '目录详情';
-  if (/^\/system\/scenes\/new\/config/.test(path)) return '创建场景';
-  if (/^\/system\/scenes\/[^/]+\/config/.test(path)) return '场景编辑';
-  if (/^\/system\/scenes\/[^/]+\/view/.test(path)) return '场景详情';
-  if (/^\/system\/scenes\/[^/]+/.test(path)) return '场景详情';
+  if (/^\/system\/roles\/new\/config/.test(path)) return buildWorkTabLabel('role-create');
+  if (/^\/system\/roles\/[^/]+\/config/.test(path)) return buildWorkTabLabel('role-config');
+  if (/^\/system\/dicts\/new\/edit/.test(path)) return buildWorkTabLabel('directory-create');
+  if (/^\/system\/dicts\/[^/]+\/edit/.test(path)) return buildWorkTabLabel('directory-edit');
+  if (/^\/system\/dicts\/[^/]+/.test(path)) return buildWorkTabLabel('directory-detail');
+  if (/^\/system\/scenes\/new\/config/.test(path)) return buildWorkTabLabel('scene-create');
+  if (/^\/system\/scenes\/[^/]+\/config/.test(path)) return buildWorkTabLabel('scene-edit');
+  if (/^\/system\/scenes\/[^/]+\/view/.test(path)) return buildWorkTabLabel('scene-detail');
+  if (/^\/system\/scenes\/[^/]+/.test(path)) return buildWorkTabLabel('scene-detail');
   if (/^\/knowledge\/scene\/[^/]+\/detail\/([^/]+)/.test(path)) {
     const id = path.match(/^\/knowledge\/scene\/[^/]+\/detail\/([^/]+)/)?.[1];
-    return `知识 ${id}`;
+    return buildWorkTabLabel('knowledge-detail', `知识 ${id}`);
   }
   if (/^\/knowledge\/scene\/[^/]+\/edit\/([^/]+)/.test(path)) {
     const id = path.match(/^\/knowledge\/scene\/[^/]+\/edit\/([^/]+)/)?.[1];
-    return `编辑知识 ${id}`;
+    return buildWorkTabLabel('knowledge-edit', `知识 ${id}`);
   }
-  if (/^\/knowledge\/scene\/[^/]+\/create/.test(path)) return '新增知识';
-  if (/^\/knowledge\/scene\/[^/]+\/import/.test(path)) return '批量导入';
-  if (/^\/knowledge\/scene\/[^/]+/.test(path)) return '知识列表';
+  if (/^\/knowledge\/scene\/[^/]+\/create/.test(path)) return buildWorkTabLabel('knowledge-create');
+  if (/^\/knowledge\/scene\/[^/]+\/import/.test(path)) return buildWorkTabLabel('knowledge-import');
+  if (/^\/knowledge\/scene\/[^/]+/.test(path)) return buildWorkTabLabel('knowledge-list');
   return '页面';
 }
 
@@ -82,7 +118,9 @@ function approvalTitle() {
 function readTabs(): TabItem[] {
   try {
     const tabs = JSON.parse(localStorage.getItem(STORE_KEY) || '[]');
-    return Array.isArray(tabs) ? tabs : [];
+    return Array.isArray(tabs)
+      ? tabs.map((tab: TabItem) => ({ ...tab, label: normalizeTabLabel(tab.path, tab.label) }))
+      : [];
   } catch {
     return [];
   }
@@ -145,7 +183,8 @@ export default function GlobalWorkTabs() {
     }
     setTabs((prev) => {
       const currentGroup = groupOf(pathname);
-      const stored = prev.length ? prev : readTabs();
+      const stored = (prev.length ? prev : readTabs())
+        .map((tab) => ({ ...tab, label: normalizeTabLabel(tab.path, tab.label) }));
       const sameGroup = stored.every((tab) => tab.group === currentGroup);
       const rawBase = resetTabs || !sameGroup ? [] : stored;
       const replacePaths = [replacePath, ...inferredReplacePaths(pathname)].filter(Boolean) as string[];
@@ -156,7 +195,7 @@ export default function GlobalWorkTabs() {
       const nextTab: TabItem = {
         key: pathname,
         path: pathname,
-        label: routeLabel || titleOf(pathname),
+        label: normalizeTabLabel(pathname, routeLabel || titleOf(pathname)),
         group: currentGroup,
         closable: true,
       };
@@ -187,7 +226,9 @@ export default function GlobalWorkTabs() {
       const targetPath = detail.path || pathname;
       setTabs((prev) => {
         const next = prev.map((tab) =>
-          tab.path === targetPath ? { ...tab, label: detail.label || tab.label } : tab,
+          tab.path === targetPath
+            ? { ...tab, label: normalizeTabLabel(targetPath, detail.label || tab.label) }
+            : tab,
         );
         localStorage.setItem(STORE_KEY, JSON.stringify(next));
         return next;
@@ -217,7 +258,9 @@ export default function GlobalWorkTabs() {
         key: tab.path,
         label: (
           <span className="global-tab-label">
-            {tab.label}
+            <Tooltip title={tab.label} placement="bottom">
+              <span className="global-tab-label-text">{tab.label}</span>
+            </Tooltip>
             {tab.closable ? (
               <CloseOutlined
                 className="global-tab-close"

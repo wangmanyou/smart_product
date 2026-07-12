@@ -1,6 +1,6 @@
 import { CloseOutlined } from '@ant-design/icons';
 import { history, useLocation } from '@umijs/max';
-import { Tabs } from 'antd';
+import { Tabs, Tooltip } from 'antd';
 
 type WorkTab = {
   key: string;
@@ -29,7 +29,9 @@ export default function WorkTabs({ tabs }: { tabs: WorkTab[] }) {
         key: tab.key,
         label: (
           <span className="work-tab-label">
-            {tab.label}
+            <Tooltip title={tab.label} placement="bottom">
+              <span className="work-tab-label-text">{tab.label}</span>
+            </Tooltip>
             {tab.closable ? (
               <CloseOutlined
                 className="work-tab-close"

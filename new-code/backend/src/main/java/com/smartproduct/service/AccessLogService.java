@@ -41,8 +41,8 @@ public class AccessLogService {
                                     String action, String result, String bizType, Long bizId,
                                     Long sceneTemplateId, List<String> searchTime, String order) {
         CurrentUser user = currentUsers.current();
-        if (!user.hasPermission(PermissionCodes.SYSTEM_LOG_VIEW)) {
-            throw new ApiException(HttpStatus.FORBIDDEN.value(), "没有查看访问日志的权限");
+        if (!user.admin()) {
+            throw new ApiException(HttpStatus.FORBIDDEN.value(), "仅超级管理员可查看系统审计日志");
         }
         QueryWrapper<AccessLogEntity> query = new QueryWrapper<>();
         if (userAccount != null && !userAccount.isBlank()) {
@@ -92,20 +92,33 @@ public class AccessLogService {
         return page(loginLogQuery(user.getId(), user.getAccount()), pageNumber, pageSize, order);
     }
 
-    public Map<String, Object> knowledgeLogs(Long knowledgeId, Long visibleUserId, String action, int pageNumber,
-                                             int pageSize, String order) {
+    public Map<String, Object> knowledgeLogs(Long knowledgeId, Long visibleUserId, Long operatorId, String action,
+                                             int pageNumber, int pageSize, String order) {
         QueryWrapper<AccessLogEntity> query = new QueryWrapper<AccessLogEntity>()
                 .eq("biz_type", "KNOWLEDGE")
                 .eq("biz_id", knowledgeId);
         applyKnowledgeActionFilter(query, action, List.of("VIEW", "UPDATE", "UPDATE_REQUEST"));
         if (visibleUserId != null) {
             query.eq("user_id", visibleUserId);
+        } else if (operatorId != null && operatorId > 0) {
+            query.eq("user_id", operatorId);
         }
         return page(query, pageNumber, pageSize, order);
     }
 
-    public Map<String, Object> sceneKnowledgeLogs(Long sceneTemplateId, Long visibleUserId, String action,
-                                                  int pageNumber, int pageSize, String order) {
+    public List<Map<String, Object>> knowledgeLogOperators(Long knowledgeId, Long visibleUserId) {
+        QueryWrapper<AccessLogEntity> query = new QueryWrapper<AccessLogEntity>()
+                .eq("biz_type", "KNOWLEDGE")
+                .eq("biz_id", knowledgeId);
+        applyKnowledgeActionFilter(query, null, List.of("VIEW", "UPDATE", "UPDATE_REQUEST"));
+        if (visibleUserId != null) {
+            query.eq("user_id", visibleUserId);
+        }
+        return operatorOptions(query);
+    }
+
+    public Map<String, Object> sceneKnowledgeLogs(Long sceneTemplateId, Long visibleUserId, Long operatorId,
+                                                  String action, int pageNumber, int pageSize, String order) {
         QueryWrapper<AccessLogEntity> query = new QueryWrapper<AccessLogEntity>()
                 .eq("module", "知识库")
                 .eq("scene_template_id", sceneTemplateId);
@@ -114,8 +127,23 @@ public class AccessLogService {
         ));
         if (visibleUserId != null) {
             query.eq("user_id", visibleUserId);
+        } else if (operatorId != null && operatorId > 0) {
+            query.eq("user_id", operatorId);
         }
         return page(query, pageNumber, pageSize, order);
+    }
+
+    public List<Map<String, Object>> sceneKnowledgeLogOperators(Long sceneTemplateId, Long visibleUserId) {
+        QueryWrapper<AccessLogEntity> query = new QueryWrapper<AccessLogEntity>()
+                .eq("module", "知识库")
+                .eq("scene_template_id", sceneTemplateId);
+        applyKnowledgeActionFilter(query, null, List.of(
+                "VIEW", "CREATE", "CREATE_REQUEST", "UPDATE", "UPDATE_REQUEST", "DELETE", "DELETE_REQUEST"
+        ));
+        if (visibleUserId != null) {
+            query.eq("user_id", visibleUserId);
+        }
+        return operatorOptions(query);
     }
 
     public Map<String, Object> sceneLogs(String action, int pageNumber, int pageSize, String order) {
@@ -276,6 +304,25 @@ public class AccessLogService {
                 "content", page.getRecords().stream().map(this::dto).toList(),
                 "totalElements", page.getTotal()
         );
+    }
+
+    private List<Map<String, Object>> operatorOptions(QueryWrapper<AccessLogEntity> query) {
+        query.select("user_id", "user_account")
+                .isNotNull("user_id")
+                .groupBy("user_id", "user_account")
+                .orderByAsc("user_account");
+        Map<Long, String> operators = new LinkedHashMap<>();
+        for (AccessLogEntity row : logs.selectList(query)) {
+            if (row.userId != null) {
+                operators.putIfAbsent(row.userId, row.userAccount);
+            }
+        }
+        return operators.entrySet().stream().map(entry -> {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("operatorId", entry.getKey());
+            item.put("operatorName", entry.getValue());
+            return item;
+        }).toList();
     }
 
     private static void applyTimeRange(QueryWrapper<AccessLogEntity> query, List<String> searchTime) {

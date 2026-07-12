@@ -312,7 +312,7 @@ public class DashboardService {
                        COUNT(DISTINCT CASE WHEN log.user_id > 0 THEN log.user_id END) AS viewer_count,
                        MAX(log.create_at) AS last_view_at,
                        MAX(CASE
-                           WHEN item_definition.type IN ('text', 'richtext', 'tag')
+                           WHEN item_definition.type = 'title'
                             AND NULLIF(TRIM(item.scene_item_value), '') IS NOT NULL
                            THEN LEFT(item.scene_item_value, 120)
                            ELSE NULL
@@ -636,16 +636,16 @@ public class DashboardService {
         }
     }
 
-    private static String cleanPreview(String value, long knowledgeId) {
+    static String cleanPreview(String value, long knowledgeId) {
         if (value == null || value.isBlank()) {
-            return "知识 #" + knowledgeId;
+            return "未设置标题 · 知识 #" + knowledgeId;
         }
         String plain = value.replaceAll("<[^>]+>", " ")
                 .replace("&nbsp;", " ")
                 .replaceAll("\s+", " ")
                 .trim();
         if (plain.isBlank()) {
-            return "知识 #" + knowledgeId;
+            return "未设置标题 · 知识 #" + knowledgeId;
         }
         return plain.length() > 42 ? plain.substring(0, 42) + "…" : plain;
     }

@@ -41,15 +41,15 @@ public class KnowledgeChangeRequestService {
     public Map<String, Object> listMine(int pageNumber, int pageSize, String status) {
         CurrentUser user = currentUsers.current();
         QueryWrapper<KnowledgeChangeRequestEntity> query = baseQuery(status).eq("applicant_id", user.userId());
-        return page(pageNumber, pageSize, query);
+        return page(pageNumber, pageSize, query, null);
     }
 
     public Map<String, Object> listAll(int pageNumber, int pageSize, String status) {
         CurrentUser user = currentUsers.current();
         QueryWrapper<KnowledgeChangeRequestEntity> query = baseQuery(status)
                 .ne("applicant_id", user.userId());
-        applyReviewSceneScope(query, user);
-        return page(pageNumber, pageSize, query);
+        applyReviewVisibility(query, user);
+        return page(pageNumber, pageSize, query, user);
     }
 
     @Transactional
@@ -169,21 +169,37 @@ public class KnowledgeChangeRequestService {
         return query;
     }
 
-    private void applyReviewSceneScope(QueryWrapper<KnowledgeChangeRequestEntity> query, CurrentUser user) {
+    private void applyReviewVisibility(QueryWrapper<KnowledgeChangeRequestEntity> query, CurrentUser user) {
         if (user.admin()) {
             return;
         }
-        Set<Long> sceneIds = user.sceneIdsForAnyPermission(
+        Set<Long> fullSceneIds = user.sceneIdsForAnyPermission(
                 PermissionCodes.CHANGE_REQUEST_VIEW_ALL,
-                PermissionCodes.CHANGE_REQUEST_APPROVE,
-                PermissionCodes.CHANGE_REQUEST_REJECT,
                 PermissionCodes.SYSTEM_APPROVAL_MANAGE
         );
-        if (sceneIds.isEmpty()) {
+        Set<Long> reviewSceneIds = user.sceneIdsForAnyPermission(
+                PermissionCodes.CHANGE_REQUEST_APPROVE,
+                PermissionCodes.CHANGE_REQUEST_REJECT
+        );
+        reviewSceneIds.removeAll(fullSceneIds);
+        if (fullSceneIds.isEmpty() && reviewSceneIds.isEmpty()) {
             query.eq("scene_template_id", -1L);
             return;
         }
-        query.in("scene_template_id", sceneIds);
+        query.and(scope -> {
+            if (!fullSceneIds.isEmpty()) {
+                scope.in("scene_template_id", fullSceneIds);
+            }
+            if (!reviewSceneIds.isEmpty()) {
+                if (!fullSceneIds.isEmpty()) {
+                    scope.or();
+                }
+                scope.and(limited -> limited.in("scene_template_id", reviewSceneIds)
+                        .and(visible -> visible.eq("status", KnowledgeChangeRequestStatus.PENDING)
+                                .or()
+                                .eq("reviewer_id", user.userId())));
+            }
+        });
     }
 
     private void requireReviewAccess(CurrentUser reviewer, KnowledgeChangeRequestEntity row, String permission) {
@@ -196,10 +212,11 @@ public class KnowledgeChangeRequestService {
         }
     }
 
-    private Map<String, Object> page(int pageNumber, int pageSize, QueryWrapper<KnowledgeChangeRequestEntity> query) {
+    private Map<String, Object> page(int pageNumber, int pageSize, QueryWrapper<KnowledgeChangeRequestEntity> query,
+                                     CurrentUser reviewer) {
         Page<KnowledgeChangeRequestEntity> page = requests.selectPage(Page.of(Math.max(pageNumber, 1), Math.max(pageSize, 1)), query);
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("content", page.getRecords().stream().map(this::dto).toList());
+        result.put("content", page.getRecords().stream().map(row -> dto(row, reviewer)).toList());
         result.put("totalElements", page.getTotal());
         return result;
     }
@@ -242,7 +259,7 @@ public class KnowledgeChangeRequestService {
         }
     }
 
-    private Map<String, Object> dto(KnowledgeChangeRequestEntity row) {
+    private Map<String, Object> dto(KnowledgeChangeRequestEntity row, CurrentUser reviewer) {
         Map<String, Object> dto = new LinkedHashMap<>();
         dto.put("changeRequestId", row.id);
         dto.put("requestType", row.requestType);
@@ -260,6 +277,13 @@ public class KnowledgeChangeRequestService {
         dto.put("reviewedAt", epoch(row.reviewedAt));
         dto.put("createTime", epoch(row.createAt));
         dto.put("updateTime", epoch(row.updateAt));
+        if (reviewer != null) {
+            boolean ownRequest = row.applicantId != null && row.applicantId.equals(reviewer.userId());
+            dto.put("canApprove", !ownRequest && (reviewer.hasScenePermission(PermissionCodes.CHANGE_REQUEST_APPROVE, row.sceneTemplateId)
+                    || reviewer.hasScenePermission(PermissionCodes.SYSTEM_APPROVAL_MANAGE, row.sceneTemplateId)));
+            dto.put("canReject", !ownRequest && (reviewer.hasScenePermission(PermissionCodes.CHANGE_REQUEST_REJECT, row.sceneTemplateId)
+                    || reviewer.hasScenePermission(PermissionCodes.SYSTEM_APPROVAL_MANAGE, row.sceneTemplateId)));
+        }
         return dto;
     }
 

@@ -288,10 +288,13 @@ export default function ChangeApprovals() {
     actions.has('knowledge:change-request:view-all') ||
     actions.has('knowledge:change-request:approve') ||
     actions.has('knowledge:change-request:reject');
+  const canApprove = isAdmin || actions.has('system:approval:manage') || actions.has('knowledge:change-request:approve');
+  const canReject = isAdmin || actions.has('system:approval:manage') || actions.has('knowledge:change-request:reject');
   const hasOwnApprovals = Object.values(user?.setting?.approvalRequired || {}).some(Boolean);
+  const canViewOwn = !isAdmin && (actions.has('knowledge:change-request:view-own') || hasOwnApprovals);
   const ownApprovalRequired = user?.setting?.approvalRequired || {};
   const pageTitle = canReview ? '审批管理' : '审批中心';
-  const initialScope = query.get('tab') === 'mine' ? 'mine' : canReview ? 'all' : 'mine';
+  const initialScope = query.get('tab') === 'mine' && canViewOwn ? 'mine' : canReview ? 'all' : 'mine';
   const initialStatus = allowedStatuses.includes(query.get('status') || '') ? query.get('status') || 'PENDING' : 'PENDING';
   const focusChangeRequestId = query.get('changeRequestId');
   const [scope, setScope] = useState(initialScope);
@@ -305,13 +308,13 @@ export default function ChangeApprovals() {
   const [sceneMap, setSceneMap] = useState<Record<string, any>>({});
 
   useEffect(() => {
-    const nextScope = query.get('tab') === 'mine' ? 'mine' : canReview ? 'all' : 'mine';
+    const nextScope = query.get('tab') === 'mine' && canViewOwn ? 'mine' : canReview ? 'all' : 'mine';
     const nextStatus = allowedStatuses.includes(query.get('status') || '') ? query.get('status') || 'PENDING' : 'PENDING';
     setScope(nextScope);
     setStatus(nextStatus);
     setRequestType('ALL');
     setSelectedRowKeys([]);
-  }, [location.search, canReview]);
+  }, [location.search, canReview, canViewOwn]);
 
   const typeCounts = useMemo(() => {
     const counts: Record<string, number> = { ALL: total, CREATE: 0, UPDATE: 0, DELETE: 0 };
@@ -374,8 +377,12 @@ export default function ChangeApprovals() {
       setScope('mine');
       return;
     }
+    if (scope === 'mine' && !canViewOwn && canReview) {
+      setScope('all');
+      return;
+    }
     load();
-  }, [scope, status, focusChangeRequestId]);
+  }, [scope, status, focusChangeRequestId, canReview, canViewOwn]);
 
   useEffect(() => {
     if (requestType !== 'ALL' && !visibleRequestTypes.includes(requestType)) {
@@ -407,7 +414,8 @@ export default function ChangeApprovals() {
     const selected = selectedRowKeys.length
       ? visibleRows.filter((row) => selectedRowKeys.includes(row.changeRequestId))
       : [];
-    const targets = (selected.length ? selected : visibleRows).filter((row) => row.status === 'PENDING');
+    const targets = (selected.length ? selected : visibleRows)
+      .filter((row) => row.status === 'PENDING' && (approved ? row.canApprove : row.canReject));
     if (!targets.length) {
       message.info(selectedRowKeys.length ? '已选内容里没有待审批申请' : '当前分类下没有待审批申请');
       return;
@@ -433,6 +441,12 @@ export default function ChangeApprovals() {
   const batchCount = selectedRowKeys.length
     ? visibleRows.filter((row) => selectedRowKeys.includes(row.changeRequestId) && row.status === 'PENDING').length
     : visibleRows.filter((row) => row.status === 'PENDING').length;
+  const approveBatchCount = (selectedRowKeys.length
+    ? visibleRows.filter((row) => selectedRowKeys.includes(row.changeRequestId))
+    : visibleRows).filter((row) => row.status === 'PENDING' && row.canApprove).length;
+  const rejectBatchCount = (selectedRowKeys.length
+    ? visibleRows.filter((row) => selectedRowKeys.includes(row.changeRequestId))
+    : visibleRows).filter((row) => row.status === 'PENDING' && row.canReject).length;
 
   const columns: ColumnsType<any> = [
     {
@@ -453,6 +467,12 @@ export default function ChangeApprovals() {
     { title: '场景', width: 180, render: (_, record) => sceneName(record, sceneMap) },
     { title: '知识ID', width: 100, render: (_, record) => record.knowledgeId || '--' },
     { title: '申请人', width: 140, dataIndex: 'applicantName' },
+    {
+      title: '处理人',
+      width: 140,
+      dataIndex: 'reviewerName',
+      render: (value, record) => value || (record.status === 'PENDING' ? '待处理' : '--'),
+    },
     { title: '申请时间', width: 160, render: (_, record) => formatTime(record.createTime) },
     {
       title: '操作',
@@ -462,8 +482,8 @@ export default function ChangeApprovals() {
           <Button type="link" icon={<EyeOutlined />} onClick={() => setPreview(record)}>查看</Button>
           {record.status === 'PENDING' && scope === 'all' ? (
             <>
-              <Button type="link" icon={<CheckOutlined />} onClick={() => review(record, true)}>通过</Button>
-              <Button type="link" danger icon={<CloseOutlined />} onClick={() => review(record, false)}>驳回</Button>
+              {record.canApprove ? <Button type="link" icon={<CheckOutlined />} onClick={() => review(record, true)}>通过</Button> : null}
+              {record.canReject ? <Button type="link" danger icon={<CloseOutlined />} onClick={() => review(record, false)}>驳回</Button> : null}
             </>
           ) : null}
           {record.status === 'PENDING' && scope === 'mine' ? (
@@ -492,7 +512,7 @@ export default function ChangeApprovals() {
       description={canReview ? '按变更类型审核知识新增、编辑和删除申请。' : '查看自己提交的知识变更申请。'}
       extra={
         <Space wrap>
-          {canReview ? (
+          {canReview && canViewOwn ? (
             <Radio.Group
               value={scope}
               onChange={(event) => {
@@ -557,25 +577,25 @@ export default function ChangeApprovals() {
               loading={loading}
               columns={columns}
               dataSource={visibleRows}
-              rowSelection={scope === 'all' && status === 'PENDING' ? {
+              rowSelection={scope === 'all' && status === 'PENDING' && (canApprove || canReject) ? {
                 selectedRowKeys,
                 onChange: (keys) => setSelectedRowKeys(keys as any[]),
-                getCheckboxProps: (record) => ({ disabled: record.status !== 'PENDING' }),
+                getCheckboxProps: (record) => ({ disabled: record.status !== 'PENDING' || (!record.canApprove && !record.canReject) }),
               } : undefined}
               pagination={{ total: paginationTotal, pageSize: 10, showTotal: (count) => `共 ${count} 条` }}
             />
           </Card>
 
-          {scope === 'all' && status === 'PENDING' ? (
+          {scope === 'all' && status === 'PENDING' && (canApprove || canReject) ? (
             <div className="approval-bulk-bar">
               <span>{selectedRowKeys.length ? `已选择 ${batchCount} 条待审批` : `当前分类 ${batchCount} 条待审批`}</span>
               <Space>
-                <Button disabled={!batchCount} icon={<CheckOutlined />} onClick={() => bulkReview(true)}>
+                {canApprove ? <Button disabled={!approveBatchCount} icon={<CheckOutlined />} onClick={() => bulkReview(true)}>
                   {selectedRowKeys.length ? '通过已选' : '通过当前分类'}
-                </Button>
-                <Button disabled={!batchCount} danger icon={<CloseOutlined />} onClick={() => bulkReview(false)}>
+                </Button> : null}
+                {canReject ? <Button disabled={!rejectBatchCount} danger icon={<CloseOutlined />} onClick={() => bulkReview(false)}>
                   {selectedRowKeys.length ? '驳回已选' : '驳回当前分类'}
-                </Button>
+                </Button> : null}
               </Space>
             </div>
           ) : null}
@@ -587,9 +607,9 @@ export default function ChangeApprovals() {
         title="审批预览"
         width={980}
         footer={preview?.status === 'PENDING' && scope === 'all' ? [
-          <Button key="reject" danger icon={<CloseOutlined />} onClick={() => review(preview, false)}>驳回</Button>,
-          <Button key="approve" type="primary" icon={<CheckOutlined />} onClick={() => review(preview, true)}>通过</Button>,
-        ] : null}
+          preview.canReject ? <Button key="reject" danger icon={<CloseOutlined />} onClick={() => review(preview, false)}>驳回</Button> : null,
+          preview.canApprove ? <Button key="approve" type="primary" icon={<CheckOutlined />} onClick={() => review(preview, true)}>通过</Button> : null,
+        ].filter(Boolean) : null}
         onCancel={() => setPreview(null)}
       >
         {preview ? <ChangePreview record={preview} sceneMap={sceneMap} /> : null}

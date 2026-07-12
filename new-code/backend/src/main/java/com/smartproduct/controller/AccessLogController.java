@@ -18,7 +18,7 @@ public class AccessLogController {
     }
 
     @GetMapping("/v1/data/system/access-log/list")
-    @PreAuthorize("hasAuthority('system:log:view')")
+    @PreAuthorize("isAuthenticated()")
     public Map<String, Object> list(
             @RequestParam(defaultValue = "1") int pageNumber,
             @RequestParam(defaultValue = "10") int pageSize,

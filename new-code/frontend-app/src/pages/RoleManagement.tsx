@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import StatusTag from '@/components/StatusTag';
 import { roleApi } from '@/services/api';
+import { buildWorkTabLabel } from '@/utils/data';
 
 export default function RoleManagement() {
   const [loading, setLoading] = useState(false);
@@ -30,7 +31,9 @@ export default function RoleManagement() {
     history.push({
       pathname,
       state: {
-        tabLabel: record ? `${record.roleName}角色配置` : '新增角色',
+        tabLabel: record
+          ? buildWorkTabLabel('role-config', record.roleName)
+          : buildWorkTabLabel('role-create'),
       },
     });
   };
