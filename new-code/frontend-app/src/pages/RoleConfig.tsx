@@ -17,6 +17,8 @@ const logViewCode = 'system:log:view';
 const knowledgeLogViewAllCode = 'knowledge:log:view-all';
 const knowledgeViewCode = 'knowledge:view';
 const knowledgePageCode = 'page:knowledge';
+const statisticsPageCode = 'page:statistics';
+const defaultCreatePermissionCodes = [knowledgePageCode, statisticsPageCode];
 const approvalPageCode = 'page:system:approvals';
 const logPageCode = 'page:system:logs';
 const hiddenPermissionCodes = [
@@ -106,7 +108,9 @@ export default function RoleConfig() {
         roleRemark: roleRes?.roleRemark || '',
         admin: Boolean(setting.admin),
       });
-      const loadedPermissions = [...pagePermissions, ...operationPermissions].map(String);
+      const loadedPermissions = roleRes
+        ? [...pagePermissions, ...operationPermissions].map(String)
+        : defaultCreatePermissionCodes;
       const loadedSceneKeys = (setting.sceneTemplateIds || []).map(String);
       setCheckedPermissions(loadedPermissions);
       setInitialPermissionKeys(loadedPermissions);
@@ -175,18 +179,22 @@ export default function RoleConfig() {
     const approvalNodes = visiblePermissions
       .filter((item) => item.type === 'ACTION' && item.code.includes('change-request'))
       .map((item) => node(item));
+    const aiNodes = visiblePermissions
+      .filter((item) => item.type === 'ACTION' && item.code.startsWith('ai:'))
+      .map((item) => node(item));
     const systemNodes = visiblePermissions
       .filter((item) => item.type === 'ACTION' && item.code.startsWith('system:'))
       .map((item) => node(item));
     return [
       { title: '页面权限', key: 'group:pages', selectable: false, children: pageNodes },
       { title: '知识操作', key: 'group:knowledge', selectable: false, children: knowledgeNodes },
+      { title: '智能知识库', key: 'group:ai', selectable: false, children: aiNodes },
       { title: '审批操作', key: 'group:approval', selectable: false, children: approvalNodes },
       { title: '系统管理', key: 'group:system', selectable: false, children: systemNodes },
     ];
   }, [permissions, checkedPermissions, approvalRequired, unsavedPermissionKeys, removedPermissionKeys]);
 
-  const expandedKeys = ['group:pages', 'group:knowledge', 'group:approval', 'group:system'];
+  const expandedKeys = ['group:pages', 'group:knowledge', 'group:ai', 'group:approval', 'group:system'];
 
   const permissionGroups = useMemo(() => {
     const buildGroup = (key: string, title: string, items: any[]) => ({
@@ -203,12 +211,15 @@ export default function RoleConfig() {
       .filter((item) => item.type === 'ACTION' && item.code.startsWith('knowledge:') && !item.code.includes('change-request'));
     const approvalItems = visiblePermissions
       .filter((item) => item.type === 'ACTION' && item.code.includes('change-request'));
+    const aiItems = visiblePermissions
+      .filter((item) => item.type === 'ACTION' && item.code.startsWith('ai:'));
     const systemItems = visiblePermissions
       .filter((item) => item.type === 'ACTION' && item.code.startsWith('system:'));
 
     return [
       buildGroup('pages', '页面权限', pageItems),
       buildGroup('knowledge', '知识操作', knowledgeItems),
+      buildGroup('ai', '智能知识库', aiItems),
       buildGroup('approval', '审批操作', approvalItems),
       buildGroup('system', '系统管理', systemItems),
     ];

@@ -109,6 +109,18 @@ if (-not $Jar) {
 Copy-Item -LiteralPath $Jar.FullName -Destination (Join-Path $PackageDir "backend-app\app.jar") -Force
 Copy-Item -LiteralPath (Join-Path $Root "frontend-app\dist") -Destination (Join-Path $PackageDir "frontend-dist") -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $Root "deploy") -Destination (Join-Path $PackageDir "deploy") -Recurse -Force
+# RAGFlow's local vendor directory may contain generated server credentials and runtime logs.
+# They are intentionally excluded from the application release package; the existing RAGFlow
+# deployment keeps its own .env and named volumes on the server.
+$RagflowVendorDir = Join-Path $PackageDir "deploy\ragflow\vendor"
+if (Test-Path -LiteralPath $RagflowVendorDir) {
+    Get-ChildItem -LiteralPath $RagflowVendorDir -Recurse -Force -File |
+        Where-Object { $_.Name -ieq ".env" } |
+        Remove-Item -Force
+    Get-ChildItem -LiteralPath $RagflowVendorDir -Recurse -Force -Directory |
+        Where-Object { $_.Name -ieq "ragflow-logs" } |
+        Remove-Item -Recurse -Force
+}
 Copy-Item -LiteralPath (Join-Path $Root "db") -Destination (Join-Path $PackageDir "db") -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $Root "docker-compose.server.yml") -Destination (Join-Path $PackageDir "docker-compose.server.yml") -Force
 Copy-Item -LiteralPath (Join-Path $Root "docker-compose.next.yml") -Destination (Join-Path $PackageDir "docker-compose.next.yml") -Force
@@ -120,6 +132,8 @@ Copy-Item -LiteralPath (Join-Path $Root "SERVER_DEPLOYMENT_STATUS.md") -Destinat
 Copy-Item -LiteralPath (Join-Path $Root "PRODUCTION_SECURITY_HTTPS.md") -Destination (Join-Path $PackageDir "PRODUCTION_SECURITY_HTTPS.md") -Force
 Copy-Item -LiteralPath (Join-Path $Root "JWT_SECRET_SETUP.md") -Destination (Join-Path $PackageDir "JWT_SECRET_SETUP.md") -Force
 Copy-Item -LiteralPath (Join-Path $Root "NEXT_PARALLEL_DEPLOY.md") -Destination (Join-Path $PackageDir "NEXT_PARALLEL_DEPLOY.md") -Force
+
+Copy-Item -LiteralPath (Join-Path $Root "GO_LIVE_RUNBOOK.md") -Destination (Join-Path $PackageDir "GO_LIVE_RUNBOOK.md") -Force
 
 # Real server secrets are intentionally never copied. Stop immediately if one appears in the generated directory.
 Assert-NoSensitivePackageFiles -TargetPath $PackageDir

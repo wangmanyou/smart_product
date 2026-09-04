@@ -137,38 +137,39 @@ function RichTextEditor({ value, onChange, placeholder }: RichTextEditorProps) {
       else if (type === 'warning') message.warning(text);
       else message.info(text);
     },
-    MENU_CONF: {
-      uploadImage: {
-        maxFileSize: 20 * 1024 * 1024,
-        allowedFileTypes: ['image/*'],
-        customUpload: async (file: File, insertFn: (src: string, alt: string, href: string) => void) => {
-          const uploaded = await fileApi.upload(file);
-          const path = uploaded?.filePath || uploaded?.file_path;
-          if (!path) {
-            message.error('图片上传失败');
-            return;
-          }
-          insertFn(fileUrl(path), file.name, '');
-        },
-      },
-      uploadVideo: {
-        maxFileSize: 200 * 1024 * 1024,
-        allowedFileTypes: ['video/*'],
-        customUpload: async (file: File, insertFn: (src: string, poster: string) => void) => {
-          const uploaded = await fileApi.upload(file);
-          const path = uploaded?.filePath || uploaded?.file_path;
-          if (!path) {
-            message.error('视频上传失败');
-            return;
-          }
-          insertFn(fileUrl(path), '');
-        },
-      },
-    },
   }), [placeholder]);
 
   const toolbarConfig = useMemo<Partial<IToolbarConfig>>(() => ({
     modalAppendToBody: true,
+    toolbarKeys: [
+      'headerSelect',
+      'fontFamily',
+      'fontSize',
+      '|',
+      'bold',
+      'italic',
+      'underline',
+      'through',
+      'color',
+      'bgColor',
+      'clearStyle',
+      '|',
+      'lineHeight',
+      'bulletedList',
+      'numberedList',
+      'blockquote',
+      '|',
+      'justifyLeft',
+      'justifyCenter',
+      'justifyRight',
+      'justifyJustify',
+      'indent',
+      'delIndent',
+      '|',
+      'undo',
+      'redo',
+      'fullScreen',
+    ],
   }), []);
 
   useEffect(() => {

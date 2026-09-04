@@ -11,12 +11,14 @@ import com.smartproduct.entity.KnowledgeItemEntity;
 import com.smartproduct.entity.KnowledgeChangeRequestEntity;
 import com.smartproduct.entity.SceneItemEntity;
 import com.smartproduct.entity.SceneTemplateEntity;
+import com.smartproduct.entity.UserEntity;
 import com.smartproduct.mapper.KnowledgeChangeRequestMapper;
 import com.smartproduct.mapper.KnowledgeItemMapper;
 import com.smartproduct.mapper.KnowledgeMapper;
 import com.smartproduct.mapper.DictDirectoryMapper;
 import com.smartproduct.mapper.SceneItemMapper;
 import com.smartproduct.mapper.SceneTemplateMapper;
+import com.smartproduct.mapper.UserMapper;
 import com.smartproduct.infrastructure.config.UploadStorageProperties;
 import com.smartproduct.security.CurrentUser;
 import com.smartproduct.security.CurrentUserService;
@@ -82,6 +84,7 @@ public class BusinessService {
     private final SceneItemMapper sceneItems;
     private final DictDirectoryMapper dictDirectories;
     private final SceneTemplateMapper scenes;
+    private final UserMapper users;
     private final SceneService sceneService;
     private final DictService dictService;
     private final TokenService tokens;
@@ -95,7 +98,7 @@ public class BusinessService {
 
     public BusinessService(KnowledgeMapper knowledge, KnowledgeItemMapper knowledgeItems, SceneItemMapper sceneItems,
                            DictDirectoryMapper dictDirectories,
-                           SceneTemplateMapper scenes, SceneService sceneService, DictService dictService, TokenService tokens,
+                           SceneTemplateMapper scenes, UserMapper users, SceneService sceneService, DictService dictService, TokenService tokens,
                            CurrentUserService currentUsers, KnowledgeChangeRequestMapper changeRequests,
                            NotificationService notificationService, AccessLogService accessLogs,
                            KnowledgeVersionService knowledgeVersions,
@@ -105,6 +108,7 @@ public class BusinessService {
         this.sceneItems = sceneItems;
         this.dictDirectories = dictDirectories;
         this.scenes = scenes;
+        this.users = users;
         this.sceneService = sceneService;
         this.dictService = dictService;
         this.tokens = tokens;
@@ -1031,12 +1035,20 @@ public class BusinessService {
         }
         dto.put("knowledgeId", row.id);
         dto.put("sceneTemplateId", row.sceneTemplateId);
-        dto.put("creatorName", row.creatorName);
+        dto.put("creatorName", creatorDisplayName(row.creatorId, row.creatorName));
         dto.put("viewTime", row.viewTime);
         dto.put("updateTime", epoch(row.updateAt));
         dto.put("createTime", epoch(row.createAt));
         pendingChange(row.id).forEach(dto::put);
         return dto;
+    }
+
+    private String creatorDisplayName(Long creatorId, String fallbackAccount) {
+        UserEntity creator = creatorId == null ? null : users.selectById(creatorId);
+        if (creator != null && creator.getNickname() != null && !creator.getNickname().isBlank()) {
+            return creator.getNickname().trim();
+        }
+        return fallbackAccount == null ? "" : fallbackAccount;
     }
 
     private Map<String, Object> pendingChange(Long knowledgeId) {

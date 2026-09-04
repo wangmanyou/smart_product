@@ -4,7 +4,7 @@ services:
   mysql:
     image: mysql:8.0
     container_name: smart-product-spring-mysql
-    restart: unless-stopped
+    restart: always
     environment:
       LANG: C.UTF-8
       MYSQL_ROOT_PASSWORD: ${SPRING_MYSQL_ROOT_PASSWORD:?SPRING_MYSQL_ROOT_PASSWORD is required}
@@ -15,17 +15,31 @@ services:
     ports:
       - "127.0.0.1:23306:3306"
     command: mysqld
+    mem_limit: 768m
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p\"$${MYSQL_ROOT_PASSWORD}\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
     networks:
       - smart-product-spring-net
 
   redis:
     image: redis:6.2
     container_name: smart-product-spring-redis
-    restart: unless-stopped
+    restart: always
     volumes:
       - ./deploy/redis/redis.conf:/usr/local/redis/conf/redis.conf:ro
       - ${SPRING_SERVER_DATA_ROOT:-../spring-runtime-data/prod}/redis:/data
     command: ["redis-server", "/usr/local/redis/conf/redis.conf", "--appendonly", "yes"]
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
     ports:
       - "127.0.0.1:26379:6379"
     networks:
@@ -34,7 +48,7 @@ services:
   spring-server:
     image: m.daocloud.io/docker.io/library/eclipse-temurin:21-jre
     container_name: smart-product-spring-server
-    restart: unless-stopped
+    restart: always
     working_dir: /app
     mem_limit: 1024m
     environment:
@@ -51,6 +65,18 @@ services:
       APP_JWT_ISSUER: ${SPRING_JWT_ISSUER:-smart-product-spring}
       APP_JWT_AUDIENCE: ${SPRING_JWT_AUDIENCE:-smart-product-web}
       APP_JWT_TTL_SECONDS: ${SPRING_JWT_TTL_SECONDS:-86400}
+      APP_AI_ENABLED: ${APP_AI_ENABLED:-false}
+      RAGFLOW_BASE_URL: ${RAGFLOW_BASE_URL:-http://host.docker.internal:9380}
+      RAGFLOW_API_KEY: ${RAGFLOW_API_KEY:-}
+      RAGFLOW_CONNECT_TIMEOUT: ${RAGFLOW_CONNECT_TIMEOUT:-5s}
+      RAGFLOW_READ_TIMEOUT: ${RAGFLOW_READ_TIMEOUT:-60s}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_TEMPERATURE: ${LLM_TEMPERATURE:-0.1}
+      LLM_CONNECT_TIMEOUT: ${LLM_CONNECT_TIMEOUT:-5s}
+      LLM_READ_TIMEOUT: ${LLM_READ_TIMEOUT:-90s}
+      LLM_MAX_OUTPUT_TOKENS: ${LLM_MAX_OUTPUT_TOKENS:-1200}
       SERVER_PORT: 8001
     volumes:
       - ./backend-app/app.jar:/app/app.jar:ro
@@ -62,15 +88,19 @@ services:
     ports:
       - "18001:8001"
     depends_on:
-      - mysql
-      - redis
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
     networks:
       - smart-product-spring-net
 
   web:
     image: m.daocloud.io/docker.io/library/nginx:1.26-alpine3.19
     container_name: smart-product-spring-web
-    restart: unless-stopped
+    restart: always
     mem_limit: 128m
     volumes:
       - ./frontend-dist:/usr/share/nginx/html:ro

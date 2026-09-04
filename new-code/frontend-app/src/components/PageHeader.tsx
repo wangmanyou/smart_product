@@ -7,6 +7,7 @@ export default function PageHeader({
   hideHeader = false,
   hideTitle = false,
   extra,
+  className,
   children,
 }: {
   title: string;
@@ -15,12 +16,13 @@ export default function PageHeader({
   hideHeader?: boolean;
   hideTitle?: boolean;
   extra?: ReactNode;
+  className?: string;
   children: ReactNode;
 }) {
   const visibleBreadcrumb = breadcrumb && breadcrumb !== title;
 
   return (
-    <div className="page-shell">
+    <div className={`page-shell ${className || ''}`.trim()}>
       {hideHeader ? null : (
         <header className="page-hero">
           <div className="page-hero-main">

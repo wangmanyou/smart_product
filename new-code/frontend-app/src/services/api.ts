@@ -186,6 +186,16 @@ export const authApi = {
   },
 };
 
+export const aiChatApi = {
+  ask: (data: { sessionId?: number; question: string }) =>
+    post('/v1/data/ai/chat/ask', data),
+  sessions: () =>
+    apiRequest('/v1/data/ai/chat/session/list', { method: 'GET' }),
+  messages: (sessionId: number | string) =>
+    apiRequest(`/v1/data/ai/chat/session/${sessionId}/messages`, { method: 'GET' }),
+  deleteSession: (sessionId: number | string) =>
+    apiRequest(`/v1/data/ai/chat/session/${sessionId}`, { method: 'DELETE' }),
+};
 export const sceneApi = {
   list: (params?: any) =>
     apiRequest('/v1/data/scene/list', {

@@ -1,0 +1,28 @@
+# Smart Product production safety override for a 7 GiB-class host.
+# Apply together with docker-compose.yml; do not run this file by itself.
+# These limits keep RAGFlow from taking down the main business stack.
+services:
+  es01:
+    mem_limit: 1g
+    cpus: "1.00"
+    restart: unless-stopped
+
+  ragflow-cpu:
+    mem_limit: 1536m
+    cpus: "1.50"
+    restart: unless-stopped
+
+  mysql:
+    mem_limit: 512m
+    cpus: "0.75"
+    restart: unless-stopped
+
+  minio:
+    mem_limit: 256m
+    cpus: "0.50"
+    restart: unless-stopped
+
+  redis:
+    mem_limit: 128m
+    cpus: "0.25"
+    restart: unless-stopped

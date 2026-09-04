@@ -25,6 +25,10 @@ public final class PermissionCodes {
     public static final String SYSTEM_PERMISSION_MANAGE = "system:permission:manage";
     public static final String SYSTEM_APPROVAL_MANAGE = "system:approval:manage";
     public static final String SYSTEM_LOG_VIEW = "system:log:view";
+    public static final String AI_CHAT = "ai:chat";
+    public static final String AI_CHAT_HISTORY = "ai:chat:history";
+    public static final String AI_CHAT_AUDIT = "ai:chat:audit";
+    public static final String AI_KNOWLEDGE_SYNC = "ai:knowledge:sync";
 
     public static List<String> allOperationPermissions() {
         return List.of(
@@ -45,7 +49,11 @@ public final class PermissionCodes {
                 SYSTEM_ROLE_MANAGE,
                 SYSTEM_PERMISSION_MANAGE,
                 SYSTEM_APPROVAL_MANAGE,
-                SYSTEM_LOG_VIEW
+                SYSTEM_LOG_VIEW,
+                AI_CHAT,
+                AI_CHAT_HISTORY,
+                AI_CHAT_AUDIT,
+                AI_KNOWLEDGE_SYNC
         );
     }
 }

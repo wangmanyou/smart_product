@@ -1,0 +1,18 @@
+[Unit]
+Description=Smart Product main business stack
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/smart-product-next/new-code
+ExecStartPre=/usr/bin/docker info
+ExecStart=/usr/bin/docker compose --project-name smart-product-next --env-file /opt/smart-product-next/new-code/.env.next -f /opt/smart-product-next/new-code/docker-compose.next.yml up -d mysql redis spring-server web
+ExecStop=/usr/bin/docker compose --project-name smart-product-next --env-file /opt/smart-product-next/new-code/.env.next -f /opt/smart-product-next/new-code/docker-compose.next.yml stop
+RemainAfterExit=yes
+TimeoutStartSec=0
+TimeoutStopSec=120
+
+[Install]
+WantedBy=multi-user.target

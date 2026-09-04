@@ -63,3 +63,13 @@ __MACOSX/
 *.log
 *.err.log
 testdata/
+
+# Local AI / RAGFlow credentials
+.env.next
+new-code/.env.ai.local
+new-code/deploy/ragflow/vendor/*/.env
+new-code/deploy/ragflow/vendor/*/ragflow-logs/
+new-code/deploy/ragflow/.downloads/
+
+# Generated local artifacts
+outputs/

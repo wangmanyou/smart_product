@@ -58,6 +58,7 @@ function shouldOpenTab(path: string) {
   if (path === '/home') return false;
   if (path === '/statistics') return false;
   if (path === '/notifications') return false;
+  if (path.startsWith('/ai-chat')) return false;
   return true;
 }
 

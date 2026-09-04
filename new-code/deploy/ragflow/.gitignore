@@ -1,0 +1,4 @@
+# RAGFlow local runtime files and secrets
+.downloads/
+vendor/*/.env
+vendor/*/ragflow-logs/

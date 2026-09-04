@@ -52,6 +52,8 @@ export default defineConfig({
     { path: '/', redirect: '/knowledge' },
     { path: '/home', redirect: '/knowledge' },
     { path: '/notifications', component: './Notifications' },
+    { path: '/ai-chat', component: './AiChatLanding' },
+    { path: '/ai-chat/conversation', component: './AiChat' },
     { path: '/knowledge', component: './KnowledgeCenter' },
     { path: '/knowledge/scene/:id', component: './SceneKnowledge' },
     { path: '/knowledge/scene/:sceneId/detail/:id', component: './KnowledgeDetail' },

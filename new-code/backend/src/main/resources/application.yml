@@ -13,6 +13,35 @@ app:
       issuer: ${APP_JWT_ISSUER:smart-product-spring}
       audience: ${APP_JWT_AUDIENCE:smart-product-web}
       ttl-seconds: ${APP_JWT_TTL_SECONDS:86400}
+  ai:
+    enabled: ${APP_AI_ENABLED:false}
+    ragflow:
+      base-url: ${RAGFLOW_BASE_URL:http://127.0.0.1:9380}
+      api-key: ${RAGFLOW_API_KEY:}
+      connect-timeout: ${RAGFLOW_CONNECT_TIMEOUT:5s}
+      read-timeout: ${RAGFLOW_READ_TIMEOUT:60s}
+    llm:
+      base-url: ${LLM_BASE_URL:}
+      api-key: ${LLM_API_KEY:}
+      model: ${LLM_MODEL:}
+      temperature: ${LLM_TEMPERATURE:0.1}
+      connect-timeout: ${LLM_CONNECT_TIMEOUT:5s}
+      read-timeout: ${LLM_READ_TIMEOUT:90s}
+      max-output-tokens: ${LLM_MAX_OUTPUT_TOKENS:1200}
+    retrieval:
+      top-k: ${AI_RETRIEVAL_TOP_K:8}
+      candidate-top-k: ${AI_RETRIEVAL_CANDIDATE_TOP_K:64}
+      max-context-chars: ${AI_RETRIEVAL_MAX_CONTEXT_CHARS:16000}
+      history-message-limit: ${AI_HISTORY_MESSAGE_LIMIT:8}
+      similarity-threshold: ${AI_RETRIEVAL_SIMILARITY_THRESHOLD:0.25}
+    sync:
+      worker-delay-ms: ${AI_SYNC_WORKER_DELAY_MS:5000}
+      batch-size: ${AI_SYNC_BATCH_SIZE:5}
+      max-retries: ${AI_SYNC_MAX_RETRIES:6}
+      parse-poll-delay: ${AI_SYNC_PARSE_POLL_DELAY:10s}
+      retry-base-delay: ${AI_SYNC_RETRY_BASE_DELAY:30s}
+      stale-processing-timeout: ${AI_SYNC_STALE_PROCESSING_TIMEOUT:5m}
+      bootstrap-enabled: ${AI_SYNC_BOOTSTRAP_ENABLED:true}
 
 spring:
   application:
@@ -40,3 +69,5 @@ logging:
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
+
+

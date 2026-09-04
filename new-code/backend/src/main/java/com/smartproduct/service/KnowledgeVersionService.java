@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.smartproduct.ai.service.AiKnowledgeSyncTaskService;
 import com.smartproduct.entity.DictDirectoryEntity;
 import com.smartproduct.entity.KnowledgeEntity;
 import com.smartproduct.entity.KnowledgeItemEntity;
@@ -43,16 +44,19 @@ public class KnowledgeVersionService {
     private final SceneItemMapper sceneItems;
     private final DictDirectoryMapper dictDirectories;
     private final CurrentUserService currentUsers;
+    private final AiKnowledgeSyncTaskService aiSyncTasks;
 
     public KnowledgeVersionService(KnowledgeVersionMapper versions, KnowledgeMapper knowledge,
                                    KnowledgeItemMapper knowledgeItems, SceneItemMapper sceneItems,
-                                   DictDirectoryMapper dictDirectories, CurrentUserService currentUsers) {
+                                   DictDirectoryMapper dictDirectories, CurrentUserService currentUsers,
+                                   AiKnowledgeSyncTaskService aiSyncTasks) {
         this.versions = versions;
         this.knowledge = knowledge;
         this.knowledgeItems = knowledgeItems;
         this.sceneItems = sceneItems;
         this.dictDirectories = dictDirectories;
         this.currentUsers = currentUsers;
+        this.aiSyncTasks = aiSyncTasks;
     }
 
     public Map<String, Object> list(Long knowledgeId, int pageNumber, int pageSize) {
@@ -181,6 +185,11 @@ public class KnowledgeVersionService {
             row.afterSnapshotJson = after == null ? null : JSON.writeValueAsString(after);
             row.createAt = LocalDateTime.now();
             versions.insert(row);
+            if ("DELETE".equals(operationType)) {
+                aiSyncTasks.enqueueDelete(knowledgeId, row.versionNo);
+            } else {
+                aiSyncTasks.enqueueUpsert(knowledgeId, row.versionNo);
+            }
         } catch (Exception ex) {
             throw new IllegalStateException("保存知识历史版本失败", ex);
         }

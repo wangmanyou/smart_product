@@ -4,6 +4,7 @@ import {
   BookOutlined,
   DatabaseOutlined,
   FileSearchOutlined,
+  MessageOutlined,
   SettingOutlined,
   TeamOutlined,
 } from '@ant-design/icons';
@@ -29,6 +30,9 @@ function approvalTitle(user: any) {
 }
 
 export function onRouteChange({ location }: any) {
+  if (typeof document !== 'undefined') {
+    document.body.classList.toggle('ai-immersive-route', location.pathname.startsWith('/ai-chat'));
+  }
   if (location.pathname !== '/login' && !authApi.getToken()) {
     history.push('/login');
     return;
@@ -86,6 +90,7 @@ export const layout: RunTimeLayoutConfig = () => ({
     const actions = new Set(user?.setting?.operationPermissions || user?.operationPermissions || []);
     const hasOwnApprovals = Object.values(user?.setting?.approvalRequired || {}).some(Boolean);
     const modulePageMap: Record<string, string[]> = {
+      'page:ai-chat': ['ai:chat'],
       'page:system:dicts': ['system:dict:manage'],
       'page:system:scenes': ['system:scene:manage'],
       'page:system:users': ['system:user:manage'],
@@ -107,6 +112,7 @@ export const layout: RunTimeLayoutConfig = () => ({
         ? canSystemPage(code)
         : isAdmin || pages.has(code) || Boolean(modulePageMap[code]?.some((permissionCode) => actions.has(permissionCode)));
     return [
+      canPage('page:ai-chat') ? { path: '/ai-chat', name: '智能问答', icon: <MessageOutlined /> } : null,
       canPage('page:knowledge') ? { path: '/knowledge', name: '知识中心', icon: <BookOutlined /> } : null,
       {
         path: '/system',

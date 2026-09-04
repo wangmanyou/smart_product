@@ -1,68 +1,128 @@
 # 服务器当前部署情况说明
 
-本文档记录 121.40.114.206 服务器当前真实运行状态，主要用于后续维护、交接、回滚和再次上线前确认。当前线上运行环境以服务器目录 `/opt/smart-product-new/new-code/docker-compose.parallel.yml` 为准。
+本文档记录 121.40.114.206 服务器的部署现状、数据目录、备份位置和回退边界。更新日期：2026-07-12。
 
 ## 一、当前结论
 
-当前新项目已经接管线上入口：
+当前项目采用“稳定版保留、升级版接管入口”的方式运行。
+
+正式访问入口：
 
 ```text
-访问地址：http://121.40.114.206:8000
+http://121.40.114.206:8000
 ```
 
-旧项目已经停止，但容器和备份仍保留，可以用于必要时回查或恢复。
+验收后的升级版环境为当前主用环境：
 
-当前不要直接把本地未测试代码覆盖到服务器。服务器正在运行的是一套已经上线的运行包，本地代码里还有未完全测试的功能改动，后续应单独打包、上传、验证后再替换。
+```text
+/opt/smart-product-next
+```
 
-## 二、当前新项目容器
+旧稳定版环境仍保留：
 
-当前新项目使用独立容器、独立网络、独立数据目录，容器名前缀为 `smart-product-parallel-*`。
+```text
+/opt/smart-product-new
+```
 
-| 服务 | 容器名 | 宿主机端口 | 容器端口 | 说明 |
-| --- | --- | --- | --- | --- |
-| 前端 Nginx | `smart-product-parallel-web` | `8000` | `80` | 当前浏览器访问入口 |
-| Spring 后端 | `smart-product-parallel-spring` | `18001` | `8001` | 前端通过 Nginx 反向代理访问 |
-| MySQL | `smart-product-parallel-mysql` | `23306` | `3306` | 新项目独立数据库 |
-| Redis | `smart-product-parallel-redis` | `26379` | `6379` | 新项目独立缓存 |
+旧稳定版前端容器在切换时停止，用来释放 `8000` 端口；旧稳定版后端、MySQL、Redis 可继续保留，便于必要时快速回退。
 
-查看当前容器：
+## 二、当前主用环境：升级版
+
+升级版目录：
+
+```text
+/opt/smart-product-next/
+├── new-code/                    # 当前升级版运行包
+│   ├── docker-compose.next.yml
+│   ├── backend-app/app.jar
+│   ├── frontend-dist/
+│   ├── deploy/
+│   └── .env.next                # 服务器真实配置，不进 Git，不进运行包
+├── deploy-data/                 # 升级版真实运行数据，不能删除
+│   ├── mysql/
+│   ├── redis/
+│   └── files/
+├── server-secrets/
+│   └── jwt-secret               # 升级版 JWT 密钥，不能删除
+├── backups/
+└── smart-product-runtime.zip
+```
+
+升级版容器：
+
+| 服务 | 容器名 | 当前用途 | 端口 |
+| --- | --- | --- | --- |
+| 前端 Nginx | `smart-product-next-web` | 当前正式入口 | `8000 -> 80` |
+| Spring 后端 | `smart-product-next-spring` | 当前正式后端 | `127.0.0.1:28001 -> 8001` |
+| MySQL | `smart-product-next-mysql` | 当前正式数据库 | `127.0.0.1:33306 -> 3306` |
+| Redis | `smart-product-next-redis` | 当前正式缓存 | `127.0.0.1:36379 -> 6379` |
+
+说明：
+
+- 升级版原测试入口是 `28000`。
+- 验收通过后，`docker-compose.next.yml` 中前端端口由 `"28000:80"` 改为 `"8000:80"`。
+- 后端、MySQL、Redis 仍保持内网端口，不直接暴露公网。
+
+查看状态：
 
 ```bash
 docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 ```
 
-## 三、当前目录结构
+验证当前入口：
 
-服务器主目录：
-
-```text
-/opt/smart-product-new/
-├── new-code/                 # 当前新项目运行包目录
-│   ├── docker-compose.parallel.yml
-│   ├── backend-app/app.jar
-│   ├── frontend-dist/
-│   └── deploy/
-├── deploy-data/              # 当前新项目运行数据，不能随便删除
-│   ├── mysql/                # 新项目 MySQL 物理数据
-│   ├── redis/                # 新项目 Redis 数据
-│   └── files/                # 新项目图片、附件等上传资源
-├── backups/                  # 新项目上线过程备份
-└── smart-product-runtime.zip # 曾经上传的运行包
+```bash
+curl -I http://127.0.0.1:8000
+curl -I http://127.0.0.1:8000/api/v1/data/user/login/key
 ```
 
-新项目图片和附件当前指向：
+## 三、当前主用数据和资源
+
+升级版数据库：
 
 ```text
-宿主机：/opt/smart-product-new/deploy-data/files
-容器内：/app/uploads
+容器：smart-product-next-mysql
+数据库：knowledge
+宿主机目录：/opt/smart-product-next/deploy-data/mysql
+```
+
+升级版图片和附件：
+
+```text
+宿主机目录：/opt/smart-product-next/deploy-data/files
+容器内目录：/app/uploads
 访问路径：http://121.40.114.206:8000/data/...
 ```
 
-也就是说，数据库里保存的 `/data/...` 文件地址，最终会由后端从 `/app/uploads` 读取，而 `/app/uploads` 实际挂载的是服务器的 `/opt/smart-product-new/deploy-data/files`。
+数据库中保存的 `/data/...` 文件地址，由 Spring 后端从 `/app/uploads` 读取；`/app/uploads` 实际挂载到 `/opt/smart-product-next/deploy-data/files`。
 
-## 四、旧项目状态
+## 四、保留环境：旧稳定版
 
-旧项目容器已经停止：
+旧稳定版目录：
+
+```text
+/opt/smart-product-new/
+├── new-code/
+└── deploy-data/
+    ├── mysql/
+    ├── redis/
+    └── files/
+```
+
+旧稳定版容器：
+
+| 服务 | 容器名 | 状态 | 原端口 |
+| --- | --- | --- | --- |
+| 前端 Nginx | `smart-product-parallel-web` | 切换后应停止 | `8000 -> 80` |
+| Spring 后端 | `smart-product-parallel-spring` | 可保留运行 | `18001 -> 8001` |
+| MySQL | `smart-product-parallel-mysql` | 可保留运行 | `23306 -> 3306` |
+| Redis | `smart-product-parallel-redis` | 可保留运行 | `26379 -> 6379` |
+
+不要删除旧稳定版目录和数据。它是当前升级版切换失败时的快速回退依据。
+
+## 五、历史旧项目
+
+更早的旧项目容器已经停止：
 
 | 旧容器 | 原用途 | 原端口 |
 | --- | --- | --- |
@@ -71,10 +131,10 @@ docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 | `mysql` | 旧项目 MySQL | `13306` |
 | `redis` | 旧项目 Redis | `16379` |
 
-查看旧容器是否仍停止：
+旧项目资源原路径：
 
-```bash
-docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "nginx|server|mysql|redis"
+```text
+/data/testdata
 ```
 
 旧项目备份位置：
@@ -83,7 +143,7 @@ docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "ngi
 /opt/smart-product-old-backup/old-project-20260710_205918/
 ```
 
-备份内容包括：
+备份内容：
 
 | 文件 | 说明 |
 | --- | --- |
@@ -93,191 +153,196 @@ docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "ngi
 | `docker-ps-before-stop.txt` | 停止旧项目前容器状态 |
 | `old-project-containers-inspect.json` | 旧容器详细配置 |
 
-旧项目资源原路径：
+## 六、升级版上线和备份情况
+
+升级版初始化时从旧稳定版复制过一次数据和资源。
+
+已知初始化备份目录：
 
 ```text
-/data/testdata
+/opt/smart-product-next/backups/from-stable-20260712_143804/
 ```
 
-## 五、这次端口切换做了什么
+该目录用于记录从稳定版复制到升级版时的数据来源，通常包含：
 
-这次只是把新项目前端入口从 `18000` 改回了 `8000`，没有改数据库、没有改图片目录、没有改后端端口。
-
-你执行过的关键命令如下：
-
-```bash
-docker ps --format "table {{.Names}}\t{{.Ports}}" | grep 8000 || true
-ss -lntp | grep ':8000' || true
-
-sed -i 's/"18000:80"/"8000:80"/' docker-compose.parallel.yml
-
-docker compose -f docker-compose.parallel.yml up -d web
-```
-
-逐行解释：
-
-| 命令 | 作用 |
+| 文件 | 说明 |
 | --- | --- |
-| `docker ps --format "table {{.Names}}\t{{.Ports}}" \| grep 8000 \|\| true` | 查看当前正在运行的 Docker 容器里有没有占用 `8000` 端口。后面的 `|| true` 表示即使没查到，也不要报错中断。 |
-| `ss -lntp \| grep ':8000' \|\| true` | 查看服务器系统层面有没有程序监听 `8000` 端口。 |
-| `sed -i 's/"18000:80"/"8000:80"/' docker-compose.parallel.yml` | 在当前 compose 文件里，把前端端口映射从 `18000:80` 改成 `8000:80`。意思是外部访问服务器 `8000`，转发到前端容器内部 `80`。 |
-| `docker compose -f docker-compose.parallel.yml up -d web` | 只按新配置重新启动前端 Web 容器，不需要重建数据库和 Redis。 |
+| `knowledge-from-stable.sql` | 从 `smart-product-parallel-mysql` 导出的稳定版数据库 |
+| `files-from-stable.tar.gz` | 从 `/opt/smart-product-new/deploy-data/files` 打包的稳定版资源 |
 
-端口映射可以这样理解：
+正式切换到 `8000` 前建议使用的切换备份目录格式：
 
 ```text
-8000:80
-左边 8000：用户访问服务器的端口
-右边 80：前端 Nginx 容器内部端口
+/opt/smart-product-switch-backup/switch-YYYYMMDD_HHMMSS/
 ```
 
-所以浏览器访问的是：
+切换备份建议包含：
+
+| 文件/目录 | 说明 |
+| --- | --- |
+| `docker-ps-before-switch.txt` | 切换前容器状态 |
+| `containers-inspect-before-switch.json` | 切换前关键容器配置 |
+| `stable-new-code/` | `/opt/smart-product-new/new-code` 运行包备份 |
+| `next-new-code/` | `/opt/smart-product-next/new-code` 运行包备份 |
+| `stable-knowledge.sql` | 旧稳定版数据库备份 |
+| `next-knowledge.sql` | 升级版数据库备份 |
+| `stable-files.tar.gz` | 旧稳定版资源备份 |
+| `next-files.tar.gz` | 升级版资源备份 |
+
+查看已有备份：
+
+```bash
+ls -lh /opt/smart-product-old-backup
+ls -lh /opt/smart-product-next/backups
+ls -lh /opt/smart-product-switch-backup 2>/dev/null || true
+```
+
+## 七、切换记录
+
+升级版从 `28000` 切换为正式 `8000` 的核心动作：
+
+```bash
+cd /opt/smart-product-next/new-code
+
+docker stop smart-product-parallel-web
+
+sed -i 's/"28000:80"/"8000:80"/' docker-compose.next.yml
+
+docker compose --env-file .env.next -f docker-compose.next.yml up -d --force-recreate web
+```
+
+切换后：
 
 ```text
-http://121.40.114.206:8000
+8000 -> smart-product-next-web
 ```
 
-不是访问容器里的 `80`。
+旧稳定版前端 `smart-product-parallel-web` 停止，释放 `8000`。
 
-## 六、常用操作
+## 八、回退方式
 
-进入新项目目录：
-
-```bash
-cd /opt/smart-product-new/new-code
-```
-
-查看新项目状态：
+如果升级版切到 `8000` 后出现问题，回退到旧稳定版：
 
 ```bash
-docker compose -f docker-compose.parallel.yml ps
+cd /opt/smart-product-next/new-code
+
+sed -i 's/"8000:80"/"28000:80"/' docker-compose.next.yml
+docker compose --env-file .env.next -f docker-compose.next.yml up -d --force-recreate web
+
+docker start smart-product-parallel-web
+
 docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 ```
 
-查看后端日志：
+回退后：
 
-```bash
-docker logs --tail 200 smart-product-parallel-spring
+```text
+8000 -> smart-product-parallel-web
+28000 -> smart-product-next-web
 ```
 
-查看前端 Nginx 日志：
+## 九、重新上线升级版
 
-```bash
-docker logs --tail 200 smart-product-parallel-web
+如果只是重新打包并覆盖升级版运行包，不需要重建数据库和图片目录。
+
+本地打包：
+
+```powershell
+cd D:\coder\code-store\go\smart_product
+powershell -ExecutionPolicy Bypass -File .\new-code\scripts\build-runtime-package.ps1
 ```
 
-重启前端：
+上传：
 
-```bash
-docker compose -f docker-compose.parallel.yml restart web
+```text
+new-code/release/smart-product-runtime.zip
+上传到
+/opt/smart-product-next/smart-product-runtime.zip
 ```
 
-重启后端：
+服务器更新运行包：
 
 ```bash
-docker compose -f docker-compose.parallel.yml restart spring-server
+cd /opt/smart-product-next
+
+docker compose --env-file new-code/.env.next -f new-code/docker-compose.next.yml stop spring-server web
+
+rm -rf new-code
+unzip -o smart-product-runtime.zip -d new-code
+
+cd /opt/smart-product-next/new-code
+
+cat > .env.next <<'EOF'
+NEXT_MYSQL_ROOT_PASSWORD=wangmanyou
+NEXT_SERVER_DATA_ROOT=../deploy-data
+NEXT_JWT_SECRET_FILE=../server-secrets/jwt-secret
+NEXT_JWT_ISSUER=smart-product-next
+NEXT_JWT_AUDIENCE=smart-product-next-web
+NEXT_JWT_TTL_SECONDS=86400
+EOF
+
+chmod 600 .env.next
+
+chmod -R a+rX frontend-dist
+chmod -R a+rX backend-app
+chmod -R a+rX deploy
+
+docker compose --env-file .env.next -f docker-compose.next.yml up -d --force-recreate spring-server web
 ```
 
-重启整个新项目：
+如果当前 `docker-compose.next.yml` 解压后又变回 `"28000:80"`，正式环境需要重新改回：
 
 ```bash
-docker compose -f docker-compose.parallel.yml up -d
+sed -i 's/"28000:80"/"8000:80"/' docker-compose.next.yml
+docker compose --env-file .env.next -f docker-compose.next.yml up -d --force-recreate web
 ```
 
-停止整个新项目：
+## 十、常用检查命令
+
+查看容器：
 
 ```bash
-docker compose -f docker-compose.parallel.yml stop
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 ```
 
-再次启动整个新项目：
+查看升级版日志：
 
 ```bash
-docker compose -f docker-compose.parallel.yml start
+docker logs --tail 120 smart-product-next-spring
+docker logs --tail 80 smart-product-next-web
 ```
 
-## 七、验证访问是否正常
+检查前端文件挂载：
 
-服务器本机验证：
+```bash
+docker exec smart-product-next-web ls -lh /usr/share/nginx/html | head -n 30
+docker exec smart-product-next-web test -f /usr/share/nginx/html/index.html && echo "index.html OK"
+```
+
+检查接口：
 
 ```bash
 curl -I http://127.0.0.1:8000
 curl -I http://127.0.0.1:8000/api/v1/data/user/login/key
 ```
 
-浏览器验证：
+检查图片缓存：
+
+```bash
+curl -I http://127.0.0.1:8000/data/实际图片路径
+```
+
+期望看到类似：
 
 ```text
-http://121.40.114.206:8000
+Cache-Control: public, max-age=604800, immutable
 ```
 
-登录后如果页面接口异常，优先看：
+## 十一、禁止事项
 
-```bash
-docker logs --tail 200 smart-product-parallel-spring
-docker logs --tail 200 smart-product-parallel-web
-```
-
-## 八、回滚端口到 18000
-
-如果需要临时把新项目入口改回 `18000`：
-
-```bash
-cd /opt/smart-product-new/new-code
-sed -i 's/"8000:80"/"18000:80"/' docker-compose.parallel.yml
-docker compose -f docker-compose.parallel.yml up -d web
-docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-```
-
-然后访问：
-
-```text
-http://121.40.114.206:18000
-```
-
-## 九、后续重新上线建议
-
-因为现在存在三种状态：
-
-| 状态 | 说明 | 建议 |
-| --- | --- | --- |
-| 线上运行版本 | 当前服务器正在跑的版本 | 作为稳定版本保留 |
-| 本地代码版本 | 本机 `new-code` 里的代码 | 先本地测试，不要直接覆盖线上 |
-| 已改但未测功能 | 本地已有部分功能修改 | 测试通过后再打包上线 |
-
-后续上线建议流程：
-
-1. 本地确认功能正常。
-2. 本地重新打包运行包。
-3. 上传压缩包到服务器。
-4. 备份服务器当前 `new-code` 目录和数据库。
-5. 解压替换运行包。
-6. 保留 `/opt/smart-product-new/deploy-data`，不要删除。
-7. 使用 `docker compose -f docker-compose.parallel.yml up -d` 启动。
-8. 用 `http://121.40.114.206:8000` 验证。
-
-上线前至少执行一次数据库和图片备份：
-
-```bash
-BACKUP_DIR=/opt/smart-product-new/backups/before-release-$(date +%Y%m%d_%H%M%S)
-mkdir -p "$BACKUP_DIR"
-
-docker exec smart-product-parallel-mysql mysqldump -uroot -p'root' \
-  --single-transaction \
-  --default-character-set=utf8mb4 \
-  knowledge > "$BACKUP_DIR/knowledge.sql"
-
-tar -czf "$BACKUP_DIR/files.tar.gz" -C /opt/smart-product-new/deploy-data files
-tar -czf "$BACKUP_DIR/new-code.tar.gz" -C /opt/smart-product-new new-code
-
-ls -lh "$BACKUP_DIR"
-```
-
-## 十、禁止事项
-
-- 不要删除 `/opt/smart-product-new/deploy-data`，这里是真实数据库、Redis 和上传文件。
-- 不要让旧项目和新项目同时占用 `8000`。
-- 不要把本地未测试版本直接覆盖线上。
-- 不要把旧项目的 `mysql` 容器和新项目的 `smart-product-parallel-mysql` 混用。
-- 不要把旧项目 `/data/testdata` 当成当前新项目图片目录；当前新项目图片目录是 `/opt/smart-product-new/deploy-data/files`。
-- 不要在没有备份的情况下执行 `docker compose down -v`，`-v` 会删除卷数据，风险很高。
+- 不要删除 `/opt/smart-product-next/deploy-data`，这里是当前主用数据库、Redis 和上传文件。
+- 不要删除 `/opt/smart-product-next/server-secrets/jwt-secret`，否则当前用户 Token 会失效，服务也可能无法启动。
+- 不要让 `smart-product-next-web` 和 `smart-product-parallel-web` 同时占用 `8000`。
+- 不要让两个 MySQL 容器挂载同一个物理数据目录。
+- 不要把 `.env.next`、`.env.server` 或 `jwt-secret` 提交到 Git。
+- 不要在没有明确确认前执行 `docker compose down -v`，`-v` 会删除卷数据。
